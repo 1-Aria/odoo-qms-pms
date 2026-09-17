@@ -1,0 +1,13 @@
+__pycache__/
+*.py[co]
+.venv/
+*.orig
+*.rej
+*.swp
+.idea/
+.vscode/
+.claude/settings.local.json
+*.dump
+*.sql
+*.zip
+*.tar.gz
