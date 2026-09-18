@@ -10,9 +10,18 @@ A set of custom Odoo 18.0 CE modules implementing a unified Quality Management
 and Plant Maintenance pipeline on top of OCA modules.
 
 **The architecture lives in `docs/Odoo-QMS-PMS-Development-Plan.md`.** Read it before
-starting work on any module. It specifies every model, field, relationship, and
-delivery phase, and — in §9 — records twenty-three design decisions with their
-rationale and the alternatives that were rejected.
+starting work on any module. It describes the intended models, fields, relationships
+and delivery phases, and §9 records the design decisions with their rationale and
+the alternatives that were rejected.
+
+**The plan is a work in progress, not a specification to follow.** It was written
+without inspecting the Odoo and OCA source, and it contains errors. Examples found
+so far: the §7.6 filter traversed a `product.category.product_tmpl_ids` field that
+does not exist, the plan's claim that category scoping matched `quality_control_oca`
+was wrong because QC also walks up parent categories, and the `qms_catalog`
+dependencies did not fit how the module is meant to be used. Treat every field
+name, method, dependency and claim about OCA behaviour in the plan as unverified
+until checked against the code. The technical reality in the code comes first.
 
 This file says how to *work* here. The plan says *what* to build and *why*.
 Neither duplicates the other. If something architectural is missing, it belongs
@@ -68,11 +77,14 @@ results rather than assuming success.
 
 ### 5. When the plan and the code disagree
 
-The **code** wins on mechanism — what a field is called, what a method does.
-The **plan** wins on intent — what we are trying to achieve and why.
+The **code** comes first. It decides what a field is called, what a method does,
+what exists and what is possible. The plan records intent, but it is a draft:
+its intent can also turn out wrong once the code is read.
 
-Never silently follow one over the other. Say the discrepancy out loud, then
-propose the fix: usually a correction to the plan.
+Never silently follow the plan over the code, or quietly work around the plan.
+Say the discrepancy out loud, then propose the fix: usually a correction to the
+plan. When the discrepancy touches intent, the dependencies between modules, or a
+§9 decision, Peter decides.
 
 ---
 
@@ -109,6 +121,24 @@ independent and can be built in any order.
 | `maintenance_request_sla` | Response/resolution durations, tracked priority |
 | `maintenance_equipment_status_automation` | Equipment state from corrective requests |
 | `maintenance_plan_action_template` | Plan-seeded action generation |
+
+---
+
+## Module docs
+
+`docs/modules/<module>.md` is the technical specification of one module: folder tree,
+manifest, models with every field and constraint, access rules, views, menus, and a
+steps table that doubles as the progress log.
+
+It contains **no commands and no instructions** — no install, upgrade, test or
+troubleshooting steps — and no explanation of how things work. Reasoning belongs in
+the plan; commands belong in the chat reply beside the doc. Written out, the doc
+should be enough to rebuild the module's code.
+
+One step per cycle: spec the step in the doc → inspect it, flag uncertainties → Claude
+delivers the files, Peter installs and tests → both inspect the result → correct the
+doc → next step. Before the code exists the doc leads; once a step passes, the doc is
+corrected against the code that actually runs. A gap between the two is a bug in the doc.
 
 ---
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <menuitem
+        id="menu_qms_catalog"
+        name="Catalogs"
+        parent="mgmtsystem.menu_mgmtsystem_configuration"
+        groups="mgmtsystem.group_mgmtsystem_manager"
+        sequence="20"
+    />
+
+    <menuitem
+        id="menu_qms_defect_code"
+        name="Defect Codes"
+        parent="menu_qms_catalog"
+        action="qms_defect_code_action"
+        sequence="10"
+    />
+
+</odoo>

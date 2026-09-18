@@ -1,7 +1,6 @@
 # Odoo QMS / PMS Development Plan
 
 **Target platform:** Odoo 18.0 Community Edition
-**Status:** Design finalized — ready for implementation
 **Revision:** 2 (supersedes `Odoo-Custom-Module-Development-Plan.md`)
 
 ---
@@ -206,9 +205,9 @@ qms.catalog.mixin  (AbstractModel)
 
 ⚠ **This field is declared in `qms_nonconformity`, not `qms_catalog`.**
 `mgmtsystem.nonconformity.severity` belongs to `mgmtsystem_nonconformity`, and
-`qms_catalog` depends only on `product` so that it stays reusable. The catalog
-module defines the model; the nonconformity module extends it with the severity
-default.
+`qms_catalog` depends only on `product` and the `mgmtsystem` base (see D24), not
+on the nonconformity module. The catalog module defines the model; the
+nonconformity module extends it with the severity default.
 
 `qms.object.part` carries no severity: a location is not more or less serious on
 its own.
@@ -286,6 +285,24 @@ Assignment is **additive across all three levels** — profiles *widen* the
 available vocabulary, they do not override. Template allows SEAM + FABRIC,
 variant adds DYE, result is all three. This matches the additive semantics
 `quality_control_oca` already uses for Test assignment, so users learn one rule.
+
+**Category assignment includes parent categories**, as in `quality_control_oca`.
+A profile on *All / Garments* applies to products in *All / Garments / Shirts*.
+QC resolves categories the same way, walking up from the product's category
+(`qc_trigger_product_category_line.py`):
+
+```python
+category = product.categ_id
+while category:
+    ...
+    category = category.parent_id
+```
+
+**Access and menus** (D24, D25): catalog and profile menus sit under
+*Management System → Configuration*. All internal users can read catalogs and
+profiles, since product forms display the assignment. Only
+`mgmtsystem.group_mgmtsystem_manager` can create, edit or delete them, which is
+also the group that sees the *Configuration* menu.
 
 **Equipment needs no assignment of its own.** `maintenance_product` gives
 `maintenance.equipment.product_id`, so equipment resolves its profile through its
@@ -416,11 +433,23 @@ traversing profile assignment:
 ['|', '|',
  ('parent_id.profile_ids.product_ids', '=', parent.product_id),
  ('parent_id.profile_ids.product_tmpl_ids.product_variant_ids', '=', parent.product_id),
- ('parent_id.profile_ids.categ_ids.product_tmpl_ids.product_variant_ids', '=', parent.product_id)]
+ ('parent_id.profile_ids.categ_ids', 'parent_of', parent.qms_product_categ_id)]
 ```
 
 This requires `profile_ids` as the inverse Many2many on the catalog models —
 free, being the other end of an existing relation.
+
+The category leg uses `parent_of` so that profiles on parent categories apply
+(§7.2). Odoo 18's domain engine supports hierarchy operators on a Many2many
+whose comodel has `_parent_store` (`odoo/osv/expression.py`), and
+`product.category` has it. The client evaluates `parent.<field>` to an id only,
+so the product's category is exposed on the nonconformity header as
+`qms_product_categ_id` (§7.9).
+
+*Correction:* an earlier revision traversed
+`categ_ids.product_tmpl_ids.product_variant_ids`. `product.category` has no
+`product_tmpl_ids` field, so that leg could not work, and it would have ignored
+parent categories in any case.
 
 **Fallback behaviour is by design:** if a product resolves to no profile, the
 dropdown is empty and the user removes the condition from the search panel to
@@ -484,6 +513,7 @@ No gate between the primary transactions and the nonconformity — see D11.
 | `response_ids` | One2many → `qms.nonconformity.response` | what was indicated |
 | `disposition` | Selection | `accept` / `accept_rework` / `scrap` / `return_supplier` / `reinspect` |
 | `partner_id` | Many2one | **override to `required=False`** |
+| `qms_product_categ_id` | Many2one → `product.category` | related `product_id.categ_id`; feeds the §7.6 domain |
 
 The existing **Procedures** tab (`procedure_ids` → `document.page`) is **left
 untouched**. It holds documents a human attached; rule-derived documents live on
@@ -652,7 +682,7 @@ the one place in the design that would silently stop firing.
 
 | Module | Contents | Depends on |
 |---|---|---|
-| **`qms_catalog`** | `qms.catalog.mixin`, `qms.defect.code`, `qms.object.part`, `qms.catalog.profile`, product/template/category assignment fields | `product` |
+| **`qms_catalog`** | `qms.catalog.mixin`, `qms.defect.code`, `qms.object.part`, `qms.catalog.profile`, product/template/category assignment fields, configuration menus | `product`, `mgmtsystem` |
 | **`qms_nonconformity`** | `qms.nonconformity.item`, header fields, `disposition`, code filtering, `partner_id` override, `default_severity_id` on `qms.defect.code` | `qms_catalog`, `mgmtsystem_nonconformity`, `mgmtsystem_nonconformity_product`, `mgmtsystem_partner` |
 | **`qms_determination`** | `qms.determination.rule`, `qms.nonconformity.response`, Suggest Response | `qms_nonconformity`, `mgmtsystem_action_template`, `document_page_mgmtsystem` |
 | **`qms_quality_control`** | `defect_code_id` + related severity on `qc.test.question.value`, Populate Defect, `mgmtsystem.action.inspection_id`, NC and Action smart buttons + prefill | `qms_nonconformity`, `quality_control_oca`, `mgmtsystem_nonconformity_quality_control_oca`, `mgmtsystem_action` |
@@ -676,7 +706,7 @@ lives directly in `qms_quality_control`; the asymmetry is deliberate.
 ### Dependency graph
 
 ```
-                        product (core)
+                 product (core), mgmtsystem
                              │
                         qms_catalog
                              │
@@ -719,7 +749,7 @@ Recorded so future work does not relitigate them.
 | D3 | Separate catalog models sharing an abstract mixin | Generic-model-with-type-discriminator would have prevented reuse of OCA's existing catalogs and forced duplicate Cause/Origin models | One generic catalog model |
 | D4 | Profiles reference groups only — never codes, never other profiles | Two tiers already exist inside the catalog; nesting profiles would let one restriction be expressed two ways | Recursive profiles |
 | D5 | Profiles attach to Product only | `maintenance_product` unifies Equipment with Product, so one resolution path serves both domains — cheaper than SAP's dual assignment | Separate equipment profile fields |
-| D6 | Assignment is additive across product / template / category | Profiles widen vocabulary; override would silently drop the broader set. Also matches `quality_control_oca` Test semantics | Nearest-level-wins |
+| D6 | Assignment is additive across product / template / category, and a category profile also applies to subcategories | Profiles widen vocabulary; override would silently drop the broader set. Mirrors `quality_control_oca` Test assignment, which is additive and walks up the category tree | Nearest-level-wins; direct category only |
 | D7 | Filtering by static search domain, not a computed field | Keeps the restriction visible and user-removable in the search panel; no Python | Computed field with `child_of` |
 | D8 | Determination by wildcard conditions ranked by specificity | Pre-creating every defect × part × cause combination is combinatorially impossible. Group-level rules collapse dozens of cases into one | Pre-built profile picklist |
 | D9 | Suggestions written by button, not `compute=` | A `compute=` field silently rewrites historical suggestions when rules change, destroying the audit comparison | Computed suggestion field |
@@ -737,6 +767,8 @@ Recorded so future work does not relitigate them.
 | D21 | Links are concrete Many2one fields, not a generic `res_model`/`res_id` pair | `mgmtsystem.action` has no generic pair to reuse, so the polymorphic route would mean *building* one. Concrete fields are indexed, give free inverse One2many for smart-button counts, and match how the OCA bridge modules already work | A generic reference pair on `mgmtsystem.action` |
 | D22 | Action ↔ Maintenance Request lives in its own small bridge module | Two consumers need it — `qms_maintenance` and `maintenance_plan_action_template`. Putting it in the former would force a Phase 2 module to depend on the whole QMS chain, breaking D19 | Declaring it in `qms_maintenance` |
 | D23 | Plan-seeded actions are generated by a `create()` override on `maintenance.request`, not by modifying `maintenance_plan` | Generation already routes through `maintenance.request.create()` with `maintenance_plan_id` in the values, so no OCA method is touched at all. It also catches requests given a plan by hand | Overriding `_create_new_request` or `_prepare_requests_from_plan` |
+| D24 | `qms_catalog` depends on `mgmtsystem` | The catalogs exist to serve the management system. The dependency places their menus under *Management System → Configuration*, beside OCA's Cause and Origin. `mgmtsystem` is the light framework base, so no nonconformity dependency comes with it | `qms_catalog` on `product` alone, with menus deferred to `qms_nonconformity` |
+| D25 | Catalogs and profiles are managed by `mgmtsystem.group_mgmtsystem_manager`; all internal users can read them | Matches OCA's access rules for Cause and Origin. The same group already sees *Management System → Configuration*, so menu visibility and edit rights coincide. A dedicated group can be added later without breaking anything | A dedicated catalog manager group; `product.group_product_manager` |
 
 ---
 

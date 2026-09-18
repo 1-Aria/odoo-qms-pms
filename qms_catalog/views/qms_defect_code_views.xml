@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="qms_defect_code_view_list" model="ir.ui.view">
+        <field name="name">qms.defect.code.list</field>
+        <field name="model">qms.defect.code</field>
+        <field name="arch" type="xml">
+            <list string="Defect Codes">
+                <field name="sequence" widget="handle" />
+                <field name="ref_code" />
+                <field name="name" />
+                <field name="parent_id" />
+                <field name="domain_kind" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_defect_code_view_form" model="ir.ui.view">
+        <field name="name">qms.defect.code.form</field>
+        <field name="model">qms.defect.code</field>
+        <field name="arch" type="xml">
+            <form string="Defect Code">
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="Archived"
+                        bg_color="text-bg-danger"
+                        invisible="active"
+                    />
+                    <field name="active" invisible="1" />
+                    <group>
+                        <group>
+                            <field name="name" />
+                            <field name="ref_code" />
+                        </group>
+                        <group>
+                            <field name="parent_id" />
+                            <field name="domain_kind" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page name="codes" string="Codes" invisible="parent_id">
+                            <field
+                                name="child_ids"
+                                context="{'default_domain_kind': domain_kind}"
+                            >
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle" />
+                                    <field name="ref_code" />
+                                    <field name="name" />
+                                    <field name="domain_kind" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="qms_defect_code_view_search" model="ir.ui.view">
+        <field name="name">qms.defect.code.search</field>
+        <field name="model">qms.defect.code</field>
+        <field name="arch" type="xml">
+            <search string="Defect Codes">
+                <field
+                    name="name"
+                    filter_domain="['|', ('name', 'ilike', self), ('ref_code', 'ilike', self)]"
+                />
+                <field name="parent_id" />
+                <filter
+                    name="groups"
+                    string="Groups"
+                    domain="[('parent_id', '=', False)]"
+                />
+                <filter
+                    name="codes"
+                    string="Codes"
+                    domain="[('parent_id', '!=', False)]"
+                />
+                <separator />
+                <filter
+                    name="archived"
+                    string="Archived"
+                    domain="[('active', '=', False)]"
+                />
+                <group name="group_by">
+                    <filter
+                        name="group_by_parent"
+                        string="Group"
+                        context="{'group_by': 'parent_id'}"
+                    />
+                    <filter
+                        name="group_by_domain_kind"
+                        string="Domain"
+                        context="{'group_by': 'domain_kind'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="qms_defect_code_action" model="ir.actions.act_window">
+        <field name="name">Defect Codes</field>
+        <field name="res_model">qms.defect.code</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="qms_defect_code_view_search" />
+    </record>
+
+</odoo>
