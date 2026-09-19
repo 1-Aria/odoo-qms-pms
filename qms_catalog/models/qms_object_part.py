@@ -19,3 +19,10 @@ class QmsObjectPart(models.Model):
         inverse_name="parent_id",
         string="Codes",
     )
+    profile_ids = fields.Many2many(
+        comodel_name="qms.catalog.profile",
+        relation="qms_profile_object_part_group_rel",
+        column1="object_part_id",
+        column2="profile_id",
+        string="Profiles",
+    )

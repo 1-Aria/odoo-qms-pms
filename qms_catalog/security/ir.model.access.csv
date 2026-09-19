@@ -3,3 +3,5 @@
 "access_qms_defect_code_manager","qms.defect.code.manager","model_qms_defect_code","mgmtsystem.group_mgmtsystem_manager",1,1,1,1
 "access_qms_object_part_user","qms.object.part.user","model_qms_object_part","base.group_user",1,0,0,0
 "access_qms_object_part_manager","qms.object.part.manager","model_qms_object_part","mgmtsystem.group_mgmtsystem_manager",1,1,1,1
+"access_qms_catalog_profile_user","qms.catalog.profile.user","model_qms_catalog_profile","base.group_user",1,0,0,0
+"access_qms_catalog_profile_manager","qms.catalog.profile.manager","model_qms_catalog_profile","mgmtsystem.group_mgmtsystem_manager",1,1,1,1

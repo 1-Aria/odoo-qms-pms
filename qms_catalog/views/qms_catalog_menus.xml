@@ -26,4 +26,12 @@
         sequence="20"
     />
 
+    <menuitem
+        id="menu_qms_catalog_profile"
+        name="Catalog Profiles"
+        parent="menu_qms_catalog"
+        action="qms_catalog_profile_action"
+        sequence="30"
+    />
+
 </odoo>

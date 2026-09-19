@@ -13,6 +13,7 @@
         "security/ir.model.access.csv",
         "views/qms_defect_code_views.xml",
         "views/qms_object_part_views.xml",
+        "views/qms_catalog_profile_views.xml",
         "views/qms_catalog_menus.xml",
     ],
     "installable": True,

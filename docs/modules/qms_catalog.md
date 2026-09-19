@@ -10,7 +10,7 @@ Plan: §7.1, §7.2, D2–D7, D24, D25.
 | 1 | Skeleton, `qms.catalog.mixin`, `qms.defect.code`, access, views, menus | done | installed 2026-09-18, `exit=0`; menus, group/code entry, `parent_path`, `ref_code` search and `domain_kind` carry-over all verified in the UI |
 | 2 | Two-level constraint, unique `ref_code`, domain-kind compatibility, tests | done | upgraded and tested 2026-09-19, `exit=0`, 10 tests, 0 failures; `ref_code` NOT NULL and `qms_defect_code_ref_code_uniq` confirmed on the table |
 | 3 | `qms.object.part`, shared test base class | done | upgraded and tested 2026-09-19, `exit=0`, 21 tests, 0 failures; `qms_object_part_ref_code_uniq` and `ref_code` NOT NULL confirmed on its own table; object parts created in the UI |
-| 4 | `qms.catalog.profile`, groups-only constraint, `profile_ids` inverse | proposed | |
+| 4 | `qms.catalog.profile`, groups-only constraint, `profile_ids` inverse | done | upgraded and tested 2026-09-19, `exit=0`, 28 tests, 0 failures; `qms_catalog_profile` plus `qms_profile_defect_group_rel` and `qms_profile_object_part_group_rel` confirmed in the database; profile built in the UI with groups-only dropdowns |
 | 5 | Product / template / category assignment, product form views | — | |
 
 ## Divergences from the plan
@@ -162,18 +162,12 @@ fields they mirror on `product.product`, `product.template` and `product.categor
 | Method | Decorator | Rule | Message |
 |---|---|---|---|
 | `_check_groups_only` | `@api.constrains("defect_group_ids", "object_part_group_ids")` | every referenced record must be a group, i.e. have no `parent_id`. The field `domain` only filters the dropdown; §7.6 skips a code attached directly, so it would fail silently | `"A profile bundles code groups, not codes. '%(name)s' belongs to '%(group)s'."` |
-| `_check_domain_kind` | `@api.constrains("domain_kind", "defect_group_ids", "object_part_group_ids")` | **decision pending** — see below | `"Group '%(group)s' (%(group_kind)s) does not fit profile '%(profile)s' (%(profile_kind)s)."` |
+| `_check_domain_kind` | `@api.constrains("domain_kind", "defect_group_ids", "object_part_group_ids")` | **clash only**: reject a `pm` group in a `qm` profile and a `qm` group in a `pm` profile. `both` on either side is accepted | `"Group '%(group)s' (%(group_kind)s) does not fit profile '%(profile)s' (%(profile_kind)s)."` |
 
-**Pending: does the domain invariant reach the profile?** The group/code rule does
-not transfer unchanged. A code has exactly one group, so the group's domain is a
-ceiling. A group belongs to many profiles, so a `both` group legitimately appears
-in a `qm` profile and a `pm` one at the same time.
-
-| Option | Rejects |
-|---|---|
-| a — clash only (recommended) | a `pm` group in a `qm` profile, and the reverse. `both` on either side is accepted |
-| b — ceiling, as for codes | anything whose domain differs from the profile's, unless the profile is `both` |
-| c — no constraint | nothing; `domain_kind` on the profile stays a label |
+The group/code ceiling of step 2 deliberately does **not** transfer here. A code has
+exactly one group, so its group's domain can be a ceiling; a group belongs to many
+profiles, so a `both` group must be free to sit in a `qm` profile and a `pm` one at
+the same time. Only the direct clash is wrong.
 
 ## Security — `security/ir.model.access.csv`
 
@@ -278,16 +272,24 @@ subclasses yield no tests at all and the run reports success. It is declared onc
 on `CatalogCommon`, since `getattr` walks the MRO. The loader calls the mechanism
 provisional in a comment, so re-check it on any Odoo upgrade.
 
-**The run must report 21 tests** through step 3 — ten per catalog plus the
-independence test — and 21 plus the profile class from step 4 on. A smaller number
-means collection broke, not that the suite got faster.
+**The run must report 28 tests** from step 4 on — ten per catalog, the independence
+test, and seven in the profile class; it was 21 through step 3. A smaller number
+means collection broke, not that the suite got faster. `odoo.tests.stats` counts
+module-level entries on top, so it reads 36.
 
 Both catalogs are the mixin's behaviour, so the suite runs twice over the same
 assertions — 20 tests instead of 10 — and step 4 adds its profile tests without
 copying any of this.
 
-`setUpClass` creates group `Group A` / `GRP` (`qm`) and code `Code One` / `GRP-01`
-(`qm`) under it, in `cls.env[cls.model_name]`.
+`setUpClass` creates group `Group A` and code `Code One` (`qm`) under it, in
+`cls.env[cls.model_name]`.
+
+**Fixtures must not assume an empty table.** `ref_code` is unique across the whole
+table and the instance is a working database, so every fixture code is built from
+`cls.code_prefix = unique_code_prefix()` — for example `f"{cls.code_prefix}-GRP-01"`.
+`unique_code_prefix()` is a module-level helper in `tests/common.py`, used by all
+three test files. Fixed codes such as `FAB` passed only until the same code existed
+for real, then failed in `setUpClass` and took a whole class down with them.
 
 Conventions: every `assertRaises` block runs inside `self.cr.savepoint()`, so the
 rejected row is rolled back before the next assertion. `ValidationError` needs no
@@ -321,7 +323,9 @@ The `domain_kind` carry-over is a view context default, not Python, so it is ver
 | `test_defect_code_rejected` | a code in `defect_group_ids` raises `ValidationError` |
 | `test_object_part_code_rejected` | a code in `object_part_group_ids` raises `ValidationError` |
 | `test_profile_ids_inverse` | after assignment, the group's `profile_ids` contains the profile, and removing the group from the profile empties it |
-| `test_domain_kind_*` | per the option chosen above |
+| `test_domain_kind_clash` | a `pm` group in a `qm` profile raises `ValidationError`, and the reverse |
+| `test_domain_kind_profile_narrowed` | a `both` profile holding a `pm` group, changed to `qm`, raises `ValidationError` — the only test covering `domain_kind` in the constraint's own trigger list |
+| `test_domain_kind_both_accepted` | a `both` group in a `qm` profile, and any group in a `both` profile, are accepted |
 
 **`TestCatalogIndependence(TransactionCase)`** (step 3), outside `CatalogCommon`:
 

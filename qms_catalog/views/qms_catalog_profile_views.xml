@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="qms_catalog_profile_view_list" model="ir.ui.view">
+        <field name="name">qms.catalog.profile.list</field>
+        <field name="model">qms.catalog.profile</field>
+        <field name="arch" type="xml">
+            <list string="Catalog Profiles">
+                <field name="name" />
+                <field name="domain_kind" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_catalog_profile_view_form" model="ir.ui.view">
+        <field name="name">qms.catalog.profile.form</field>
+        <field name="model">qms.catalog.profile</field>
+        <field name="arch" type="xml">
+            <form string="Catalog Profile">
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="Archived"
+                        bg_color="text-bg-danger"
+                        invisible="active"
+                    />
+                    <field name="active" invisible="1" />
+                    <group>
+                        <group>
+                            <field name="name" />
+                            <field name="domain_kind" />
+                        </group>
+                    </group>
+                    <group name="groups" string="Code Groups">
+                        <field
+                            name="defect_group_ids"
+                            widget="many2many_tags"
+                            options="{'no_create': True}"
+                        />
+                        <field
+                            name="object_part_group_ids"
+                            widget="many2many_tags"
+                            options="{'no_create': True}"
+                        />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="qms_catalog_profile_view_search" model="ir.ui.view">
+        <field name="name">qms.catalog.profile.search</field>
+        <field name="model">qms.catalog.profile</field>
+        <field name="arch" type="xml">
+            <search string="Catalog Profiles">
+                <field name="name" />
+                <field name="defect_group_ids" />
+                <field name="object_part_group_ids" />
+                <filter
+                    name="archived"
+                    string="Archived"
+                    domain="[('active', '=', False)]"
+                />
+                <group name="group_by">
+                    <filter
+                        name="group_by_domain_kind"
+                        string="Domain"
+                        context="{'group_by': 'domain_kind'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="qms_catalog_profile_action" model="ir.actions.act_window">
+        <field name="name">Catalog Profiles</field>
+        <field name="res_model">qms.catalog.profile</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="qms_catalog_profile_view_search" />
+    </record>
+
+</odoo>

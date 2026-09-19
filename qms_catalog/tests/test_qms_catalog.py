@@ -2,7 +2,7 @@
 
 from odoo.tests.common import TransactionCase
 
-from .common import CatalogCommon
+from .common import CatalogCommon, unique_code_prefix
 
 
 class TestQmsDefectCode(CatalogCommon, TransactionCase):
@@ -16,7 +16,8 @@ class TestQmsObjectPart(CatalogCommon, TransactionCase):
 class TestCatalogIndependence(TransactionCase):
     def test_ref_code_shared_across_catalogs(self):
         """Each catalog owns its codes: uniqueness is per table."""
-        values = {"name": "Shared", "ref_code": "SHARED", "domain_kind": "both"}
+        ref_code = f"{unique_code_prefix()}-SHARED"
+        values = {"name": "Shared", "ref_code": ref_code, "domain_kind": "both"}
         defect_code = self.env["qms.defect.code"].create(values)
         object_part = self.env["qms.object.part"].create(values)
         self.env.flush_all()

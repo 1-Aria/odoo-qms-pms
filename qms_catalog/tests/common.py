@@ -1,9 +1,20 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+from uuid import uuid4
+
 from psycopg2 import IntegrityError
 
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import mute_logger
+
+
+def unique_code_prefix():
+    """Fixture codes must not collide with real catalog data.
+
+    ``ref_code`` is unique across the whole table and the instance is a working
+    database, so a fixed code fails as soon as the same one exists for real.
+    """
+    return f"T{uuid4().hex[:6].upper()}"
 
 
 class CatalogCommon:
@@ -27,13 +38,18 @@ class CatalogCommon:
     def setUpClass(cls):
         super().setUpClass()
         cls.model = cls.env[cls.model_name]
+        cls.code_prefix = unique_code_prefix()
         cls.group = cls.model.create(
-            {"name": "Group A", "ref_code": "GRP", "domain_kind": "qm"}
+            {
+                "name": "Group A",
+                "ref_code": f"{cls.code_prefix}-GRP",
+                "domain_kind": "qm",
+            }
         )
         cls.code = cls.model.create(
             {
                 "name": "Code One",
-                "ref_code": "GRP-01",
+                "ref_code": f"{cls.code_prefix}-GRP-01",
                 "domain_kind": "qm",
                 "parent_id": cls.group.id,
             }
@@ -45,7 +61,7 @@ class CatalogCommon:
 
     def test_name_search_ref_code(self):
         self.assertEqual(
-            self.model.name_search("GRP-01"),
+            self.model.name_search(f"{self.code_prefix}-GRP-01"),
             [(self.code.id, "Group A / Code One")],
         )
 
@@ -54,7 +70,7 @@ class CatalogCommon:
             self.model.create(
                 {
                     "name": "Code One A",
-                    "ref_code": "GRP-01-A",
+                    "ref_code": f"{self.code_prefix}-GRP-01-A",
                     "domain_kind": "qm",
                     "parent_id": self.code.id,
                 }
@@ -62,7 +78,11 @@ class CatalogCommon:
 
     def test_depth_group_with_codes(self):
         other_group = self.model.create(
-            {"name": "Group B", "ref_code": "GRB", "domain_kind": "qm"}
+            {
+                "name": "Group B",
+                "ref_code": f"{self.code_prefix}-GRB",
+                "domain_kind": "qm",
+            }
         )
         with self.assertRaises(ValidationError), self.cr.savepoint():
             self.group.write({"parent_id": other_group.id})
@@ -77,7 +97,11 @@ class CatalogCommon:
     def test_ref_code_unique(self):
         with self.assertRaises(IntegrityError), self.cr.savepoint():
             self.model.create(
-                {"name": "Code One again", "ref_code": "GRP-01", "domain_kind": "qm"}
+                {
+                    "name": "Code One again",
+                    "ref_code": f"{self.code_prefix}-GRP-01",
+                    "domain_kind": "qm",
+                }
             )
             self.model.flush_model()
 
@@ -92,7 +116,7 @@ class CatalogCommon:
             self.model.create(
                 {
                     "name": "Code Two",
-                    "ref_code": "GRP-02",
+                    "ref_code": f"{self.code_prefix}-GRP-02",
                     "domain_kind": "pm",
                     "parent_id": self.group.id,
                 }
@@ -100,13 +124,17 @@ class CatalogCommon:
 
     def test_domain_kind_both_group(self):
         both_group = self.model.create(
-            {"name": "Group General", "ref_code": "GEN", "domain_kind": "both"}
+            {
+                "name": "Group General",
+                "ref_code": f"{self.code_prefix}-GEN",
+                "domain_kind": "both",
+            }
         )
         for index, kind in enumerate(["qm", "pm", "both"]):
             code = self.model.create(
                 {
                     "name": f"General code {kind}",
-                    "ref_code": f"GEN-0{index}",
+                    "ref_code": f"{self.code_prefix}-GEN-0{index}",
                     "domain_kind": kind,
                     "parent_id": both_group.id,
                 }
@@ -115,12 +143,16 @@ class CatalogCommon:
 
     def test_domain_kind_group_narrowed(self):
         both_group = self.model.create(
-            {"name": "Group General", "ref_code": "GEN", "domain_kind": "both"}
+            {
+                "name": "Group General",
+                "ref_code": f"{self.code_prefix}-GEN",
+                "domain_kind": "both",
+            }
         )
         self.model.create(
             {
                 "name": "General code pm",
-                "ref_code": "GEN-01",
+                "ref_code": f"{self.code_prefix}-GEN-01",
                 "domain_kind": "pm",
                 "parent_id": both_group.id,
             }
