@@ -192,7 +192,7 @@ qms.catalog.mixin  (AbstractModel)
 | `child_ids` | One2many (self) | |
 | `parent_path` | Char | indexed; `_parent_store = True` |
 | `active` | Boolean | default True |
-| `domain_kind` | Selection | `qm` / `pm` / `both`, default `both` |
+| `domain_kind` | Selection | `qm` / `pm` / `both`, default `both`; see D14 |
 | `display_name` | Char | computed, renders `Group / Code` |
 
 `_order = "parent_id, sequence"`
@@ -757,7 +757,7 @@ Recorded so future work does not relitigate them.
 | D11 | No gate between primary transactions and the nonconformity | A forcing function people route around is worse than none. Departments are measured on performance, not nonconformity creation rate | Closure gates in both directions |
 | D12 | Disposition lives on the nonconformity | `qc.inspection.state` is a Selection its own workflow methods branch on; extending it is the most invasive change available | Usage Decision stages on the Inspection |
 | D13 | Object Part codes instead of equipment hierarchy | `maintenance_equipment_hierarchy` would force components to become tracked Equipment | Equipment parent/child |
-| D14 | `domain_kind` on catalogs; `system_id` left alone | `mgmtsystem.system` is a user-editable record meant for compliance scope; keying logic to it is fragile | `system_id` as the PM/QM discriminator |
+| D14 | `domain_kind` on catalogs; `system_id` left alone. `domain_kind` classifies catalog entries, profiles and rules by domain for configuration, filtering and reporting, **and is an enforced invariant**: a code's domain must be compatible with its group's — `qm` under `qm`, `pm` under `pm`, any under `both` | `mgmtsystem.system` is a user-editable record meant for compliance scope; keying logic to it is fragile. Unenforced, `domain_kind` discriminates nothing: profiles reference groups, so a `both` code under a `qm` group can never surface in maintenance, and the data would claim otherwise | `system_id` as the PM/QM discriminator; `domain_kind` as an unconstrained label |
 | D15 | No 8D compliance claim | 8D is a reporting discipline, not a standard to comply with | Describing the system as 8D-compliant |
 | D16 | Severity is an output resolved in three tiers, never a rule condition | Soliciting severity from staff makes the most analytically important field the least reliable. Severity genuinely depends on the defect *combination* — a tear on a visible panel versus an internal facing — so the rule must be able to set it. Allowing it as both condition and output would make resolution circular | Severity as staff input; severity as a rule condition; severity from the defect code alone |
 | D17 | The nonconformity holds **response lines** referencing rules, not flattened suggestion fields | Reuses an existing structure; shows *why* a response was indicated rather than only *what*; lines can be added by hand, so the determination engine is an accelerator rather than a dependency | `suggested_action_template_ids` / `suggested_procedure_ids` on the header |
