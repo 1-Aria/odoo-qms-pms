@@ -1,3 +1,5 @@
 "id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
 "access_qms_defect_code_user","qms.defect.code.user","model_qms_defect_code","base.group_user",1,0,0,0
 "access_qms_defect_code_manager","qms.defect.code.manager","model_qms_defect_code","mgmtsystem.group_mgmtsystem_manager",1,1,1,1
+"access_qms_object_part_user","qms.object.part.user","model_qms_object_part","base.group_user",1,0,0,0
+"access_qms_object_part_manager","qms.object.part.manager","model_qms_object_part","mgmtsystem.group_mgmtsystem_manager",1,1,1,1

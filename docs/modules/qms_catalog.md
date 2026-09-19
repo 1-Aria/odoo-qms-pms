@@ -9,8 +9,8 @@ Plan: §7.1, §7.2, D2–D7, D24, D25.
 |---|---|---|---|
 | 1 | Skeleton, `qms.catalog.mixin`, `qms.defect.code`, access, views, menus | done | installed 2026-09-18, `exit=0`; menus, group/code entry, `parent_path`, `ref_code` search and `domain_kind` carry-over all verified in the UI |
 | 2 | Two-level constraint, unique `ref_code`, domain-kind compatibility, tests | done | upgraded and tested 2026-09-19, `exit=0`, 10 tests, 0 failures; `ref_code` NOT NULL and `qms_defect_code_ref_code_uniq` confirmed on the table |
-| 3 | `qms.object.part` | — | |
-| 4 | `qms.catalog.profile`, groups-only constraint | — | |
+| 3 | `qms.object.part`, shared test base class | done | upgraded and tested 2026-09-19, `exit=0`, 21 tests, 0 failures; `qms_object_part_ref_code_uniq` and `ref_code` NOT NULL confirmed on its own table; object parts created in the UI |
+| 4 | `qms.catalog.profile`, groups-only constraint, `profile_ids` inverse | proposed | |
 | 5 | Product / template / category assignment, product form views | — | |
 
 ## Divergences from the plan
@@ -45,6 +45,8 @@ qms_catalog/
 │   ├── product_views.xml          # template, variant, category forms   # 5
 │   └── qms_catalog_menus.xml                         # 1
 ├── tests/__init__.py, test_qms_catalog.py            # 2
+│         common.py               # 3 (shared test base class)
+│         test_qms_catalog_profile.py   # 4
 └── readme/ DESCRIPTION.md, USAGE.md                  # 1 (DESCRIPTION), 2 (USAGE: two-level rule)
 ```
 
@@ -60,7 +62,7 @@ qms_catalog/
 | `license` | `AGPL-3` |
 | `category` | `Management System` |
 | `depends` | `product`, `mgmtsystem` |
-| `data` | `security/ir.model.access.csv`, `views/qms_defect_code_views.xml`, `views/qms_catalog_menus.xml` |
+| `data` | `security/ir.model.access.csv`, `views/qms_defect_code_views.xml`, `views/qms_object_part_views.xml` (step 3), `views/qms_catalog_profile_views.xml` (step 4), `views/qms_catalog_menus.xml` |
 | `installable` | `True` |
 
 ## Python packages
@@ -68,7 +70,7 @@ qms_catalog/
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qms_catalog_mixin`, `from . import qms_defect_code` |
+| `models/__init__.py` | `from . import qms_catalog_mixin`, `from . import qms_defect_code`, `from . import qms_object_part` (step 3), `from . import qms_catalog_profile` (step 4) |
 
 ## Models
 
@@ -119,12 +121,70 @@ creates its own index in `_add_sql_constraints` (`odoo/models.py:3508`). So
 | `parent_id` | Many2one → `qms.defect.code` | `string="Group"`, `ondelete="restrict"`, `index=True` |
 | `child_ids` | One2many → `qms.defect.code` | inverse `parent_id`, `string="Codes"` |
 
+### `qms.object.part` — `models/qms_object_part.py` (step 3)
+
+`models.Model` · `_name = "qms.object.part"` · `_inherit = "qms.catalog.mixin"` · `_description = "Object Part"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `parent_id` | Many2one → `qms.object.part` | `string="Group"`, `ondelete="restrict"`, `index=True` |
+| `child_ids` | One2many → `qms.object.part` | inverse `parent_id`, `string="Codes"` |
+
+Everything else — the depth and domain-kind constraints, `ref_code` uniqueness on
+its own table, the display name, ordering and `parent_path` — comes from the mixin.
+
+**Both catalogs gain the inverse of the profile's group fields** (step 4). It is the
+other end of an existing relation, so it costs one line and no table, and §7.6 of the
+plan filters through it.
+
+| Model | Field | Type | Attributes |
+|---|---|---|---|
+| `qms.defect.code` | `profile_ids` | Many2many → `qms.catalog.profile` | `relation="qms_profile_defect_group_rel"`, `column1="defect_code_id"`, `column2="profile_id"`, `string="Profiles"` |
+| `qms.object.part` | `profile_ids` | Many2many → `qms.catalog.profile` | `relation="qms_profile_object_part_group_rel"`, `column1="object_part_id"`, `column2="profile_id"`, `string="Profiles"` |
+
+### `qms.catalog.profile` — `models/qms_catalog_profile.py` (step 4)
+
+`models.Model` · `_name = "qms.catalog.profile"` · `_description = "Catalog Profile"` · `_order = "name"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `name` | Char | `required=True`, `translate=True` |
+| `active` | Boolean | `default=True` |
+| `domain_kind` | Selection | same selection as the catalogs, `string="Domain"`, `required=True`, `default="both"` |
+| `defect_group_ids` | Many2many → `qms.defect.code` | `relation="qms_profile_defect_group_rel"`, `column1="profile_id"`, `column2="defect_code_id"`, `string="Defect Groups"`, `domain=[("parent_id", "=", False)]` |
+| `object_part_group_ids` | Many2many → `qms.object.part` | `relation="qms_profile_object_part_group_rel"`, `column1="profile_id"`, `column2="object_part_id"`, `string="Object Part Groups"`, `domain=[("parent_id", "=", False)]` |
+
+`product_ids`, `product_tmpl_ids` and `categ_ids` come in step 5, declared beside the
+fields they mirror on `product.product`, `product.template` and `product.category`.
+
+**Constraints**
+
+| Method | Decorator | Rule | Message |
+|---|---|---|---|
+| `_check_groups_only` | `@api.constrains("defect_group_ids", "object_part_group_ids")` | every referenced record must be a group, i.e. have no `parent_id`. The field `domain` only filters the dropdown; §7.6 skips a code attached directly, so it would fail silently | `"A profile bundles code groups, not codes. '%(name)s' belongs to '%(group)s'."` |
+| `_check_domain_kind` | `@api.constrains("domain_kind", "defect_group_ids", "object_part_group_ids")` | **decision pending** — see below | `"Group '%(group)s' (%(group_kind)s) does not fit profile '%(profile)s' (%(profile_kind)s)."` |
+
+**Pending: does the domain invariant reach the profile?** The group/code rule does
+not transfer unchanged. A code has exactly one group, so the group's domain is a
+ceiling. A group belongs to many profiles, so a `both` group legitimately appears
+in a `qm` profile and a `pm` one at the same time.
+
+| Option | Rejects |
+|---|---|
+| a — clash only (recommended) | a `pm` group in a `qm` profile, and the reverse. `both` on either side is accepted |
+| b — ceiling, as for codes | anything whose domain differs from the profile's, unless the profile is `both` |
+| c — no constraint | nothing; `domain_kind` on the profile stays a label |
+
 ## Security — `security/ir.model.access.csv`
 
 | id | name | model_id:id | group_id:id | r | w | c | u |
 |---|---|---|---|---|---|---|---|
 | `access_qms_defect_code_user` | `qms.defect.code.user` | `model_qms_defect_code` | `base.group_user` | 1 | 0 | 0 | 0 |
 | `access_qms_defect_code_manager` | `qms.defect.code.manager` | `model_qms_defect_code` | `mgmtsystem.group_mgmtsystem_manager` | 1 | 1 | 1 | 1 |
+| `access_qms_object_part_user` (step 3) | `qms.object.part.user` | `model_qms_object_part` | `base.group_user` | 1 | 0 | 0 | 0 |
+| `access_qms_object_part_manager` (step 3) | `qms.object.part.manager` | `model_qms_object_part` | `mgmtsystem.group_mgmtsystem_manager` | 1 | 1 | 1 | 1 |
+| `access_qms_catalog_profile_user` (step 4) | `qms.catalog.profile.user` | `model_qms_catalog_profile` | `base.group_user` | 1 | 0 | 0 | 0 |
+| `access_qms_catalog_profile_manager` (step 4) | `qms.catalog.profile.manager` | `model_qms_catalog_profile` | `mgmtsystem.group_mgmtsystem_manager` | 1 | 1 | 1 | 1 |
 
 ## Views — `views/qms_defect_code_views.xml`
 
@@ -173,18 +233,61 @@ form
 | `view_mode` | `list,form` |
 | `search_view_id` | `qms_defect_code_view_search` |
 
+## Views — `views/qms_object_part_views.xml` (step 3)
+
+The defect-code views with `qms.defect.code` replaced by `qms.object.part` and the
+ids renamed to `qms_object_part_view_list` / `_form` / `_search` and
+`qms_object_part_action` (`name`: `Object Parts`). Same structure, same filters,
+same Codes tab and carry-over context.
+
+## Views — `views/qms_catalog_profile_views.xml` (step 4)
+
+| XML id | Type | Content |
+|---|---|---|
+| `qms_catalog_profile_view_list` | list | `name`, `domain_kind`, `active` (`column_invisible="True"`) |
+| `qms_catalog_profile_view_form` | form | archived ribbon and hidden `active` as in the catalogs; group: `name`, `domain_kind`; then `defect_group_ids` and `object_part_group_ids`, each `widget="many2many_tags"` with `options="{'no_create': True}"`. Step 5 adds the assignment tab |
+| `qms_catalog_profile_view_search` | search | field `name`; field `defect_group_ids`; field `object_part_group_ids`; filter `archived`; group by `domain_kind` |
+| `qms_catalog_profile_action` | action | `name`: `Catalog Profiles`, `res_model`: `qms.catalog.profile`, `view_mode`: `list,form`, `search_view_id` |
+
 ## Menus — `views/qms_catalog_menus.xml`
 
 | XML id | Name | Parent | Action | Groups | Sequence |
 |---|---|---|---|---|---|
 | `menu_qms_catalog` | `Catalogs` | `mgmtsystem.menu_mgmtsystem_configuration` | — | `mgmtsystem.group_mgmtsystem_manager` | 20 |
 | `menu_qms_defect_code` | `Defect Codes` | `menu_qms_catalog` | `qms_defect_code_action` | — | 10 |
+| `menu_qms_object_part` (step 3) | `Object Parts` | `menu_qms_catalog` | `qms_object_part_action` | — | 20 |
+| `menu_qms_catalog_profile` (step 4) | `Catalog Profiles` | `menu_qms_catalog` | `qms_catalog_profile_action` | — | 30 |
 
-## Tests — `tests/test_qms_catalog.py` (step 2)
+## Tests — `tests/` (step 2, restructured in step 3)
 
-`odoo.tests.common.TransactionCase` · class `TestQmsCatalog` · `tests/__init__.py`: `from . import test_qms_catalog`
+| File | Content |
+|---|---|
+| `tests/__init__.py` | `from . import common`, `from . import test_qms_catalog`, `from . import test_qms_catalog_profile` (step 4) |
+| `tests/common.py` | `CatalogCommon`, a plain class holding `setUpClass` and every test method, driven by a `model_name` attribute, with `allow_inherited_tests_method = True`. The loader never scans this file anyway: `_get_tests_modules` only imports modules named `test_*` (`odoo/tests/loader.py:56-67`) |
+| `tests/test_qms_catalog.py` | `TestQmsDefectCode(CatalogCommon, TransactionCase)` with `model_name = "qms.defect.code"`, and `TestQmsObjectPart(CatalogCommon, TransactionCase)` with `model_name = "qms.object.part"`; plus `TestCatalogIndependence(TransactionCase)` |
 
-`setUpClass` creates group `Fabric Defect` / `FAB` (`qm`) and code `Torn` / `FAB-01` (`qm`) under it.
+The base class order is load-bearing: `CatalogCommon` comes **first**, so its
+`setUpClass` is the one that runs and its `super().setUpClass()` reaches
+`TransactionCase` through the MRO. Reversed, `TransactionCase.setUpClass` wins,
+the fixtures are never created and every test fails on a missing attribute.
+
+`allow_inherited_tests_method = True` is equally load-bearing, and fails quietly
+rather than loudly. Odoo collects test methods from a class's own `__dict__`
+only, unless that flag is set (`odoo/tests/loader.py:29-38`); without it the two
+subclasses yield no tests at all and the run reports success. It is declared once
+on `CatalogCommon`, since `getattr` walks the MRO. The loader calls the mechanism
+provisional in a comment, so re-check it on any Odoo upgrade.
+
+**The run must report 21 tests** through step 3 — ten per catalog plus the
+independence test — and 21 plus the profile class from step 4 on. A smaller number
+means collection broke, not that the suite got faster.
+
+Both catalogs are the mixin's behaviour, so the suite runs twice over the same
+assertions — 20 tests instead of 10 — and step 4 adds its profile tests without
+copying any of this.
+
+`setUpClass` creates group `Group A` / `GRP` (`qm`) and code `Code One` / `GRP-01`
+(`qm`) under it, in `cls.env[cls.model_name]`.
 
 Conventions: every `assertRaises` block runs inside `self.cr.savepoint()`, so the
 rejected row is rolled back before the next assertion. `ValidationError` needs no
@@ -197,18 +300,34 @@ where UPDATEs really are deferred.
 
 | Test | Asserts |
 |---|---|
-| `test_display_name` | group → `Fabric Defect`; code → `Fabric Defect / Torn` |
-| `test_name_search_ref_code` | `name_search("FAB-01")` returns the code |
+| `test_display_name` | group → `Group A`; code → `Group A / Code One` |
+| `test_name_search_ref_code` | `name_search("GRP-01")` returns the code |
 | `test_depth_code_under_code` | a code given a code as its group raises `ValidationError` |
 | `test_depth_group_with_codes` | a group that has codes, given a group, raises `ValidationError` |
 | `test_depth_self_parent` | a record set as its own group raises `UserError` from the `_parent_store` recursion check |
-| `test_ref_code_unique` | a second record with `FAB-01` raises `IntegrityError` |
+| `test_ref_code_unique` | a second record with `GRP-01` raises `IntegrityError` |
 | `test_ref_code_required` | creating a record without `ref_code` raises `IntegrityError` |
 | `test_domain_kind_mismatch` | a `pm` code under the `qm` group raises `ValidationError` |
 | `test_domain_kind_both_group` | under a `both` group, `qm`, `pm` and `both` codes are all accepted |
 | `test_domain_kind_group_narrowed` | a `both` group holding a `pm` code, changed to `qm`, raises `ValidationError` |
 
 The `domain_kind` carry-over is a view context default, not Python, so it is verified in the UI rather than here.
+
+**`TestCatalogProfile(TransactionCase)`** (step 4), in `tests/test_qms_catalog_profile.py`, imported from `tests/__init__.py`:
+
+| Test | Asserts |
+|---|---|
+| `test_groups_accepted` | a profile takes a defect group and an object-part group |
+| `test_defect_code_rejected` | a code in `defect_group_ids` raises `ValidationError` |
+| `test_object_part_code_rejected` | a code in `object_part_group_ids` raises `ValidationError` |
+| `test_profile_ids_inverse` | after assignment, the group's `profile_ids` contains the profile, and removing the group from the profile empties it |
+| `test_domain_kind_*` | per the option chosen above |
+
+**`TestCatalogIndependence(TransactionCase)`** (step 3), outside `CatalogCommon`:
+
+| Test | Asserts |
+|---|---|
+| `test_ref_code_shared_across_catalogs` | the same `ref_code` created in `qms.defect.code` and `qms.object.part` in one transaction, then flushed, leaves both records alive — uniqueness is per table, not across the catalogs |
 
 ## Readme
 

@@ -18,4 +18,12 @@
         sequence="10"
     />
 
+    <menuitem
+        id="menu_qms_object_part"
+        name="Object Parts"
+        parent="menu_qms_catalog"
+        action="qms_object_part_action"
+        sequence="20"
+    />
+
 </odoo>
