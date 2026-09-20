@@ -45,6 +45,27 @@
                             options="{'no_create': True}"
                         />
                     </group>
+                    <notebook>
+                        <page name="assignment" string="Assignment">
+                            <group>
+                                <field
+                                    name="product_ids"
+                                    widget="many2many_tags"
+                                    options="{'no_create': True}"
+                                />
+                                <field
+                                    name="product_tmpl_ids"
+                                    widget="many2many_tags"
+                                    options="{'no_create': True}"
+                                />
+                                <field
+                                    name="categ_ids"
+                                    widget="many2many_tags"
+                                    options="{'no_create': True}"
+                                />
+                            </group>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>

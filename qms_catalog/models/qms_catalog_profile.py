@@ -36,6 +36,28 @@ class QmsCatalogProfile(models.Model):
         domain=GROUP_ONLY_DOMAIN,
     )
 
+    product_ids = fields.Many2many(
+        comodel_name="product.product",
+        relation="qms_profile_product_rel",
+        column1="profile_id",
+        column2="product_id",
+        string="Products",
+    )
+    product_tmpl_ids = fields.Many2many(
+        comodel_name="product.template",
+        relation="qms_profile_product_tmpl_rel",
+        column1="profile_id",
+        column2="product_tmpl_id",
+        string="Product Templates",
+    )
+    categ_ids = fields.Many2many(
+        comodel_name="product.category",
+        relation="qms_profile_categ_rel",
+        column1="profile_id",
+        column2="categ_id",
+        string="Product Categories",
+    )
+
     @property
     def _catalog_group_fields(self):
         return ("defect_group_ids", "object_part_group_ids")

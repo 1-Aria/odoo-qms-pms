@@ -11,7 +11,40 @@ Plan: §7.1, §7.2, D2–D7, D24, D25.
 | 2 | Two-level constraint, unique `ref_code`, domain-kind compatibility, tests | done | upgraded and tested 2026-09-19, `exit=0`, 10 tests, 0 failures; `ref_code` NOT NULL and `qms_defect_code_ref_code_uniq` confirmed on the table |
 | 3 | `qms.object.part`, shared test base class | done | upgraded and tested 2026-09-19, `exit=0`, 21 tests, 0 failures; `qms_object_part_ref_code_uniq` and `ref_code` NOT NULL confirmed on its own table; object parts created in the UI |
 | 4 | `qms.catalog.profile`, groups-only constraint, `profile_ids` inverse | done | upgraded and tested 2026-09-19, `exit=0`, 28 tests, 0 failures; `qms_catalog_profile` plus `qms_profile_defect_group_rel` and `qms_profile_object_part_group_rel` confirmed in the database; profile built in the UI with groups-only dropdowns |
-| 5 | Product / template / category assignment, product form views | — | |
+| 5 | Product / template / category assignment, effective-profile resolution, product form views | done | upgraded and tested 2026-09-20, `exit=0`, 34 tests, 0 failures; forms checked in the UI. The first run failed `test_category_ancestor_invalidation`: the category compute resolved the chain with one `parent_of` search, which caches no ancestor, so a write to a grandparent left a descendant stale. Fixed by walking `parent_id`, which is the path `@api.depends` names |
+| ~~6~~ | ~~Assignment restricted to the management-system manager~~ | dropped | attempted and reverted 2026-09-20; the tree is back to the step 5 state |
+
+**Why step 6 was dropped.** Writing `qms_profile_ids` from a product form only checks
+write access on the product, so any departmental administrator with product write
+could change catalog assignment. The attempt put
+`groups="mgmtsystem.group_mgmtsystem_manager"` on the three `qms_profile_ids` fields
+and `compute_sudo=True` on the three effective fields. It was reverted because the
+cost outweighed the protection:
+
+- `categ_id` stays writable by those same administrators, and moving a product between
+  categories changes its effective profiles anyway. Restricting one field and not the
+  other is a half-door.
+- Field-level `groups` removes the field from imports, exports and `copy()` for
+  everyone else, so assignment would be dropped silently rather than refused.
+- Every future module touching `qms_profile_ids` would have to remember `sudo()`.
+- The plan prefers suggesting over enforcing, with maintenance cost as the governing
+  constraint, and the threat model here is trusted administrators.
+
+**Two things learned, worth keeping:**
+
+1. A test that creates `res.users` or `res.partner` must be
+   `@tagged("post_install", "-at_install")`. `at_install` runs as the module loads —
+   `qms_catalog` is 82nd of 306, before `account` — and `res.partner.autopost_bills`
+   is then NOT NULL in the database but absent from the registry, so no default
+   applies and the INSERT fails. OCA documents the same trap in
+   `maintenance_plan/tests/common.py:10-14`.
+2. An access test proves nothing unless the user can perform the operation for every
+   other reason. The first version's "write refused" test passed because the user
+   lacked write on `product.product` entirely, not because of the field restriction;
+   it would have passed with the restriction removed. Such a test needs a positive
+   control — the same user writing an ordinary field first — and the acting users need
+   `product.group_product_manager`.
+
 
 ## Divergences from the plan
 
@@ -47,7 +80,8 @@ qms_catalog/
 ├── tests/__init__.py, test_qms_catalog.py            # 2
 │         common.py               # 3 (shared test base class)
 │         test_qms_catalog_profile.py   # 4
-└── readme/ DESCRIPTION.md, USAGE.md                  # 1 (DESCRIPTION), 2 (USAGE: two-level rule)
+│         test_qms_catalog_assignment.py # 5
+└── readme/ DESCRIPTION.md, USAGE.md                  # 1 (DESCRIPTION), 2 and 5 (USAGE)
 ```
 
 ## Manifest
@@ -62,7 +96,7 @@ qms_catalog/
 | `license` | `AGPL-3` |
 | `category` | `Management System` |
 | `depends` | `product`, `mgmtsystem` |
-| `data` | `security/ir.model.access.csv`, `views/qms_defect_code_views.xml`, `views/qms_object_part_views.xml` (step 3), `views/qms_catalog_profile_views.xml` (step 4), `views/qms_catalog_menus.xml` |
+| `data` | `security/ir.model.access.csv`, `views/qms_defect_code_views.xml`, `views/qms_object_part_views.xml` (step 3), `views/qms_catalog_profile_views.xml` (step 4), `views/product_views.xml` (step 5), `views/qms_catalog_menus.xml` |
 | `installable` | `True` |
 
 ## Python packages
@@ -70,7 +104,7 @@ qms_catalog/
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qms_catalog_mixin`, `from . import qms_defect_code`, `from . import qms_object_part` (step 3), `from . import qms_catalog_profile` (step 4) |
+| `models/__init__.py` | `from . import qms_catalog_mixin`, `from . import qms_defect_code`, `from . import qms_object_part` (step 3), `from . import qms_catalog_profile` (step 4), `from . import product_category`, `from . import product_template`, `from . import product_product` (step 5) |
 
 ## Models
 
@@ -154,8 +188,14 @@ plan filters through it.
 | `defect_group_ids` | Many2many → `qms.defect.code` | `relation="qms_profile_defect_group_rel"`, `column1="profile_id"`, `column2="defect_code_id"`, `string="Defect Groups"`, `domain=[("parent_id", "=", False)]` |
 | `object_part_group_ids` | Many2many → `qms.object.part` | `relation="qms_profile_object_part_group_rel"`, `column1="profile_id"`, `column2="object_part_id"`, `string="Object Part Groups"`, `domain=[("parent_id", "=", False)]` |
 
-`product_ids`, `product_tmpl_ids` and `categ_ids` come in step 5, declared beside the
-fields they mirror on `product.product`, `product.template` and `product.category`.
+**Assignment fields** (step 5). Each shares its table with the `qms_profile_ids` field
+it mirrors, so every relation is declared twice and created once.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `product_ids` | Many2many → `product.product` | `relation="qms_profile_product_rel"`, `column1="profile_id"`, `column2="product_id"`, `string="Products"` |
+| `product_tmpl_ids` | Many2many → `product.template` | `relation="qms_profile_product_tmpl_rel"`, `column1="profile_id"`, `column2="product_tmpl_id"`, `string="Product Templates"` |
+| `categ_ids` | Many2many → `product.category` | `relation="qms_profile_categ_rel"`, `column1="profile_id"`, `column2="categ_id"`, `string="Product Categories"` |
 
 **Constraints**
 
@@ -169,6 +209,62 @@ exactly one group, so its group's domain can be a ceiling; a group belongs to ma
 profiles, so a `both` group must be free to sit in a `qm` profile and a `pm` one at
 the same time. Only the direct clash is wrong.
 
+### `product.category` — `models/product_category.py` (step 5)
+
+`_inherit = "product.category"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_profile_ids` | Many2many → `qms.catalog.profile` | `relation="qms_profile_categ_rel"`, `column1="categ_id"`, `column2="profile_id"`, `string="Catalog Profiles"` |
+| `qms_effective_profile_ids` | Many2many → `qms.catalog.profile` | `compute="_compute_qms_effective_profile_ids"`, `recursive=True`, `string="Effective Catalog Profiles"`, not stored |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_compute_qms_effective_profile_ids` | `@api.depends("qms_profile_ids", "parent_id.qms_effective_profile_ids")` | `category.qms_profile_ids | category.parent_id.qms_effective_profile_ids` — a walk up the chain, one level per hop |
+
+**The computation must follow the dependency path.** For a non-stored recursive
+field, `modified()` cascades only through records whose value is already in cache
+(`odoo/models.py:7218-7227`, the `else` branch). Walking `parent_id` computes and
+caches every ancestor on the way up, which is the trail the cascade follows, so a
+write at any level invalidates everything below it. Where nothing is cached, nothing
+needs invalidating: the next read rebuilds the chain.
+
+Resolving the chain in one `parent_of` search instead — which `product.category`
+supports, being `_parent_store` — returns the same value but caches no ancestor.
+Step 5's first run proved the difference: `test_category_ancestor_invalidation`
+failed, the child keeping a stale empty set after a profile was added to its
+grandparent. `stock.location.child_internal_location_ids` is written the search way
+(`odoo/addons/stock/models/stock_location.py:55-61`, `163-167`) and carries the same
+latent staleness; it simply has no test that exposes it.
+
+`recursive=True` is required by the dependency shape (`odoo/fields.py:259-261`; Odoo
+sets it itself with a warning at `821-823`). Without the self-referential dependency
+the best declarable one stops at `parent_id`, and editing a grandparent would never
+reach a grandchild at all.
+
+### `product.template` — `models/product_template.py` (step 5)
+
+`_inherit = "product.template"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_profile_ids` | Many2many → `qms.catalog.profile` | `relation="qms_profile_product_tmpl_rel"`, `column1="product_tmpl_id"`, `column2="profile_id"`, `string="Catalog Profiles"` |
+| `qms_effective_profile_ids` | Many2many → `qms.catalog.profile` | computed, not stored, `@api.depends("qms_profile_ids", "categ_id.qms_effective_profile_ids")` → own profiles `|` the category's effective set |
+
+### `product.product` — `models/product_product.py` (step 5)
+
+`_inherit = "product.product"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_profile_ids` | Many2many → `qms.catalog.profile` | `relation="qms_profile_product_rel"`, `column1="product_id"`, `column2="profile_id"`, `string="Catalog Profiles"` |
+| `qms_effective_profile_ids` | Many2many → `qms.catalog.profile` | computed, not stored, `@api.depends("qms_profile_ids", "product_tmpl_id.qms_effective_profile_ids")` → own profiles `|` the template's effective set, which already folds in the category |
+
+Neither product-level field is recursive: neither depends on itself. The three
+computations together are the whole of plan D6 — additive across the levels, with a
+category profile reaching its subcategories — expressed once, in Python, and
+testable here rather than only through a view domain in `qms_nonconformity`.
+
 ## Security — `security/ir.model.access.csv`
 
 | id | name | model_id:id | group_id:id | r | w | c | u |
@@ -179,6 +275,9 @@ the same time. Only the direct clash is wrong.
 | `access_qms_object_part_manager` (step 3) | `qms.object.part.manager` | `model_qms_object_part` | `mgmtsystem.group_mgmtsystem_manager` | 1 | 1 | 1 | 1 |
 | `access_qms_catalog_profile_user` (step 4) | `qms.catalog.profile.user` | `model_qms_catalog_profile` | `base.group_user` | 1 | 0 | 0 | 0 |
 | `access_qms_catalog_profile_manager` (step 4) | `qms.catalog.profile.manager` | `model_qms_catalog_profile` | `mgmtsystem.group_mgmtsystem_manager` | 1 | 1 | 1 | 1 |
+
+Step 5 adds no rows: `product.product`, `product.template` and `product.category`
+carry their own access rules from core.
 
 ## Views — `views/qms_defect_code_views.xml`
 
@@ -239,9 +338,25 @@ same Codes tab and carry-over context.
 | XML id | Type | Content |
 |---|---|---|
 | `qms_catalog_profile_view_list` | list | `name`, `domain_kind`, `active` (`column_invisible="True"`) |
-| `qms_catalog_profile_view_form` | form | archived ribbon and hidden `active` as in the catalogs; group: `name`, `domain_kind`; then `defect_group_ids` and `object_part_group_ids`, each `widget="many2many_tags"` with `options="{'no_create': True}"`. Step 5 adds the assignment tab |
+| `qms_catalog_profile_view_form` | form | archived ribbon and hidden `active` as in the catalogs; group: `name`, `domain_kind`; then `defect_group_ids` and `object_part_group_ids`, each `widget="many2many_tags"` with `options="{'no_create': True}"`. Step 5 adds a notebook page `assignment` "Assignment" holding `product_ids`, `product_tmpl_ids` and `categ_ids`, each `widget="many2many_tags"` |
 | `qms_catalog_profile_view_search` | search | field `name`; field `defect_group_ids`; field `object_part_group_ids`; filter `archived`; group by `domain_kind` |
 | `qms_catalog_profile_action` | action | `name`: `Catalog Profiles`, `res_model`: `qms.catalog.profile`, `view_mode`: `list,form`, `search_view_id` |
+
+## Views — `views/product_views.xml` (step 5)
+
+| XML id | Inherits | Position | Content |
+|---|---|---|---|
+| `product_template_form_view` | `product.product_template_form_view` | `<notebook>` inside | page `qms_catalog_profiles` "Catalog Profiles": `qms_profile_ids` (`string="Assigned"`, `widget="many2many_tags"`, `options="{'no_create': True}"`) and `qms_effective_profile_ids` (`string="Effective"`, `widget="many2many_tags"`, `readonly="1"`) |
+| `product_category_form_view` | `product.product_category_form_view` | group `name="first"` after | group "Catalog Profiles" with the same two fields |
+
+The label is "Catalog Profiles", not "Quality Catalog": a profile carries
+`domain_kind` and serves maintenance as readily as quality.
+
+The variant form needs no inheritance of its own: core builds
+`product.product_normal_form_view` from the template form in `mode="primary"`
+(`odoo/addons/product/views/product_views.xml:480-486`), so the page appears there
+resolved against `product.product` — the variant's own profiles, and its own
+effective set, which shows what the template and category contribute.
 
 ## Menus — `views/qms_catalog_menus.xml`
 
@@ -256,7 +371,7 @@ same Codes tab and carry-over context.
 
 | File | Content |
 |---|---|
-| `tests/__init__.py` | `from . import common`, `from . import test_qms_catalog`, `from . import test_qms_catalog_profile` (step 4) |
+| `tests/__init__.py` | `from . import common`, `from . import test_qms_catalog`, `from . import test_qms_catalog_profile` (step 4), `from . import test_qms_catalog_assignment` (step 5) |
 | `tests/common.py` | `CatalogCommon`, a plain class holding `setUpClass` and every test method, driven by a `model_name` attribute, with `allow_inherited_tests_method = True`. The loader never scans this file anyway: `_get_tests_modules` only imports modules named `test_*` (`odoo/tests/loader.py:56-67`) |
 | `tests/test_qms_catalog.py` | `TestQmsDefectCode(CatalogCommon, TransactionCase)` with `model_name = "qms.defect.code"`, and `TestQmsObjectPart(CatalogCommon, TransactionCase)` with `model_name = "qms.object.part"`; plus `TestCatalogIndependence(TransactionCase)` |
 
@@ -272,10 +387,9 @@ subclasses yield no tests at all and the run reports success. It is declared onc
 on `CatalogCommon`, since `getattr` walks the MRO. The loader calls the mechanism
 provisional in a comment, so re-check it on any Odoo upgrade.
 
-**The run must report 28 tests** from step 4 on — ten per catalog, the independence
-test, and seven in the profile class; it was 21 through step 3. A smaller number
-means collection broke, not that the suite got faster. `odoo.tests.stats` counts
-module-level entries on top, so it reads 36.
+**The run must report 34 tests** from step 5 on. Earlier: 28 through step 4,
+21 through step 3. A smaller number means collection broke, not that the
+suite got faster. `odoo.tests.stats` counts module-level entries on top.
 
 Both catalogs are the mixin's behaviour, so the suite runs twice over the same
 assertions — 20 tests instead of 10 — and step 4 adds its profile tests without
@@ -327,6 +441,19 @@ The `domain_kind` carry-over is a view context default, not Python, so it is ver
 | `test_domain_kind_profile_narrowed` | a `both` profile holding a `pm` group, changed to `qm`, raises `ValidationError` — the only test covering `domain_kind` in the constraint's own trigger list |
 | `test_domain_kind_both_accepted` | a `both` group in a `qm` profile, and any group in a `both` profile, are accepted |
 
+**`TestCatalogAssignment(TransactionCase)`** (step 5), in `tests/test_qms_catalog_assignment.py`.
+Fixtures: categories `Parent` → `Child`, a template in `Child` with one variant, and
+three profiles — one on the parent category, one on the template, one on the variant.
+
+| Test | Asserts |
+|---|---|
+| `test_category_chain` | the child category's effective set contains the parent category's profile |
+| `test_template_effective` | the template's effective set is its own profile plus the category chain's |
+| `test_product_effective` | the variant's effective set is all three — the additive rule of plan D6, in one assertion |
+| `test_product_without_assignment` | a product with no profile anywhere resolves to an empty set, which is what makes the §7.6 dropdown fall back to empty rather than to everything |
+| `test_category_ancestor_invalidation` | read the child's effective set, add a profile to the **grand**parent category, read again — the new profile is there. This is what `recursive=True` buys; with a `parent_id`-only dependency the second read returns the cached value |
+| `test_profile_inverse_assignment` | assigning from the profile side populates `qms_profile_ids` on the product, template and category, and clearing it empties them |
+
 **`TestCatalogIndependence(TransactionCase)`** (step 3), outside `CatalogCommon`:
 
 | Test | Asserts |
@@ -338,4 +465,4 @@ The `domain_kind` carry-over is a view context default, not Python, so it is ver
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | `Coded vocabularies for defects and object parts, organised as two-level trees (group → code), scoped to products through catalog profiles.` |
-| `readme/USAGE.md` (step 2) | The two-level rule: a record with no group is a code group, its children are codes, and no third level is allowed. A code's domain must fit its group's — `qm` under `qm`, `pm` under `pm`, any under `both`. `ref_code` is required and unique within each catalog |
+| `readme/USAGE.md` (steps 2, 5) | Two sections. **Catalogs**: the two-level rule, the domain rule, and `ref_code` required and unique within each catalog including archived records. **Catalog profiles**: profiles bundle groups not codes, a group's domain must not clash with the profile's, assignment on variant / product / category is additive and reaches parent categories, the Effective field shows the result, and a product with no profile offers no codes until the filter is cleared |

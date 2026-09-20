@@ -304,6 +304,11 @@ profiles, since product forms display the assignment. Only
 `mgmtsystem.group_mgmtsystem_manager` can create, edit or delete them, which is
 also the group that sees the *Configuration* menu.
 
+**Resolution.** `qms_catalog` exposes the result as `qms_effective_profile_ids`, a
+computed, non-stored Many2many on `product.category` (own profiles plus every
+ancestor's), `product.template` (own plus its category's) and `product.product`
+(own plus its template's). This is the single place the additive rule is expressed.
+
 **Equipment needs no assignment of its own.** `maintenance_product` gives
 `maintenance.equipment.product_id`, so equipment resolves its profile through its
 product. One resolution path serves both domains.
@@ -426,30 +431,27 @@ snapshot columns to this model, which is additive and breaks nothing.
 
 ### 7.6 Code filtering
 
-The item's defect and object-part fields carry a **static search domain**
-traversing profile assignment:
+The item's defect and object-part fields carry a **static search domain** that
+reads the product's resolved profiles:
 
 ```python
-['|', '|',
- ('parent_id.profile_ids.product_ids', '=', parent.product_id),
- ('parent_id.profile_ids.product_tmpl_ids.product_variant_ids', '=', parent.product_id),
- ('parent_id.profile_ids.categ_ids', 'parent_of', parent.qms_product_categ_id)]
+[('parent_id.profile_ids', 'in', parent.qms_effective_profile_ids)]
 ```
+
+`qms_catalog` computes those profiles as `qms_effective_profile_ids` on
+`product.product` — its own profiles, its template's, and its category's
+including every ancestor category (§7.2). The nonconformity exposes the
+product's set as a related field of the same name (§7.9), and the domain matches
+any code whose group belongs to one of them.
 
 This requires `profile_ids` as the inverse Many2many on the catalog models —
 free, being the other end of an existing relation.
 
-The category leg uses `parent_of` so that profiles on parent categories apply
-(§7.2). Odoo 18's domain engine supports hierarchy operators on a Many2many
-whose comodel has `_parent_store` (`odoo/osv/expression.py`), and
-`product.category` has it. The client evaluates `parent.<field>` to an id only,
-so the product's category is exposed on the nonconformity header as
-`qms_product_categ_id` (§7.9).
-
-*Correction:* an earlier revision traversed
-`categ_ids.product_tmpl_ids.product_variant_ids`. `product.category` has no
-`product_tmpl_ids` field, so that leg could not work, and it would have ignored
-parent categories in any case.
+The additive rule of D6 lives in the computation, not here, so it is stated once
+and tested in `qms_catalog`. Core uses the same shape of domain — an x2many read
+from the parent record — at
+`odoo/addons/point_of_sale/views/pos_order_view.xml:157`, against the non-stored
+field at `pos_order.py:353`.
 
 **Fallback behaviour is by design:** if a product resolves to no profile, the
 dropdown is empty and the user removes the condition from the search panel to
@@ -458,9 +460,8 @@ field means the restriction is always visible and always escapable, which is the
 unintrusive principle applied literally.
 
 **Known constraint:** `parent_id.` is exactly one hop, so the catalog trees must
-stay **two levels deep** (group → code). A third level would require replacing
-the domain with a `child_of` computation. Document this in the catalog's user
-guidance.
+stay **two levels deep** (group → code). `qms_catalog` enforces that with
+`_check_catalog_depth`.
 
 ### 7.7 Actions
 
@@ -513,7 +514,7 @@ No gate between the primary transactions and the nonconformity — see D11.
 | `response_ids` | One2many → `qms.nonconformity.response` | what was indicated |
 | `disposition` | Selection | `accept` / `accept_rework` / `scrap` / `return_supplier` / `reinspect` |
 | `partner_id` | Many2one | **override to `required=False`** |
-| `qms_product_categ_id` | Many2one → `product.category` | related `product_id.categ_id`; feeds the §7.6 domain |
+| `qms_effective_profile_ids` | Many2many → `qms.catalog.profile` | related `product_id.qms_effective_profile_ids`, readonly; feeds the §7.6 domain |
 
 The existing **Procedures** tab (`procedure_ids` → `document.page`) is **left
 untouched**. It holds documents a human attached; rule-derived documents live on
@@ -749,8 +750,8 @@ Recorded so future work does not relitigate them.
 | D3 | Separate catalog models sharing an abstract mixin | Generic-model-with-type-discriminator would have prevented reuse of OCA's existing catalogs and forced duplicate Cause/Origin models | One generic catalog model |
 | D4 | Profiles reference groups only — never codes, never other profiles | Two tiers already exist inside the catalog; nesting profiles would let one restriction be expressed two ways | Recursive profiles |
 | D5 | Profiles attach to Product only | `maintenance_product` unifies Equipment with Product, so one resolution path serves both domains — cheaper than SAP's dual assignment | Separate equipment profile fields |
-| D6 | Assignment is additive across product / template / category, and a category profile also applies to subcategories | Profiles widen vocabulary; override would silently drop the broader set. Mirrors `quality_control_oca` Test assignment, which is additive and walks up the category tree | Nearest-level-wins; direct category only |
-| D7 | Filtering by static search domain, not a computed field | Keeps the restriction visible and user-removable in the search panel; no Python | Computed field with `child_of` |
+| D6 | Assignment is additive across product / template / category, and a category profile also applies to subcategories. The rule is computed in `qms_catalog` as `qms_effective_profile_ids`, never re-encoded in a domain | Profiles widen vocabulary; override would silently drop the broader set. Mirrors `quality_control_oca` Test assignment, which is additive and walks up the category tree. Expressing it once, in Python, makes it testable where it is defined and leaves the filter with no rule to drift from | Nearest-level-wins; direct category only; the rule spelled out again in the §7.6 domain |
+| D7 | Filtering by static search domain, over a computed set of profiles | The domain keeps the restriction visible and removable in the search panel, which is the point of the decision. Resolving *which* profiles apply is a computation, and doing it in Python beats a second encoding of D6 inside the domain | A domain that walks the assignment relations itself; a computed field that filters the codes directly |
 | D8 | Determination by wildcard conditions ranked by specificity | Pre-creating every defect × part × cause combination is combinatorially impossible. Group-level rules collapse dozens of cases into one | Pre-built profile picklist |
 | D9 | Suggestions written by button, not `compute=` | A `compute=` field silently rewrites historical suggestions when rules change, destroying the audit comparison | Computed suggestion field |
 | D10 | No Activity model. `type_action` plus stage lifecycle covers it | "Kind of response" and "planned vs performed" are independent axes and both already exist | Separate activity log, or an extra NC phase |

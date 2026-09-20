@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- The variant form (product.product_normal_form_view) is built from this
+         template form in mode="primary", so the page below appears there too,
+         resolved against product.product: the variant's own profiles and its
+         own effective set. -->
+    <record id="product_template_form_view" model="ir.ui.view">
+        <field name="name">product.template.form.qms.catalog.profile</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view" />
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page name="qms_catalog_profiles" string="Catalog Profiles">
+                    <group>
+                        <field
+                            name="qms_profile_ids"
+                            string="Assigned"
+                            widget="many2many_tags"
+                            options="{'no_create': True}"
+                        />
+                        <field
+                            name="qms_effective_profile_ids"
+                            string="Effective"
+                            widget="many2many_tags"
+                            readonly="1"
+                        />
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+    <record id="product_category_form_view" model="ir.ui.view">
+        <field name="name">product.category.form.qms.catalog.profile</field>
+        <field name="model">product.category</field>
+        <field name="inherit_id" ref="product.product_category_form_view" />
+        <field name="arch" type="xml">
+            <group name="first" position="after">
+                <group name="qms_catalog_profiles" string="Catalog Profiles">
+                    <field
+                        name="qms_profile_ids"
+                        string="Assigned"
+                        widget="many2many_tags"
+                        options="{'no_create': True}"
+                    />
+                    <field
+                        name="qms_effective_profile_ids"
+                        string="Effective"
+                        widget="many2many_tags"
+                        readonly="1"
+                    />
+                </group>
+            </group>
+        </field>
+    </record>
+
+</odoo>
