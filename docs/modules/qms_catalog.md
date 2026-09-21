@@ -417,7 +417,7 @@ where UPDATEs really are deferred.
 | Test | Asserts |
 |---|---|
 | `test_display_name` | group → `Group A`; code → `Group A / Code One` |
-| `test_name_search_ref_code` | `name_search("GRP-01")` returns the code |
+| `test_name_search_ref_code` | `name_search(f"{code_prefix}-GRP-01")` returns the code |
 | `test_depth_code_under_code` | a code given a code as its group raises `ValidationError` |
 | `test_depth_group_with_codes` | a group that has codes, given a group, raises `ValidationError` |
 | `test_depth_self_parent` | a record set as its own group raises `UserError` from the `_parent_store` recursion check |

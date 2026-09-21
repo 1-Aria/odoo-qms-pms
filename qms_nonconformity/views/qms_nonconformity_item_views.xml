@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- The catalog domains match a code whose GROUP belongs to one of the
+         product's resolved profiles. A group itself has parent_id = False, so
+         it never matches: an item always carries a leaf code. -->
+    <record id="qms_nonconformity_item_view_list" model="ir.ui.view">
+        <field name="name">qms.nonconformity.item.list</field>
+        <field name="model">qms.nonconformity.item</field>
+        <field name="arch" type="xml">
+            <list string="Analysis Items" editable="bottom">
+                <field name="sequence" widget="handle" />
+                <field
+                    name="defect_code_id"
+                    domain="[('parent_id.profile_ids', 'in', parent.qms_effective_profile_ids)]"
+                    options="{'no_create': True}"
+                />
+                <field
+                    name="object_part_id"
+                    domain="[('parent_id.profile_ids', 'in', parent.qms_effective_profile_ids)]"
+                    options="{'no_create': True}"
+                />
+                <field name="cause_id" options="{'no_create': True}" />
+                <field name="severity_id" options="{'no_create': True}" />
+                <field name="qty_affected" />
+                <field name="note" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_nonconformity_item_view_form" model="ir.ui.view">
+        <field name="name">qms.nonconformity.item.form</field>
+        <field name="model">qms.nonconformity.item</field>
+        <field name="arch" type="xml">
+            <form string="Analysis Item">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="defect_code_id" options="{'no_create': True}" />
+                            <field name="object_part_id" options="{'no_create': True}" />
+                            <field name="cause_id" options="{'no_create': True}" />
+                        </group>
+                        <group>
+                            <field name="severity_id" options="{'no_create': True}" />
+                            <field name="qty_affected" />
+                            <field name="note" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+</odoo>

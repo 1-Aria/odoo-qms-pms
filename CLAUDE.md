@@ -192,6 +192,21 @@ These changed in Odoo 17 and catch code written against older versions:
 - Computed fields need `@api.depends`; the method is `_compute_<field_name>`.
 - A stored computed field needs `store=True` explicitly.
 
+### Tests that create core records
+
+**A test whose fixtures create a record of a core model other modules extend —
+`product.template`, `product.product`, `res.partner`, `res.users` — must be
+`@tagged("post_install", "-at_install")`.**
+
+`at_install` tests run the moment their own module loads, while modules further down
+the graph are still unloaded. Columns those modules added are NOT NULL in the database
+but absent from the registry, so no default applies and the INSERT fails. Seen twice:
+`res_partner.autopost_bills` (from `account`) and `product_template.sale_line_warn`
+(from `sale`). OCA documents the same trap in
+`maintenance_plan/tests/common.py:10-14`.
+
+Everything else stays `at_install`, where a test runs closest to the change it guards.
+
 ### Security
 
 **Every new model needs an `ir.model.access.csv` entry** or it is inaccessible,
