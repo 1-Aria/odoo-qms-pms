@@ -9,7 +9,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 |---|---|---|---|
 | 1 | `qms.nonconformity.item`, header `item_ids`, items in Causes and Analysis, §7.6 code filtering | done | installed and tested 2026-09-21, `exit=0`, 7 tests, 0 failures; the Analysis Items dropdown was confirmed in the browser to offer only the product's profiled leaf codes, and the page reads Analysis → Analysis Items → Analysis Confirmation with no Causes section. Two failures on the way: `setUpClass` creating a product at `at_install` hit `product_template.sale_line_warn`, fixed with the `post_install` tag; and the first placement used `separator[@string='Causes']` as an inheritance selector, which core refuses, fixed by selecting the separator positionally |
 | 2 | Header: `partner_id` relaxed, responsible / manager prefill, `disposition_id` and the `qms.disposition` model, and the `qms_nonconformity_hr` bridge for department and manager | done | two passes, both 2026-09-21. First: Selection-based disposition, `exit=0`, 12 tests + 2 in the bridge. Reopened the same day to make disposition a user-editable model while the column held no real data, and to move the manager prefill into the bridge — `res.users.employee_id` comes from `hr`, which `qms_nonconformity` does not depend on, so `default_get` would have raised `AttributeError` anywhere `hr` was absent. Second pass `exit=0`, 10 tests here and 4 in the bridge, UI checked: partner optional, prefill working, dispositions listed under Configuration → Nonconformities with `code` greyed out, archived filter working |
-| 3 | `qms_severity_rank`, seed hook (must be safe to fail — inert ranks beat a failed install), `default_severity_id` on `qms.defect.code`, item severity default, header roll-up, and confirming the ranks on this instance | proposed | |
+| 3 | `qms_severity_rank` shown on the severity form, `default_severity_id` on `qms.defect.code`, item severity default, header roll-up | done | upgraded and tested 2026-09-21, `exit=0`, 19 tests, 0 failures; the header recompute over existing nonconformities ran clean; UI checked: rank on the severity form, default severity on defect codes, items and header filling in. Rank seeding was dropped before any code was written — each implementation defines its own severities, so ranks start at 0 and the unconfigured state is documented and tested (the first item wins ties). A review then showed no test moved an existing item's `sequence`, so `item_ids.sequence` in `@api.depends` was unproven; `test_header_rollup_follows_reorder` closes that |
 
 ## Divergences from the plan
 
@@ -21,6 +21,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 4 | §7.4 says the header's `cause_ids` "remains for compatibility and rolls up from the items" | no roll-up; the header's cause list is hidden on the form | Cause is analysis, and analysis is per item: one nonconformity can hold three defects with three different causes, so a header list of them states nothing a reader can act on. Severity rolls up because it has a rank and a defensible aggregate — the most severe item. Cause has no such ordering. The field is hidden rather than removed, so it stays available to other views, to the API and to any OCA code that reads it |
 | 5 | §8 lists nine modules and does not include an HR bridge | `qms_nonconformity_hr` exists | `department_id` belongs to `mgmtsystem_nonconformity_hr`, which is `auto_install` on `hr`. Depending on it directly would force `hr` onto every site running the quality system, so the default lives in an `auto_install` bridge — the same pattern OCA uses for the field |
 | 6 | §7.9 makes `disposition` a Selection with five fixed values | `disposition_id`, a Many2one to a new `qms.disposition` model seeded with those five | Every other vocabulary in this system is a record the user controls; a hardcoded list is the odd one out and is exactly what a plant will want to extend. Logic branches on `qms.disposition.code`, not on ids |
+| 7 | §7.4 has the item's `severity_id` "populated by onchange from `defect_code_id.default_severity_id`" | a stored, editable compute on `defect_code_id` | An onchange fires only in a form, so items created in code — the inspection prefill in `qms_quality_control` — would get no severity. The compute keeps the field editable, and a manual value stands until the defect code changes |
 
 ## Known traps in the base modules
 
@@ -54,11 +55,13 @@ qms_nonconformity/
 ├── views/
 │   ├── qms_nonconformity_item_views.xml                  # 1
 │   ├── qms_disposition_views.xml                         # 2
-│   └── mgmtsystem_nonconformity_views.xml                # 1 (items), 2 (disposition)
-├── __init__.py hook                                      # 3 (severity rank seed)
+│   ├── mgmtsystem_nonconformity_views.xml                # 1 (items), 2 (disposition)
+│   ├── mgmtsystem_nonconformity_severity_views.xml       # 3 (rank on the severity form)
+│   └── qms_defect_code_views.xml                         # 3 (default severity on the code)
 ├── tests/__init__.py, test_qms_nonconformity_item.py     # 1
 │         test_qms_nonconformity_header.py                # 2
-└── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), later (USAGE)
+│         test_qms_nonconformity_severity.py              # 3
+└── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), 3 (USAGE)
 ```
 
 ## Manifest
@@ -73,7 +76,7 @@ qms_nonconformity/
 | `license` | `AGPL-3` |
 | `category` | `Management System` |
 | `depends` | `qms_catalog`, `mgmtsystem_nonconformity`, `mgmtsystem_nonconformity_product` |
-| `data` | `security/ir.model.access.csv`, `data/qms_disposition.xml` (step 2), `views/qms_nonconformity_item_views.xml`, `views/qms_disposition_views.xml` (step 2), `views/mgmtsystem_nonconformity_views.xml` |
+| `data` | `security/ir.model.access.csv`, `data/qms_disposition.xml` (step 2), `views/qms_nonconformity_item_views.xml`, `views/qms_disposition_views.xml` (step 2), `views/mgmtsystem_nonconformity_views.xml`, `views/mgmtsystem_nonconformity_severity_views.xml` (step 3), `views/qms_defect_code_views.xml` (step 3) |
 | `installable` | `True` |
 
 `mgmtsystem_nonconformity_product` supplies `product_id`, which the filtering resolves
@@ -84,7 +87,7 @@ through. `mgmtsystem_partner` is **not** a dependency — see divergence 3.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import qms_disposition` (step 2), `from . import mgmtsystem_nonconformity` |
+| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import qms_disposition` (step 2), `from . import mgmtsystem_nonconformity`, `from . import mgmtsystem_nonconformity_severity`, `from . import qms_defect_code` (step 3) |
 
 ## Models
 
@@ -219,8 +222,9 @@ reorders them is never overwritten on upgrade.
 | `disposition_return_supplier` | `return_supplier` | Return to Supplier | 40 |
 | `disposition_reinspect` | `reinspect` | Re-inspect | 50 |
 
-These are our own records, so a plain data file is right — the safe-to-fail hook of step 3
-exists only because those seeds write onto OCA's records.
+These are our own records and the plan's own starting vocabulary, so a plain data file is
+right. Severity ranks are deliberately **not** seeded (step 3): they would be guesses about
+meaning OCA never defined, onto records this module does not own.
 
 ### Views — `views/qms_disposition_views.xml`
 
@@ -296,7 +300,7 @@ caller's own rights.
 
 | Field | Type | Attributes |
 |---|---|---|
-| `qms_severity_rank` | Integer | `default=0`, higher is more severe |
+| `qms_severity_rank` | Integer | `string="Severity Rank"`, `default=0`, higher is more severe, `help="Higher is more severe. A nonconformity takes the severity of its most severe item, so ranks must be set for that to mean anything."` |
 
 An explicit rank rather than reusing `sequence`: OCA exposes `sequence` as an editable
 field on the severity form (`views/mgmtsystem_severity.xml:19`), so anyone tidying the
@@ -316,25 +320,29 @@ renumbering, and higher-is-worse so the roll-up is a plain `max()` that nobody m
 Plan §7.1 puts this field here rather than in `qms_catalog`, which knows nothing of the
 severity model. Shown on the defect-code form and list by an inherited view.
 
-### Rank seeding — `__init__.py` hook and `migrations/18.0.1.1.0/post-migrate.py`
+**No ranks are seeded.** Each implementation defines its own severities and their order;
+OCA's three records are placeholders with no defined meaning, so ranking them would
+impose a guess. Every rank starts at 0, and the roll-up's tie rule makes that state
+well-defined: with no ranks set, a nonconformity takes the severity of its first item by
+`sequence` then `id`. Configuring the ranks is the implementor's job, and the field is
+exposed where they configure severities.
 
-| Value | `qms_severity_rank` |
+### Views — `views/mgmtsystem_nonconformity_severity_views.xml`
+
+Inherits `mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_severity_form`.
+
+| Position | Content |
 |---|---|
-| Unfounded | 0 |
-| Minor | 10 |
-| Major | 20 |
+| field `sequence` after | `qms_severity_rank` |
 
-Both paths call one `_seed_severity_ranks(env)` helper, which looks each record up with
-`env.ref(..., raise_if_not_found=False)` and writes only what it finds, and only where the
-rank is still 0. **It must never break an install**: a renamed or deleted OCA record
-leaves the ranks inert, which is recoverable by hand, while a failed install is not.
+OCA ships a form but no list view for severities, so the form is where the rank goes.
 
-Two paths because they cover different situations. `post_init_hook` runs on a fresh
-install and never on upgrade, and this module is already installed here — so without the
-migration the ranks would stay 0 on this instance, which is exactly the "configure the
-ranks" task the steps table used to carry. The version moves to `18.0.1.1.0` to trigger
-it. OCA does the same thing in this very module
-(`mgmtsystem_nonconformity/migrations/16.0.1.1.0/pre-migrate.py`).
+### Views — `views/qms_defect_code_views.xml`
+
+| Inherits | Position | Content |
+|---|---|---|
+| `qms_catalog.qms_defect_code_view_form` | field `domain_kind` after | `default_severity_id`, `options="{'no_create': True}"` |
+| `qms_catalog.qms_defect_code_view_list` | field `domain_kind` after | `default_severity_id`, `optional="show"` |
 
 ### Item severity — `models/qms_nonconformity_item.py`
 
@@ -352,16 +360,19 @@ the right answer, because the item is now about a different defect.
 
 | Field | Change |
 |---|---|
-| `severity_id` | becomes `compute="_compute_severity_id"`, `store=True`, `readonly=False`, `tracking=True`, `@api.depends("item_ids.severity_id")` |
+| `severity_id` | becomes `compute="_compute_severity_id"`, `store=True`, `readonly=False`, `tracking=True`, `@api.depends("item_ids.severity_id", "item_ids.sequence")` |
 
 Rules, all of which the doc states because the field is a stored compute with a
 deliberately incomplete dependency list:
 
-- **no items** — leave the value alone rather than blanking what someone set
+- **no items** — leave the value alone rather than blanking what someone set; an
+  editable stored compute keeps a record's value when the method does not assign it, as
+  `hr.employee._compute_parent_id` relies on (`hr/models/hr_employee_base.py:253-256`)
 - **items with no severity** — skipped, not treated as rank 0
 - **highest `qms_severity_rank` wins**; ties, including the common case where every rank
   is still 0, resolve to the first item by `sequence` then `id`, so it degrades to "the
-  first item's severity" rather than to something arbitrary
+  first item's severity" rather than to something arbitrary — which is why
+  `item_ids.sequence` is a dependency: reordering items can change the answer
 - **`qms_severity_rank` is deliberately absent from `@api.depends`.** Re-ranking severities
   would otherwise recompute every nonconformity that has not been overridden, rewriting
   closed records and, because the field is tracked, posting chatter on each. The roll-up
@@ -465,3 +476,30 @@ is a working database.
 
 The last two exercise the domain as a **search**, which is what the client ultimately
 sends. Whether the client resolves `parent.` to fill it is the browser check above.
+
+## Tests — `tests/test_qms_nonconformity_severity.py` (step 3)
+
+`TestNonconformitySeverity(TransactionCase)`, `@tagged("post_install", "-at_install")` like
+the other two classes. Fixtures create their **own** severities with explicit ranks —
+`Low` 10, `High` 20, `Unranked` 0 — rather than relying on OCA's records, whose ranks
+this module never sets.
+
+| Test | Asserts |
+|---|---|
+| `test_item_severity_from_defect_code` | a new item takes its defect code's `default_severity_id` |
+| `test_item_severity_manual_kept` | a severity set by hand on the item survives a write to another field |
+| `test_item_severity_rederived_on_code_change` | changing the item's defect code replaces a manual severity with the new code's default |
+| `test_header_rollup_highest_rank` | with a `Low` and a `High` item, the header takes `High` |
+| `test_header_rollup_all_zero_first_item` | with every rank at 0 — the unconfigured state — the header takes the first item's severity by `sequence`, not the last or an arbitrary one |
+| `test_header_rollup_follows_reorder` | two rank-0 items; moving the first below the second switches the header to the other's severity — the only test that changes an existing item's `sequence`, so the only one exercising `item_ids.sequence` in `@api.depends`. Equal ranks are deliberate: with different ranks order never decides |
+| `test_header_rollup_skips_unset` | an item without severity does not count as rank 0 and does not win |
+| `test_header_no_items_untouched` | a severity set on a header with no items is not blanked |
+| `test_rank_change_does_not_recompute` | raising `Low`'s rank above `High` leaves the stored header severity unchanged until an item changes — `qms_severity_rank` is deliberately outside `@api.depends` |
+
+## Readme
+
+| File | Content |
+|---|---|
+| `readme/DESCRIPTION.md` | Multi-line analysis on the nonconformity, catalog dropdowns scoped to the product's profiles |
+| `readme/USAGE.md` (step 3) | Analysis items in Causes and Analysis; the header's cause list is hidden because cause is per item; dispositions are configurable, and automation matches on their code. **Severity ranks start at 0 and must be set** under *Configuration → Nonconformities → Severities*: higher is more severe, and a nonconformity takes the severity of its most severe item. Until ranks are set it takes its first item's severity. Re-ranking does not rewrite existing nonconformities |
+

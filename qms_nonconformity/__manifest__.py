@@ -20,6 +20,8 @@
         "views/qms_nonconformity_item_views.xml",
         "views/qms_disposition_views.xml",
         "views/mgmtsystem_nonconformity_views.xml",
+        "views/mgmtsystem_nonconformity_severity_views.xml",
+        "views/qms_defect_code_views.xml",
     ],
     "installable": True,
 }

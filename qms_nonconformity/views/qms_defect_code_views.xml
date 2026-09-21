@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="qms_defect_code_view_form" model="ir.ui.view">
+        <field name="name">qms.defect.code.form.qms.severity</field>
+        <field name="model">qms.defect.code</field>
+        <field name="inherit_id" ref="qms_catalog.qms_defect_code_view_form" />
+        <field name="arch" type="xml">
+            <field name="domain_kind" position="after">
+                <field name="default_severity_id" options="{'no_create': True}" />
+            </field>
+        </field>
+    </record>
+
+    <record id="qms_defect_code_view_list" model="ir.ui.view">
+        <field name="name">qms.defect.code.list.qms.severity</field>
+        <field name="model">qms.defect.code</field>
+        <field name="inherit_id" ref="qms_catalog.qms_defect_code_view_list" />
+        <field name="arch" type="xml">
+            <field name="domain_kind" position="after">
+                <field name="default_severity_id" optional="show" />
+            </field>
+        </field>
+    </record>
+
+</odoo>

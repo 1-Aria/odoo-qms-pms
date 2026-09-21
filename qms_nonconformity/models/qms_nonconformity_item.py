@@ -1,6 +1,6 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class QmsNonconformityItem(models.Model):
@@ -43,6 +43,21 @@ class QmsNonconformityItem(models.Model):
         comodel_name="mgmtsystem.nonconformity.severity",
         string="Severity",
         ondelete="restrict",
+        compute="_compute_severity_id",
+        store=True,
+        readonly=False,
     )
     qty_affected = fields.Float(string="Quantity Affected")
     note = fields.Char()
+
+    @api.depends("defect_code_id")
+    def _compute_severity_id(self):
+        """Take the defect code's default severity.
+
+        A compute rather than the onchange plan 7.4 names, so items created in
+        code -- the inspection prefill -- get a severity too. Editable: a
+        manual value stands until the defect code changes, when the item is
+        about a different defect and re-deriving is the right answer.
+        """
+        for item in self:
+            item.severity_id = item.defect_code_id.default_severity_id

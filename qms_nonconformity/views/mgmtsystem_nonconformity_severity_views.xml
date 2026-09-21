@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- OCA ships a form but no list view for severities, so the rank goes on
+         the form, beside the display sequence it must not be confused with. -->
+    <record id="view_mgmtsystem_nonconformity_severity_form" model="ir.ui.view">
+        <field name="name">mgmtsystem.nonconformity.severity.form.qms.rank</field>
+        <field name="model">mgmtsystem.nonconformity.severity</field>
+        <field
+            name="inherit_id"
+            ref="mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_severity_form"
+        />
+        <field name="arch" type="xml">
+            <field name="sequence" position="after">
+                <field name="qms_severity_rank" />
+            </field>
+        </field>
+    </record>
+
+</odoo>
