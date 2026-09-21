@@ -11,6 +11,16 @@
         />
         <field name="arch" type="xml">
 
+            <!-- Disposition is a header verdict, set at closure (plan 7.8),
+                 so it sits with the other header fields rather than on a
+                 page the user has already left behind. -->
+            <group name="meta" position="inside">
+                <field
+                    name="disposition"
+                    readonly="state in ('done', 'cancel')"
+                />
+            </group>
+
             <!-- The analysis items sit in Causes and Analysis, right after the
                  Analysis text. -->
             <field name="analysis" position="after">

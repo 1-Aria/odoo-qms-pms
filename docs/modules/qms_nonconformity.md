@@ -8,7 +8,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | # | Scope | Status | Result |
 |---|---|---|---|
 | 1 | `qms.nonconformity.item`, header `item_ids`, items in Causes and Analysis, §7.6 code filtering | done | installed and tested 2026-09-21, `exit=0`, 7 tests, 0 failures; the Analysis Items dropdown was confirmed in the browser to offer only the product's profiled leaf codes, and the page reads Analysis → Analysis Items → Analysis Confirmation with no Causes section. Two failures on the way: `setUpClass` creating a product at `at_install` hit `product_template.sale_line_warn`, fixed with the `post_install` tag; and the first placement used `separator[@string='Causes']` as an inheritance selector, which core refuses, fixed by selecting the separator positionally |
-| 2 | Header: `partner_id` relaxed, responsible / manager / department prefill, `disposition` | — | |
+| 2 | Header: `partner_id` relaxed, responsible / manager prefill, `disposition`, and the `qms_nonconformity_hr` bridge for department | proposed | |
 | 3 | `qms_severity_rank`, seed hook (must be safe to fail — inert ranks beat a failed install), `default_severity_id` on `qms.defect.code`, header roll-up, and confirming the ranks on this instance | — | |
 
 ## Divergences from the plan
@@ -19,6 +19,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 2 | §7.6 resolves the product's category on the nonconformity | the header carries `qms_effective_profile_ids`, related to the product | The plan was amended for this on 2026-09-20; `qms_catalog` computes the resolved set, so the domain reads it directly |
 | 3 | §8 lists `mgmtsystem_partner` among this module's dependencies | not a dependency | `mgmtsystem_partner` adds one line — a `quality` option to `res.partner.type` (`models/res_partner.py:16`) — and never touches `mgmtsystem.nonconformity`. `partner_id` and its `required=True` both come from base `mgmtsystem_nonconformity`, which we do depend on, and nothing here uses `type='quality'` |
 | 4 | §7.4 says the header's `cause_ids` "remains for compatibility and rolls up from the items" | no roll-up; the header's cause list is hidden on the form | Cause is analysis, and analysis is per item: one nonconformity can hold three defects with three different causes, so a header list of them states nothing a reader can act on. Severity rolls up because it has a rank and a defensible aggregate — the most severe item. Cause has no such ordering. The field is hidden rather than removed, so it stays available to other views, to the API and to any OCA code that reads it |
+| 5 | §8 lists nine modules and does not include an HR bridge | `qms_nonconformity_hr` exists | `department_id` belongs to `mgmtsystem_nonconformity_hr`, which is `auto_install` on `hr`. Depending on it directly would force `hr` onto every site running the quality system, so the default lives in an `auto_install` bridge — the same pattern OCA uses for the field |
 
 ## Known traps in the base modules
 
@@ -150,6 +151,72 @@ stop resolving it, the fix is one line: declare `qms_effective_profile_ids`
 user removes the condition from the search panel to see the whole catalog. A
 nonconformity with no product resolves to an empty set and behaves the same way.
 
+## Header changes (step 2)
+
+### `mgmtsystem.nonconformity` — `models/mgmtsystem_nonconformity.py`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `partner_id` | Many2one → `res.partner` | `required=False` — the whole override; every other attribute is inherited |
+| `disposition` | Selection | `[("accept", "Accept"), ("accept_rework", "Accept after Rework"), ("scrap", "Scrap"), ("return_supplier", "Return to Supplier"), ("reinspect", "Re-inspect")]`, `tracking=True`, no default |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_default_responsible_user_id` | — | `self.env.user`, mirroring how the base model defaults `user_id` |
+| `_default_manager_user_id` | — | `self.env.user.employee_id.parent_id.user_id`, read **through `sudo()`**, empty when any hop is missing |
+
+`hr.employee` is readable only by `hr.group_hr_user` and `base.group_system`
+(`hr/security/ir.model.access.csv:4-5`), so a management-system user walking
+`employee_id.parent_id` unprivileged would raise `AccessError`. The defaults read the
+chain with `sudo()` and return nothing rather than raising when the user has no
+employee, no manager, or a manager with no user account — `manager_user_id` stays
+required, so the form simply asks for it.
+
+Both are **defaults, not computes**: they fill a new record and never revisit it, so an
+edit sticks and later changes to the org chart do not rewrite existing nonconformities.
+
+**Department is not here**: it comes from `mgmtsystem_nonconformity_hr`, so its default lives in the `qms_nonconformity_hr` bridge below.
+
+### Views — `views/mgmtsystem_nonconformity_views.xml`
+
+| Position | Content |
+|---|---|
+| group `meta` inside | `disposition`, `readonly="state in ('done', 'cancel')"` |
+
+`disposition` sits with responsible, manager and filled-in-by rather than on a page: it
+is a header verdict, and plan §7.8 has it set at closure, by which point the analysis
+pages are behind the user.
+
+### `qms_nonconformity_hr` — the department bridge (step 2)
+
+A separate module, so `qms_nonconformity` never depends on `hr`. It installs itself
+exactly when both sides are present, which is what `mgmtsystem_nonconformity_hr` does
+for the field itself.
+
+```
+qms_nonconformity_hr/
+├── __init__.py, __manifest__.py
+├── models/__init__.py, mgmtsystem_nonconformity.py
+└── readme/DESCRIPTION.md
+```
+
+| Key | Value |
+|---|---|
+| `name` | `QMS Nonconformity HR` |
+| `summary` | `Fill the nonconformity's department from the user who reports it` |
+| `depends` | `qms_nonconformity`, `mgmtsystem_nonconformity_hr` |
+| `auto_install` | `True` |
+| `data` | none |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_default_department_id` | — | `self.env.user.sudo().department_id`, empty when the user has no employee |
+
+`sudo()` is needed for the same reason as the manager default, and for a second one:
+`res.users.department_id` is declared `related_sudo=False`
+(`hr/models/res_users.py:97`), so even reading it through the user record applies the
+caller's own rights.
+
 ## Security — `security/ir.model.access.csv`
 
 Mirrors the ACLs OCA gives the nonconformity itself
@@ -210,6 +277,14 @@ line domain resolves it without one.
 because the fixtures create a product — see the rule in `addons/CLAUDE.md`; step 1's
 first run hit it as `product_template.sale_line_warn` being NOT NULL in the database
 but absent from the registry, `sale` not having loaded yet.
+
+**Asserting on tracking takes two `self.env.cr.precommit.run()` calls.** Tracking
+messages are written from the cursor's precommit queue
+(`odoo/addons/mail/models/mail_thread.py:513`), which a test transaction never reaches,
+and `create()` additionally calls `_track_discard` (`:335`), parking `None` against the
+new record so that nothing it does later in the same transaction is tracked at all. So:
+create, run the queue to clear the discard, write, run the queue again, invalidate
+`message_ids`, then count. Step 2 failed twice here — once for each half.
 
 `setUpClass` builds a catalog group and code, an
 object-part group and code, a profile holding both groups, a product carrying the profile,
