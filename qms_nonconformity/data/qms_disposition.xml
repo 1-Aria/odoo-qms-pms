@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+
+    <record id="disposition_accept" model="qms.disposition">
+        <field name="name">Accept</field>
+        <field name="code">accept</field>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="disposition_accept_rework" model="qms.disposition">
+        <field name="name">Accept after Rework</field>
+        <field name="code">accept_rework</field>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="disposition_scrap" model="qms.disposition">
+        <field name="name">Scrap</field>
+        <field name="code">scrap</field>
+        <field name="sequence">30</field>
+    </record>
+
+    <record id="disposition_return_supplier" model="qms.disposition">
+        <field name="name">Return to Supplier</field>
+        <field name="code">return_supplier</field>
+        <field name="sequence">40</field>
+    </record>
+
+    <record id="disposition_reinspect" model="qms.disposition">
+        <field name="name">Re-inspect</field>
+        <field name="code">reinspect</field>
+        <field name="sequence">50</field>
+    </record>
+
+</odoo>

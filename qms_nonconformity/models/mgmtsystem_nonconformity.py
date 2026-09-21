@@ -25,30 +25,13 @@ class MgmtsystemNonconformity(models.Model):
     responsible_user_id = fields.Many2one(
         default=lambda self: self._default_responsible_user_id()
     )
-    manager_user_id = fields.Many2one(
-        default=lambda self: self._default_manager_user_id()
-    )
-    disposition = fields.Selection(
-        selection=[
-            ("accept", "Accept"),
-            ("accept_rework", "Accept after Rework"),
-            ("scrap", "Scrap"),
-            ("return_supplier", "Return to Supplier"),
-            ("reinspect", "Re-inspect"),
-        ],
+    disposition_id = fields.Many2one(
+        comodel_name="qms.disposition",
+        string="Disposition",
+        ondelete="restrict",
         tracking=True,
         help="What was decided about the affected material or equipment.",
     )
 
     def _default_responsible_user_id(self):
         return self.env.user
-
-    def _default_manager_user_id(self):
-        """The reporter's manager, or nothing.
-
-        sudo: hr.employee is readable by HR officers only
-        (hr/security/ir.model.access.csv:4-5). Every hop may be missing -- no
-        employee, no manager, a manager without a user -- and an empty result
-        simply leaves the required field for the user to fill.
-        """
-        return self.env.user.sudo().employee_id.parent_id.user_id

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="qms_disposition_view_list" model="ir.ui.view">
+        <field name="name">qms.disposition.list</field>
+        <field name="model">qms.disposition</field>
+        <field name="arch" type="xml">
+            <list string="Dispositions" editable="bottom">
+                <field name="sequence" widget="handle" />
+                <!-- Readonly once saved: automation matches on this value. -->
+                <field name="code" readonly="id" />
+                <field name="name" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_disposition_view_form" model="ir.ui.view">
+        <field name="name">qms.disposition.form</field>
+        <field name="model">qms.disposition</field>
+        <field name="arch" type="xml">
+            <form string="Disposition">
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="Archived"
+                        bg_color="text-bg-danger"
+                        invisible="active"
+                    />
+                    <field name="active" invisible="1" />
+                    <group>
+                        <group>
+                            <field name="name" />
+                            <field name="code" readonly="id" />
+                        </group>
+                        <group>
+                            <field name="sequence" />
+                        </group>
+                    </group>
+                    <field name="description" placeholder="When to use this verdict" />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="qms_disposition_view_search" model="ir.ui.view">
+        <field name="name">qms.disposition.search</field>
+        <field name="model">qms.disposition</field>
+        <field name="arch" type="xml">
+            <search string="Dispositions">
+                <field name="name" />
+                <field name="code" />
+                <filter
+                    name="archived"
+                    string="Archived"
+                    domain="[('active', '=', False)]"
+                />
+            </search>
+        </field>
+    </record>
+
+    <record id="qms_disposition_action" model="ir.actions.act_window">
+        <field name="name">Dispositions</field>
+        <field name="res_model">qms.disposition</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="qms_disposition_view_search" />
+    </record>
+
+    <menuitem
+        id="menu_qms_disposition"
+        name="Dispositions"
+        parent="mgmtsystem_nonconformity.menu_mgmtsystem_configuration_nonconformities"
+        action="qms_disposition_action"
+        sequence="40"
+    />
+
+</odoo>

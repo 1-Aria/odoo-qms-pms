@@ -16,8 +16,9 @@
                  page the user has already left behind. -->
             <group name="meta" position="inside">
                 <field
-                    name="disposition"
+                    name="disposition_id"
                     readonly="state in ('done', 'cancel')"
+                    options="{'no_create': True}"
                 />
             </group>
 

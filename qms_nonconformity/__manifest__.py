@@ -16,7 +16,9 @@
     ],
     "data": [
         "security/ir.model.access.csv",
+        "data/qms_disposition.xml",
         "views/qms_nonconformity_item_views.xml",
+        "views/qms_disposition_views.xml",
         "views/mgmtsystem_nonconformity_views.xml",
     ],
     "installable": True,

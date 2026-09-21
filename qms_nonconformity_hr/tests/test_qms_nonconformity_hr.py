@@ -33,3 +33,34 @@ class TestNonconformityDepartment(TransactionCase):
         )
         defaults = self.model.with_user(user).default_get(["department_id"])
         self.assertFalse(defaults.get("department_id"))
+
+    def test_default_manager_from_employee(self):
+        manager_user = self.env["res.users"].create(
+            {"name": "Line Manager", "login": "qms_line_manager"}
+        )
+        employee = self.env["hr.employee"]
+        manager_employee = employee.create(
+            {"name": "Line Manager", "user_id": manager_user.id}
+        )
+        reporter_user = self.env["res.users"].create(
+            {"name": "Reporter", "login": "qms_reporter"}
+        )
+        employee.create(
+            {
+                "name": "Reporter",
+                "user_id": reporter_user.id,
+                "parent_id": manager_employee.id,
+            }
+        )
+        defaults = self.model.with_user(reporter_user).default_get(
+            ["responsible_user_id", "manager_user_id"]
+        )
+        self.assertEqual(defaults.get("responsible_user_id"), reporter_user.id)
+        self.assertEqual(defaults.get("manager_user_id"), manager_user.id)
+
+    def test_default_manager_without_employee(self):
+        user = self.env["res.users"].create(
+            {"name": "No Employee", "login": "qms_no_employee"}
+        )
+        defaults = self.model.with_user(user).default_get(["manager_user_id"])
+        self.assertFalse(defaults.get("manager_user_id"))

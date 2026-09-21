@@ -1,3 +1,6 @@
 "id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
 "access_qms_nonconformity_item_user","qms.nonconformity.item.user","model_qms_nonconformity_item","mgmtsystem.group_mgmtsystem_user",1,1,1,1
 "access_qms_nonconformity_item_viewer","qms.nonconformity.item.viewer","model_qms_nonconformity_item","mgmtsystem.group_mgmtsystem_viewer",1,0,0,0
+"access_qms_disposition_user","qms.disposition.user","model_qms_disposition","mgmtsystem.group_mgmtsystem_user",1,0,0,0
+"access_qms_disposition_viewer","qms.disposition.viewer","model_qms_disposition","mgmtsystem.group_mgmtsystem_viewer",1,0,0,0
+"access_qms_disposition_manager","qms.disposition.manager","model_qms_disposition","mgmtsystem.group_mgmtsystem_manager",1,1,1,1

@@ -8,8 +8,8 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | # | Scope | Status | Result |
 |---|---|---|---|
 | 1 | `qms.nonconformity.item`, header `item_ids`, items in Causes and Analysis, §7.6 code filtering | done | installed and tested 2026-09-21, `exit=0`, 7 tests, 0 failures; the Analysis Items dropdown was confirmed in the browser to offer only the product's profiled leaf codes, and the page reads Analysis → Analysis Items → Analysis Confirmation with no Causes section. Two failures on the way: `setUpClass` creating a product at `at_install` hit `product_template.sale_line_warn`, fixed with the `post_install` tag; and the first placement used `separator[@string='Causes']` as an inheritance selector, which core refuses, fixed by selecting the separator positionally |
-| 2 | Header: `partner_id` relaxed, responsible / manager prefill, `disposition`, and the `qms_nonconformity_hr` bridge for department | proposed | |
-| 3 | `qms_severity_rank`, seed hook (must be safe to fail — inert ranks beat a failed install), `default_severity_id` on `qms.defect.code`, header roll-up, and confirming the ranks on this instance | — | |
+| 2 | Header: `partner_id` relaxed, responsible / manager prefill, `disposition_id` and the `qms.disposition` model, and the `qms_nonconformity_hr` bridge for department and manager | done | two passes, both 2026-09-21. First: Selection-based disposition, `exit=0`, 12 tests + 2 in the bridge. Reopened the same day to make disposition a user-editable model while the column held no real data, and to move the manager prefill into the bridge — `res.users.employee_id` comes from `hr`, which `qms_nonconformity` does not depend on, so `default_get` would have raised `AttributeError` anywhere `hr` was absent. Second pass `exit=0`, 10 tests here and 4 in the bridge, UI checked: partner optional, prefill working, dispositions listed under Configuration → Nonconformities with `code` greyed out, archived filter working |
+| 3 | `qms_severity_rank`, seed hook (must be safe to fail — inert ranks beat a failed install), `default_severity_id` on `qms.defect.code`, item severity default, header roll-up, and confirming the ranks on this instance | proposed | |
 
 ## Divergences from the plan
 
@@ -20,6 +20,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 3 | §8 lists `mgmtsystem_partner` among this module's dependencies | not a dependency | `mgmtsystem_partner` adds one line — a `quality` option to `res.partner.type` (`models/res_partner.py:16`) — and never touches `mgmtsystem.nonconformity`. `partner_id` and its `required=True` both come from base `mgmtsystem_nonconformity`, which we do depend on, and nothing here uses `type='quality'` |
 | 4 | §7.4 says the header's `cause_ids` "remains for compatibility and rolls up from the items" | no roll-up; the header's cause list is hidden on the form | Cause is analysis, and analysis is per item: one nonconformity can hold three defects with three different causes, so a header list of them states nothing a reader can act on. Severity rolls up because it has a rank and a defensible aggregate — the most severe item. Cause has no such ordering. The field is hidden rather than removed, so it stays available to other views, to the API and to any OCA code that reads it |
 | 5 | §8 lists nine modules and does not include an HR bridge | `qms_nonconformity_hr` exists | `department_id` belongs to `mgmtsystem_nonconformity_hr`, which is `auto_install` on `hr`. Depending on it directly would force `hr` onto every site running the quality system, so the default lives in an `auto_install` bridge — the same pattern OCA uses for the field |
+| 6 | §7.9 makes `disposition` a Selection with five fixed values | `disposition_id`, a Many2one to a new `qms.disposition` model seeded with those five | Every other vocabulary in this system is a record the user controls; a hardcoded list is the odd one out and is exactly what a plant will want to extend. Logic branches on `qms.disposition.code`, not on ids |
 
 ## Known traps in the base modules
 
@@ -45,14 +46,18 @@ qms_nonconformity/
 │   ├── __init__.py                                       # 1
 │   ├── qms_nonconformity_item.py                         # 1
 │   ├── mgmtsystem_nonconformity.py                       # 1 (item_ids, related profiles), 2, 3
+│   ├── qms_disposition.py                                # 2
 │   ├── mgmtsystem_nonconformity_severity.py              # 3 (qms_severity_rank)
 │   └── qms_defect_code.py                                # 3 (default_severity_id)
-├── security/ir.model.access.csv                          # 1
+├── data/qms_disposition.xml                              # 2 (noupdate)
+├── security/ir.model.access.csv                          # 1, 2
 ├── views/
 │   ├── qms_nonconformity_item_views.xml                  # 1
-│   └── mgmtsystem_nonconformity_views.xml                # 1 (Items tab), 2
-├── data/ or hooks in __init__.py                         # 3 (severity rank seed)
+│   ├── qms_disposition_views.xml                         # 2
+│   └── mgmtsystem_nonconformity_views.xml                # 1 (items), 2 (disposition)
+├── __init__.py hook                                      # 3 (severity rank seed)
 ├── tests/__init__.py, test_qms_nonconformity_item.py     # 1
+│         test_qms_nonconformity_header.py                # 2
 └── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), later (USAGE)
 ```
 
@@ -68,7 +73,7 @@ qms_nonconformity/
 | `license` | `AGPL-3` |
 | `category` | `Management System` |
 | `depends` | `qms_catalog`, `mgmtsystem_nonconformity`, `mgmtsystem_nonconformity_product` |
-| `data` | `security/ir.model.access.csv`, `views/qms_nonconformity_item_views.xml`, `views/mgmtsystem_nonconformity_views.xml` |
+| `data` | `security/ir.model.access.csv`, `data/qms_disposition.xml` (step 2), `views/qms_nonconformity_item_views.xml`, `views/qms_disposition_views.xml` (step 2), `views/mgmtsystem_nonconformity_views.xml` |
 | `installable` | `True` |
 
 `mgmtsystem_nonconformity_product` supplies `product_id`, which the filtering resolves
@@ -79,7 +84,7 @@ through. `mgmtsystem_partner` is **not** a dependency — see divergence 3.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import mgmtsystem_nonconformity` |
+| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import qms_disposition` (step 2), `from . import mgmtsystem_nonconformity` |
 
 ## Models
 
@@ -158,34 +163,94 @@ nonconformity with no product resolves to an empty set and behaves the same way.
 | Field | Type | Attributes |
 |---|---|---|
 | `partner_id` | Many2one → `res.partner` | `required=False` — the whole override; every other attribute is inherited |
-| `disposition` | Selection | `[("accept", "Accept"), ("accept_rework", "Accept after Rework"), ("scrap", "Scrap"), ("return_supplier", "Return to Supplier"), ("reinspect", "Re-inspect")]`, `tracking=True`, no default |
+| `disposition_id` | Many2one → `qms.disposition` | `tracking=True`, `ondelete="restrict"`, no default |
 
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_default_responsible_user_id` | — | `self.env.user`, mirroring how the base model defaults `user_id` |
-| `_default_manager_user_id` | — | `self.env.user.employee_id.parent_id.user_id`, read **through `sudo()`**, empty when any hop is missing |
+`_default_responsible_user_id` is **a default, not a compute**: it fills a new record and
+never revisits it, so an edit sticks and later changes do not rewrite old records.
 
-`hr.employee` is readable only by `hr.group_hr_user` and `base.group_system`
-(`hr/security/ir.model.access.csv:4-5`), so a management-system user walking
-`employee_id.parent_id` unprivileged would raise `AccessError`. The defaults read the
-chain with `sudo()` and return nothing rather than raising when the user has no
-employee, no manager, or a manager with no user account — `manager_user_id` stays
-required, so the form simply asks for it.
-
-Both are **defaults, not computes**: they fill a new record and never revisit it, so an
-edit sticks and later changes to the org chart do not rewrite existing nonconformities.
+**The manager prefill is not here.** It reads `res.users.employee_id`, which `hr` adds
+(`hr/models/res_users.py:89`), so a module that does not depend on `hr` would raise
+`AttributeError` in `default_get` wherever `hr` is absent. It lives in the bridge with
+the department default.
 
 **Department is not here**: it comes from `mgmtsystem_nonconformity_hr`, so its default lives in the `qms_nonconformity_hr` bridge below.
+
+### `qms.disposition` — `models/qms_disposition.py`
+
+`models.Model` · `_name = "qms.disposition"` · `_description = "Nonconformity Disposition"` · `_order = "sequence, id"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `name` | Char | `required=True`, `translate=True` |
+| `code` | Char | `required=True`, readonly in the views once the record exists — the stable key logic branches on |
+| `sequence` | Integer | `default=10` |
+| `active` | Boolean | `default=True` |
+| `description` | Text | |
+
+| Name | Definition | Message |
+|---|---|---|
+| `code_uniq` | `unique (code)` | `"This disposition code already exists."` |
+
+**Why a model rather than the Selection the plan specifies.** Disposition is vocabulary,
+and every other vocabulary here is a record the user controls. A plant will want
+"Concession", "Downgrade" or "Sort and re-grade" without a developer. The cost is that
+database ids are not portable, so logic must branch on `code` — hence the field.
+
+**`code` is the anchor, and only `code`.** It is readonly in the list and the form once
+the record exists (`readonly="id"`), so a rename cannot silently stop
+`code == "scrap"` from matching; the label is what users edit. The seeds carry xml ids
+too, but those are for our own data files and tests — logic does not use them, because a
+deleted seed breaks `env.ref` exactly as an edited code would break the other anchor,
+and defending one key is better than half-defending two.
+
+### Data — `data/qms_disposition.xml`, `noupdate="1"`
+
+The plan's five values, seeded so a fresh install is usable and a site that renames or
+reorders them is never overwritten on upgrade.
+
+| xml id | code | name | sequence |
+|---|---|---|---|
+| `disposition_accept` | `accept` | Accept | 10 |
+| `disposition_accept_rework` | `accept_rework` | Accept after Rework | 20 |
+| `disposition_scrap` | `scrap` | Scrap | 30 |
+| `disposition_return_supplier` | `return_supplier` | Return to Supplier | 40 |
+| `disposition_reinspect` | `reinspect` | Re-inspect | 50 |
+
+These are our own records, so a plain data file is right — the safe-to-fail hook of step 3
+exists only because those seeds write onto OCA's records.
+
+### Views — `views/qms_disposition_views.xml`
+
+| XML id | Type | Content |
+|---|---|---|
+| `qms_disposition_view_list` | list | editable `bottom`: `sequence` (`widget="handle"`), `code`, `name`, `active` (`column_invisible="True"`) |
+| `qms_disposition_view_form` | form | archived ribbon, `name`, `code`, `sequence`, `description` |
+| `qms_disposition_view_search` | search | field `name`; field `code`; filter `archived`, `domain="[('active', '=', False)]"` |
+| `qms_disposition_action` | action | `name`: `Dispositions`, `res_model`: `qms.disposition`, `view_mode`: `list,form`, `search_view_id` |
+
+The search view exists for the Archived filter: Odoo hides archived records from every
+list and dropdown, so without it a retired disposition cannot be found again — the same
+gap `qms_catalog` closed for the catalogs. `active` is kept rather than dropped, since a
+disposition must stay on the historical records that used it.
+
+| Menu | Parent | Groups | Sequence |
+|---|---|---|---|
+| `menu_qms_disposition` "Dispositions" | `mgmtsystem_nonconformity.menu_mgmtsystem_configuration_nonconformities` | inherited from the parent | 40 |
+
+Beside Causes, Origins and Severities, which is where a user looks for this kind of list.
 
 ### Views — `views/mgmtsystem_nonconformity_views.xml`
 
 | Position | Content |
 |---|---|
-| group `meta` inside | `disposition`, `readonly="state in ('done', 'cancel')"` |
+| group `meta` inside | `disposition_id`, `readonly="state in ('done', 'cancel')"`, `options="{'no_create': True}"` |
 
-`disposition` sits with responsible, manager and filled-in-by rather than on a page: it
-is a header verdict, and plan §7.8 has it set at closure, by which point the analysis
-pages are behind the user.
+It sits with responsible, manager and filled-in-by rather than on a page: it is a header
+verdict, and plan §7.8 has it set at closure, by which point the analysis pages are
+behind the user.
 
 ### `qms_nonconformity_hr` — the department bridge (step 2)
 
@@ -211,11 +276,97 @@ qms_nonconformity_hr/
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_default_department_id` | — | `self.env.user.sudo().department_id`, empty when the user has no employee |
+| `_default_manager_user_id` | — | `self.env.user.sudo().employee_id.parent_id.user_id`, empty when any hop is missing |
+
+`manager_user_id` stays required on the model, so an empty result simply leaves the form
+asking. `hr.employee` is readable only by `hr.group_hr_user` and `base.group_system`
+(`hr/security/ir.model.access.csv:4-5`), which is why both defaults read through
+`sudo()`.
 
 `sudo()` is needed for the same reason as the manager default, and for a second one:
 `res.users.department_id` is declared `related_sudo=False`
 (`hr/models/res_users.py:97`), so even reading it through the user record applies the
 caller's own rights.
+
+## Severity (step 3)
+
+### `mgmtsystem.nonconformity.severity` — `models/mgmtsystem_nonconformity_severity.py`
+
+`_inherit = "mgmtsystem.nonconformity.severity"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_severity_rank` | Integer | `default=0`, higher is more severe |
+
+An explicit rank rather than reusing `sequence`: OCA exposes `sequence` as an editable
+field on the severity form (`views/mgmtsystem_severity.xml:19`), so anyone tidying the
+display order of a configuration list would silently re-rank analytical severity. Integer
+rather than Selection so a new severity can be slotted between two existing ones without
+renumbering, and higher-is-worse so the roll-up is a plain `max()` that nobody misreads.
+`sequence` keeps doing display order, untouched.
+
+### `qms.defect.code` — `models/qms_defect_code.py`
+
+`_inherit = "qms.defect.code"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `default_severity_id` | Many2one → `mgmtsystem.nonconformity.severity` | `ondelete="restrict"` |
+
+Plan §7.1 puts this field here rather than in `qms_catalog`, which knows nothing of the
+severity model. Shown on the defect-code form and list by an inherited view.
+
+### Rank seeding — `__init__.py` hook and `migrations/18.0.1.1.0/post-migrate.py`
+
+| Value | `qms_severity_rank` |
+|---|---|
+| Unfounded | 0 |
+| Minor | 10 |
+| Major | 20 |
+
+Both paths call one `_seed_severity_ranks(env)` helper, which looks each record up with
+`env.ref(..., raise_if_not_found=False)` and writes only what it finds, and only where the
+rank is still 0. **It must never break an install**: a renamed or deleted OCA record
+leaves the ranks inert, which is recoverable by hand, while a failed install is not.
+
+Two paths because they cover different situations. `post_init_hook` runs on a fresh
+install and never on upgrade, and this module is already installed here — so without the
+migration the ranks would stay 0 on this instance, which is exactly the "configure the
+ranks" task the steps table used to carry. The version moves to `18.0.1.1.0` to trigger
+it. OCA does the same thing in this very module
+(`mgmtsystem_nonconformity/migrations/16.0.1.1.0/pre-migrate.py`).
+
+### Item severity — `models/qms_nonconformity_item.py`
+
+| Field | Change |
+|---|---|
+| `severity_id` | becomes `compute="_compute_severity_id"`, `store=True`, `readonly=False`, `@api.depends("defect_code_id")` |
+
+Plan §7.4 says onchange. A compute is used instead because an onchange only fires in a
+form: items created by the inspection prefill in `qms_quality_control` would get no
+severity at all. The overridable-compute pattern keeps the value editable, and a manual
+severity survives until the defect code itself changes — at which point re-deriving is
+the right answer, because the item is now about a different defect.
+
+### Header roll-up — `models/mgmtsystem_nonconformity.py`
+
+| Field | Change |
+|---|---|
+| `severity_id` | becomes `compute="_compute_severity_id"`, `store=True`, `readonly=False`, `tracking=True`, `@api.depends("item_ids.severity_id")` |
+
+Rules, all of which the doc states because the field is a stored compute with a
+deliberately incomplete dependency list:
+
+- **no items** — leave the value alone rather than blanking what someone set
+- **items with no severity** — skipped, not treated as rank 0
+- **highest `qms_severity_rank` wins**; ties, including the common case where every rank
+  is still 0, resolve to the first item by `sequence` then `id`, so it degrades to "the
+  first item's severity" rather than to something arbitrary
+- **`qms_severity_rank` is deliberately absent from `@api.depends`.** Re-ranking severities
+  would otherwise recompute every nonconformity that has not been overridden, rewriting
+  closed records and, because the field is tracked, posting chatter on each. The roll-up
+  uses the ranks current when the items last changed, which matches how item severity
+  stores what was applied (D16)
 
 ## Security — `security/ir.model.access.csv`
 
@@ -225,8 +376,16 @@ its parent record.
 
 | id | name | model_id:id | group_id:id | r | w | c | u |
 |---|---|---|---|---|---|---|---|
+| `access_qms_disposition_user` (step 2) | `qms.disposition.user` | `model_qms_disposition` | `mgmtsystem.group_mgmtsystem_user` | 1 | 0 | 0 | 0 |
+| `access_qms_disposition_viewer` (step 2) | `qms.disposition.viewer` | `model_qms_disposition` | `mgmtsystem.group_mgmtsystem_viewer` | 1 | 0 | 0 | 0 |
+| `access_qms_disposition_manager` (step 2) | `qms.disposition.manager` | `model_qms_disposition` | `mgmtsystem.group_mgmtsystem_manager` | 1 | 1 | 1 | 1 |
 | `access_qms_nonconformity_item_user` | `qms.nonconformity.item.user` | `model_qms_nonconformity_item` | `mgmtsystem.group_mgmtsystem_user` | 1 | 1 | 1 | 1 |
 | `access_qms_nonconformity_item_viewer` | `qms.nonconformity.item.viewer` | `model_qms_nonconformity_item` | `mgmtsystem.group_mgmtsystem_viewer` | 1 | 0 | 0 | 0 |
+
+A viewer needs its own read row on `qms.disposition`: `group_mgmtsystem_user` implies
+viewer, but not the reverse, and OCA lets a viewer read the nonconformity
+(`mgmtsystem_nonconformity/security/ir.model.access.csv:3`) — rendering `disposition_id`
+without read on the comodel raises an access error.
 
 Unlike the nonconformity, the user group gets `unlink`: a mistyped analysis line is
 removed, not cancelled.
