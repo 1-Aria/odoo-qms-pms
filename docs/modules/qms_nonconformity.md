@@ -7,11 +7,9 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 
 | # | Scope | Status | Result |
 |---|---|---|---|
-| 1 | `qms.nonconformity.item`, header `item_ids`, Items tab, §7.6 code filtering | done | installed and tested 2026-09-21, `exit=0`, 7 tests, 0 failures; the Analysis Items dropdown was confirmed in the browser to offer only the product's profiled leaf codes. The first run errored in `setUpClass`: creating a product at `at_install` hit `product_template.sale_line_warn` being NOT NULL in the database but absent from the registry, fixed with the `post_install` tag |
+| 1 | `qms.nonconformity.item`, header `item_ids`, items in Causes and Analysis, §7.6 code filtering | done | installed and tested 2026-09-21, `exit=0`, 7 tests, 0 failures; the Analysis Items dropdown was confirmed in the browser to offer only the product's profiled leaf codes, and the page reads Analysis → Analysis Items → Analysis Confirmation with no Causes section. Two failures on the way: `setUpClass` creating a product at `at_install` hit `product_template.sale_line_warn`, fixed with the `post_install` tag; and the first placement used `separator[@string='Causes']` as an inheritance selector, which core refuses, fixed by selecting the separator positionally |
 | 2 | Header: `partner_id` relaxed, responsible / manager / department prefill, `disposition` | — | |
-| 3 | `qms_severity_rank`, seed hook (must be safe to fail — inert ranks beat a failed install), `default_severity_id` on `qms.defect.code`, header roll-up | — | |
-| 4 | Configure the ranks on this instance | — | |
-| 5 | `cause_ids` roll-up from items | — | |
+| 3 | `qms_severity_rank`, seed hook (must be safe to fail — inert ranks beat a failed install), `default_severity_id` on `qms.defect.code`, header roll-up, and confirming the ranks on this instance | — | |
 
 ## Divergences from the plan
 
@@ -20,6 +18,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 1 | O2 says `partner_id` is mandatory "in a view somewhere not yet located", and that base `mgmtsystem_nonconformity` does not mark it required in model or view | the base model does mark it required, in Python | `mgmtsystem_nonconformity/models/mgmtsystem_nonconformity.py:41`: `partner_id = fields.Many2one("res.partner", "Partner", required=True)`. O2 is answered, and the override in step 2 is the one line the plan hoped for |
 | 2 | §7.6 resolves the product's category on the nonconformity | the header carries `qms_effective_profile_ids`, related to the product | The plan was amended for this on 2026-09-20; `qms_catalog` computes the resolved set, so the domain reads it directly |
 | 3 | §8 lists `mgmtsystem_partner` among this module's dependencies | not a dependency | `mgmtsystem_partner` adds one line — a `quality` option to `res.partner.type` (`models/res_partner.py:16`) — and never touches `mgmtsystem.nonconformity`. `partner_id` and its `required=True` both come from base `mgmtsystem_nonconformity`, which we do depend on, and nothing here uses `type='quality'` |
+| 4 | §7.4 says the header's `cause_ids` "remains for compatibility and rolls up from the items" | no roll-up; the header's cause list is hidden on the form | Cause is analysis, and analysis is per item: one nonconformity can hold three defects with three different causes, so a header list of them states nothing a reader can act on. Severity rolls up because it has a rank and a defensible aggregate — the most severe item. Cause has no such ordering. The field is hidden rather than removed, so it stays available to other views, to the API and to any OCA code that reads it |
 
 ## Known traps in the base modules
 
@@ -44,7 +43,7 @@ qms_nonconformity/
 ├── models/
 │   ├── __init__.py                                       # 1
 │   ├── qms_nonconformity_item.py                         # 1
-│   ├── mgmtsystem_nonconformity.py                       # 1 (item_ids, related profiles), 2, 3, 5
+│   ├── mgmtsystem_nonconformity.py                       # 1 (item_ids, related profiles), 2, 3
 │   ├── mgmtsystem_nonconformity_severity.py              # 3 (qms_severity_rank)
 │   └── qms_defect_code.py                                # 3 (default_severity_id)
 ├── security/ir.model.access.csv                          # 1
@@ -180,13 +179,30 @@ Inherits `mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form`.
 
 | Position | Content |
 |---|---|
-| page `causes_analysis` before | page `qms_items` "Analysis Items": `field name="item_ids"` using the list above |
+| field `analysis` after | separator "Analysis Items" and `field name="item_ids"`, `readonly="state != 'analysis'"`, using the list above |
+| separator before `cause_ids` (xpath `//field[@name='cause_ids']/preceding-sibling::separator[1]`) | `invisible` 1 |
+| field `cause_ids` | `invisible` 1 |
+
+The items live **in the existing Causes and Analysis page**, after the Analysis text and
+before Analysis Confirmation, which is where the header's `severity_id` already sits —
+so analysis reads top to bottom: narrative, items, resolved severity. No new tab.
+
+The header's cause list is hidden, not removed: `cause_ids` stays on the model for other
+views, the API and OCA code. Its separator is hidden too, or an empty "Causes" heading
+would remain — and it is selected by position rather than by `@string`, since view
+inheritance rejects any translated attribute as a selector
+(`odoo/addons/base/models/ir_ui_view.py:332-351`). The first attempt used
+`separator[@string='Causes']` and the upgrade refused to load the view.
+
+`readonly="state != 'analysis'"` mirrors how OCA gates `analysis` and `cause_ids` on the
+same page, written as an explicit comparison rather than OCA's `state not in 'analysis'`,
+which relies on substring matching. Two consequences worth knowing: the whole page is
+`invisible="state in ('draft', 'cancel')"` in the base view, so items are not visible on
+a draft nonconformity, and readonly is a view rule only — code that creates items during
+prefill (`qms_quality_control`) is unaffected.
 
 The header needs no `qms_effective_profile_ids` field in the arch: step 1 confirmed the
 line domain resolves it without one.
-
-The existing **Causes and Analysis** page is left untouched (plan D18 reasoning, and the
-`cause_ids` roll-up is step 5).
 
 ## Tests — `tests/test_qms_nonconformity_item.py`
 

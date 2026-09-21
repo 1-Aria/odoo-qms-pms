@@ -10,14 +10,33 @@
             ref="mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form"
         />
         <field name="arch" type="xml">
-            <page name="causes_analysis" position="before">
-                <page name="qms_items" string="Analysis Items">
-                    <field
-                        name="item_ids"
-                        context="{'default_nonconformity_id': id}"
-                    />
-                </page>
-            </page>
+
+            <!-- The analysis items sit in Causes and Analysis, right after the
+                 Analysis text. -->
+            <field name="analysis" position="after">
+                <separator string="Analysis Items" />
+                <field
+                    name="item_ids"
+                    readonly="state != 'analysis'"
+                    context="{'default_nonconformity_id': id}"
+                />
+            </field>
+
+            <!-- Cause is recorded per item, so the header's own cause list is
+                 hidden rather than removed: the field stays available to other
+                 views and to the API. -->
+            <!-- Selected structurally: view inheritance may not match on a
+                 translated attribute such as @string (ir_ui_view.py:332-351). -->
+            <xpath
+                expr="//field[@name='cause_ids']/preceding-sibling::separator[1]"
+                position="attributes"
+            >
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <field name="cause_ids" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </field>
+
         </field>
     </record>
 
