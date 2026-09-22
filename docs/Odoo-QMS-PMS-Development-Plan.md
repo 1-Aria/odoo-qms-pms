@@ -315,71 +315,11 @@ product. One resolution path serves both domains.
 
 ### 7.3 Determination layer
 
-**`qms.determination.rule`** — maps analysis to response. The model has two
-halves: **conditions** that decide whether it applies, and a **response package**
-that says what to do about it. Empty condition means *matches anything*; a
-condition set to a **group** matches every code beneath it.
-
-| Field | Type | Half | Notes |
-|---|---|---|---|
-| `name` | Char | — | |
-| `sequence` | Integer | — | tiebreak |
-| `active` | Boolean | — | |
-| `domain_kind` | Selection | — | |
-| `defect_code_id` | Many2one → `qms.defect.code` | condition | empty = any; group matches descendants |
-| `object_part_id` | Many2one → `qms.object.part` | condition | empty = any |
-| `cause_id` | Many2one → `mgmtsystem.nonconformity.cause` | condition | empty = any |
-| `specificity` | Integer | — | computed, stored — count of non-empty conditions (max 3) |
-| `severity_id` | Many2one → `mgmtsystem.nonconformity.severity` | **output** | refines the defect's baseline severity |
-| `action_template_ids` | Many2many → `mgmtsystem.action.template` | **output** | the suggested response |
-| `document_ids` | Many2many → `document.page` | **output** | suggested documents — any type, not only procedures |
-
-**Severity is an output, never a condition.** It resolves in three tiers:
-
-| Tier | Source | When |
-|---|---|---|
-| 1 | `qms.defect.code.default_severity_id` | baseline, on entering the defect |
-| 2 | `qms.determination.rule.severity_id` | overrides tier 1 when a rule matches |
-| 3 | Human edit on the item | always wins, tracked |
-
-The reason for the strict direction: a tear on a visible front panel and a tear
-on an internal facing are the same defect code and genuinely different
-severities, so the *combination* has to be able to set it. But allowing severity
-to be both a condition and an output would make the resolution order circular,
-and soliciting severity from staff as primary input would make the most
-analytically important field the least reliable one. One direction only.
-
-**Matching:** a rule matches a nonconformity item when, for every non-empty
-condition, the item's value equals that value or descends from it.
-
-**Ranking:** `specificity` descending, then `sequence` ascending. Top rule wins.
-
-**Worked example** — item is *(Torn, Sleeves, Machine fault)*:
-
-| rule | defect | object part | cause | specificity | result |
-|---|---|---|---|---|---|
-| R1 | Torn | Sleeves | Machine fault | 3 | ✓ **wins** |
-| R2 | Torn | *(any)* | Incorrect operation | 2 | ✗ cause conflicts |
-| R3 | Fabric Defect *(group)* | *(any)* | *(any)* | 1 | ✓ matches, outranked |
-
-R3 demonstrates the point that makes this tractable: **a rule written at group
-level covers every code beneath it**. You do not author a rule per combination —
-you author rules at whatever level of generality is actually true, and add
-specific rules only where behaviour genuinely differs.
-
-The wildcard design also handles partial input natively. An inspection resolves
-only a defect code; with object part and cause empty, R3 still matches.
-
-```python
-def _match_rules(self, item):
-    def ancestors(rec):
-        return rec.search([("id", "parent_of", rec.id)]).ids if rec else []
-    return self.env["qms.determination.rule"].search([
-        ("defect_code_id", "in", [False] + ancestors(item.defect_code_id)),
-        ("object_part_id", "in", [False] + ancestors(item.object_part_id)),
-        ("cause_id",       "in", [False] + ancestors(item.cause_id)),
-    ]).sorted(lambda r: (-r.specificity, r.sequence))
-```
+**Superseded by `docs/qms_determination_plan_revised.md`**, §3–§5, which the module implements.
+In short: a rule has conditions (defect code, object part, cause — at least one) and
+outputs (suggested severity, action templates, documents); **every** matching rule applies
+(D26), so there is no specificity ranking; and a rule's severity is shown as a suggestion,
+never written to the item.
 
 ### 7.4 Nonconformity items
 
@@ -406,28 +346,9 @@ do not rewrite it.
 
 ### 7.5 Applied responses
 
-**`qms.nonconformity.response`** — what the system indicated should be done.
-Sits beside the items in the Analysis phase.
-
-| Field | Type | Notes |
-|---|---|---|
-| `nonconformity_id` | Many2one → `mgmtsystem.nonconformity` | ondelete cascade |
-| `item_id` | Many2one → `qms.nonconformity.item` | which item triggered it; empty for manual lines |
-| `rule_id` | Many2one → `qms.determination.rule` | empty for manual lines |
-| `source` | Selection | `suggested` / `manual` |
-
-The line displays the matched rule's conditions and outputs, so the user can see
-**why** a response was indicated, not merely what it was. Lines can be added by
-hand from the rule list — which means the determination engine is an accelerator,
-not a dependency: the workflow functions with the button never pressed.
-
-**Two items matching the same rule produce two lines**, each carrying its own
-`item_id`. Simpler than deduplication, and it preserves per-item traceability.
-
-**Known limitation (deferred, see O5):** the line links to the live rule rather
-than snapshotting its outputs, so editing a rule changes what historical
-nonconformities appear to have been told. Accepted for v1; the fix is adding
-snapshot columns to this model, which is additive and breaks nothing.
+**Superseded by `docs/qms_determination_plan_revised.md`**, §6–§7. A response line points at a rule
+and, when suggested, the item that fired it; there is no `source` field, and a rerun of
+Suggest Response replaces every line (D30).
 
 ### 7.6 Code filtering
 
@@ -477,6 +398,10 @@ one step, `type_action = immediate`. `mgmtsystem.nonconformity.immediate_action_
 is the purpose-built fast path for the single containment action.
 
 ### 7.8 Workflow
+
+*The Analysis and Action Plan steps below are superseded by `docs/qms_determination_plan_revised.md`,
+§7: Suggest Response no longer refines item severity, and Generate Actions is added as an
+optional shortcut in the Action Plan phase.*
 
 **Analysis phase**
 
@@ -685,7 +610,7 @@ the one place in the design that would silently stop firing.
 |---|---|---|
 | **`qms_catalog`** | `qms.catalog.mixin`, `qms.defect.code`, `qms.object.part`, `qms.catalog.profile`, product/template/category assignment fields, configuration menus | `product`, `mgmtsystem` |
 | **`qms_nonconformity`** | `qms.nonconformity.item`, header fields, `disposition`, code filtering, `partner_id` override, `default_severity_id` on `qms.defect.code` | `qms_catalog`, `mgmtsystem_nonconformity`, `mgmtsystem_nonconformity_product`, `mgmtsystem_partner` |
-| **`qms_determination`** | `qms.determination.rule`, `qms.nonconformity.response`, Suggest Response | `qms_nonconformity`, `mgmtsystem_action_template`, `document_page_mgmtsystem` |
+| **`qms_determination`** | `qms.determination.rule`, `qms.nonconformity.response`, Suggest Response, Generate Actions — see `docs/qms_determination_plan_revised.md` | `qms_nonconformity`, `mgmtsystem_action_template`, `document_page_procedure`, `document_page_work_instruction` |
 | **`qms_quality_control`** | `defect_code_id` + related severity on `qc.test.question.value`, Populate Defect, `mgmtsystem.action.inspection_id`, NC and Action smart buttons + prefill | `qms_nonconformity`, `quality_control_oca`, `mgmtsystem_nonconformity_quality_control_oca`, `mgmtsystem_action` |
 | **`qms_maintenance`** | `mgmtsystem.nonconformity.maintenance_request_id`, NC smart button + prefill, `product_id` related field | `qms_nonconformity`, `maintenance_product`, `mgmtsystem_nonconformity_maintenance_equipment`, `maintenance_mgmtsystem_action` |
 | **`maintenance_mgmtsystem_action`** | `mgmtsystem.action.maintenance_request_id`, inverse `action_ids`, smart buttons both ways | `maintenance`, `mgmtsystem_action` |
@@ -770,6 +695,11 @@ Recorded so future work does not relitigate them.
 | D23 | Plan-seeded actions are generated by a `create()` override on `maintenance.request`, not by modifying `maintenance_plan` | Generation already routes through `maintenance.request.create()` with `maintenance_plan_id` in the values, so no OCA method is touched at all. It also catches requests given a plan by hand | Overriding `_create_new_request` or `_prepare_requests_from_plan` |
 | D24 | `qms_catalog` depends on `mgmtsystem` | The catalogs exist to serve the management system. The dependency places their menus under *Management System → Configuration*, beside OCA's Cause and Origin. `mgmtsystem` is the light framework base, so no nonconformity dependency comes with it | `qms_catalog` on `product` alone, with menus deferred to `qms_nonconformity` |
 | D25 | Catalogs and profiles are managed by `mgmtsystem.group_mgmtsystem_manager`; all internal users can read them | Matches OCA's access rules for Cause and Origin. The same group already sees *Management System → Configuration*, so menu visibility and edit rights coincide. A dedicated group can be added later without breaking anything | A dedicated catalog manager group; `product.group_product_manager` |
+| D26 | Every matching rule applies | Outputs are lists; top-wins drops a group rule's outputs whenever a narrower rule matches | Rank by specificity and take the top rule |
+| D27 | Generate Actions creates actions from response lines without deduplication | Simple; the button is gated to `pending` and asks for confirmation, and an unwanted action is cancelled through its stage — actions cannot be deleted | Skip templates that already produced an action |
+| D28 | Rule documents are shown with `related_sudo=False` and limited to procedures and work instructions | Per-page access rules must filter, not raise; the type limit keeps rules relevant | Any `document.page`; a superuser-computed related field |
+| D29 | A rule must set at least one of its three conditions | Strict matching makes an all-empty rule a catch-all; any single condition keeps cause-only and part-only rules possible | Allow all-empty rules; require the defect code specifically |
+| D30 | Suggest Response deletes every line, manual ones included, before regenerating | One-sentence behaviour; the cost is confined to Analysis, where the button lives | Keep manual lines across reruns, distinguished by a `source` field |
 
 ---
 

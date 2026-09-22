@@ -33,3 +33,60 @@ class MgmtsystemNonconformity(models.Model):
             ]
             self.env["qms.nonconformity.response"].create(values)
         return True
+
+    def action_generate_actions(self):
+        """Create one action per template on every response line.
+
+        Suggested and manual lines alike. No deduplication and no memory of
+        earlier presses (D27); the button asks for confirmation first, since
+        no group may delete an action.
+
+        The values mirror mgmtsystem_action_template's _onchange_template_id
+        (mgmtsystem_action_template/models/mgmtsystem_action.py:23) -- diff
+        against it on an OCA upgrade. That onchange runs only in a form, and
+        mgmtsystem.action requires name and type_action with no default, so
+        the copy is needed, not a convenience. It omits the onchange's "NEW "
+        prefix: a generated action is a finished record, not a placeholder.
+
+        A template without a type_action is skipped rather than given a
+        guessed type, and the skipped templates are named afterwards.
+        """
+        action_model = self.env["mgmtsystem.action"]
+        skipped = self.env["mgmtsystem.action.template"]
+        for nonconformity in self:
+            values = []
+            for line in nonconformity.response_ids:
+                for template in line.rule_id.action_template_ids:
+                    if not template.type_action:
+                        skipped |= template
+                        continue
+                    values.append(
+                        {
+                            "name": template.name,
+                            "type_action": template.type_action,
+                            "description": template.description,
+                            "user_id": template.user_id.id,
+                            "tag_ids": [(6, 0, template.tag_ids.ids)],
+                            "template_id": template.id,
+                            "nonconformity_ids": [(4, nonconformity.id)],
+                        }
+                    )
+            action_model.create(values)
+        if not skipped:
+            return True
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "warning",
+                "title": self.env._("Some action templates were skipped"),
+                "message": self.env._(
+                    "No response type: %(names)s",
+                    names=", ".join(skipped.mapped("name")),
+                ),
+                # display_notification returns params.next once shown
+                # (web/static/src/webclient/actions/client_actions.js:22-25);
+                # the reload shows the actions that were created.
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }

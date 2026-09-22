@@ -1,25 +1,28 @@
 # qms_determination
 
 Determination rules, response lines, Suggest Response, Generate Actions.
-Plan: `docs/qms_determination_plan_revised.md`, which replaces §7.3, §7.5, the Analysis
-and Action Plan steps of §7.8 and the `qms_determination` row of §8 of the main plan, and
-adds D26–D30. Divergences below are against the revised plan.
+Plan: `docs/qms_determination_plan_revised.md`, which the main plan now points to for
+§7.3, §7.5, the Analysis and Action Plan steps of §7.8 and the `qms_determination` row of
+§8, and which adds D26–D30. Divergences below are against the revised plan; entries 4 and 5
+were also folded back into it on 2026-09-22.
 
 ## Steps
 
 | # | Scope | Status | Result |
 |---|---|---|---|
 | 1 | `qms.determination.rule`: conditions, outputs, the at-least-one-condition and `domain_kind` constraints, access, views, menu | done | installed and tested 2026-09-22, `exit=0`, 8 tests, 0 failures; UI checked: menu after Catalogs, an empty rule refused, a Quality rule refusing a Maintenance code, documents gated and limited to procedures and work instructions. Before any code, a review showed `@api.constrains` would never fire for a rule created without condition fields (`odoo/api.py:184-190`), so the at-least-one-condition rule became the `has_condition` SQL CHECK |
-| 2 | `qms.nonconformity.response`, header `response_ids`, matching, Suggest Response, lines in Causes and Analysis | done | upgraded and tested 2026-09-22, `exit=0`, 18 tests (8 rule, 10 response), 0 failures; UI checked: the button only in Analysis, one line per item per matching rule, manual lines locked once saved, rerun replacing every line, and a procedure page with an access group the viewing user lacked left out of their Documents column without an error. Needed a `display_name` on the item, added to `qms_nonconformity` as its step 4 |
-| 3 | Generate Actions | proposed | |
+| 2 | `qms.nonconformity.response`, header `response_ids`, matching, Suggest Response, lines in Causes and Analysis | done | upgraded and tested 2026-09-22, `exit=0`, 18 tests (8 rule, 10 response), 0 failures; UI checked: the button only in Analysis, one line per item per matching rule, manual lines locked once saved, rerun replacing every line, and a procedure page with an access group the viewing user lacked left out of their Documents column without an error. The other gate — the Documents column hidden for a user without Knowledge's `group_document_user` — was **not** exercised: with Central access to Documents on, every internal user has that group, so no such user can exist here. Needed a `display_name` on the item, added to `qms_nonconformity` as its step 4 |
+| 3 | Generate Actions: confirmation on click, one action per typed template per response line, a notification naming skipped templates | done | upgraded and tested 2026-09-22, `exit=0`, 27 tests (8 rule, 10 response, 9 generate), 0 failures; UI checked: confirmation on click, actions without the `NEW` prefix, a template with no response type named in a notification while the others were created, the button only in Action Plan. Two designs were dropped before any code: a fallback to Corrective for untyped templates, replaced by skipping them, since the fallback would guess at the template author's intent; and a confirmation wizard listing skipped templates, replaced by the button's `confirm` plus a notification after the click, the simpler of the two |
 
 ## Divergences from the revised plan
 
 | # | Revised plan | This module | Reason |
 |---|---|---|---|
 | 1 | §5 finds ancestors with `rec.search([("id", "parent_of", rec.id)])` | ancestors read from `rec.parent_path` (step 2) | A search is filtered by `active`, so an archived group would drop out of the list and every group-level rule would silently stop firing for its still-active codes. All three condition models are `_parent_store`, so the ids are already on the record, and no query is needed |
-| 2 | §8 handles unreadable pages with `related_sudo=False` | also `groups="document_knowledge.group_document_user"` on every `document_ids` column | Record rules filter, but the model ACL raises: `document.page` is readable only by Knowledge's `group_document_user` (`document_page/security/ir.model.access.csv:2`), which no management-system group implies. Without the group, the client's read of the pages' names raises. OCA's own Procedures tab carries the same prerequisite |
+| 2 | §8 handles unreadable pages with `related_sudo=False` | also `groups="document_knowledge.group_document_user"` on every `document_ids` column | Record rules filter, but the model ACL raises: `document.page` is readable only by Knowledge's `group_document_user` (`document_page/security/ir.model.access.csv:2`), which no management-system group implies. Without the group, the client's read of the pages' names raises. OCA's own Procedures tab carries the same prerequisite. On this instance the gate hides nothing: the **Central access to Documents** setting (`document_knowledge/models/res_config.py:11-12`) makes every internal user imply `group_ir_attachment_user`, which implies `group_document_user` (`document_knowledge/security/document_knowledge_security.xml:9-13`). It matters on instances where that setting is off |
 | 3 | §3 gives `domain_kind` no default | `default="both"` | Matches the catalogs and profiles: a rule is unrestricted until someone narrows it |
+| 4 | §7 says of generated actions that "users remain free to delete what they do not want", and D27's rationale calls duplicates "harmless and deletable" | generated actions cannot be deleted; the button asks for confirmation | No group may delete a `mgmtsystem.action` — `perm_unlink` is 0 for viewer, user, auditor and manager alike (`mgmtsystem_action/security/ir.model.access.csv:2-5`). An unwanted action can only be cancelled through its stage. D27 is kept — no deduplication — and the confirmation on the button is the guard against a misclick |
+| 5 | §7 falls back to Corrective when a template has no `type_action` | such a template is skipped, and a notification after the click names it | A template left without a type may be deliberate — not meant for automatic use — and defaulting it would be a guess about the author's intent |
 
 ## Folder structure
 
@@ -160,14 +163,31 @@ accepted. `related_sudo=False` on `document_ids` computes it as the user, so
 | Method | Behaviour |
 |---|---|
 | `action_suggest_response` | per nonconformity: unlink **every** `response_ids` line, manual ones included; then for each item, in item order, create one line per rule from `_match_item`, with `item_id` set. Item severities are not touched. With no items it only clears the lines |
-| `action_generate_actions` (step 3) | per nonconformity, for every response line — suggested or manual — and every template on its rule, create one `mgmtsystem.action` with the values below. No deduplication and no memory of earlier presses (D27): a template on two lines gives two actions, and pressing again generates again. Returns `True`; the actions appear in OCA's Actions page |
+| `action_generate_actions` (step 3) | for every response line — suggested or manual — and every template on its rule, create one `mgmtsystem.action` with the values below. A template with no `type_action` is skipped and its name collected, each once. No deduplication and no memory of earlier presses (D27). If anything was skipped, return a notification naming the skipped templates (below); otherwise return `True` |
+
+**Notification when templates were skipped** (step 3)
+
+| Key | Value |
+|---|---|
+| `type` | `"ir.actions.client"` |
+| `tag` | `"display_notification"` |
+| `params.type` | `"warning"` |
+| `params.title` | `"Some action templates were skipped"` |
+| `params.message` | `"No response type: %(names)s"`, the skipped template names joined with `", "` |
+| `params.next` | `{"type": "ir.actions.client", "tag": "soft_reload"}` |
+
+`display_notification` returns `params.next` once shown
+(`odoo/addons/web/static/src/webclient/actions/client_actions.js:22-25`), and `soft_reload`
+(`:96`) reloads the form so the actions that were created appear. The confirmation before
+the click cannot list the skipped templates — a button's `confirm` is fixed text — so they
+are reported after.
 
 **Values for a generated action** (step 3)
 
 | Action field | Value |
 |---|---|
 | `name` | the template's `name` — no `"NEW "` prefix |
-| `type_action` | the template's `type_action`, or `"correction"` when the template has none |
+| `type_action` | the template's `type_action`; a template without one is skipped, never defaulted |
 | `description` | the template's `description` |
 | `user_id` | the template's `user_id` |
 | `tag_ids` | the template's `tag_ids` |
@@ -180,9 +200,8 @@ user changes the field in a form — never on a create from code. The method cit
 comment as the source to diff against on an OCA upgrade. The copy is required, not just
 convenient: `name` and `type_action` are required on the action with no default
 (`mgmtsystem_action/models/mgmtsystem_action.py:22`, `53-61`), so an action created with
-only `template_id` would fail. `type_action` is optional on the template, so the fallback
-to Corrective lives here in the create values, which confines it to generated actions;
-an `_inherit` default would apply to every action anywhere. The `"NEW "` prefix is the
+only `template_id` would fail. `type_action` is optional on the template; a template without one is
+skipped rather than given a guessed type. The `"NEW "` prefix is the
 onchange marking a placeholder the user is about to overwrite; a generated action is a
 finished record. The link is `mgmtsystem.action.nonconformity_ids`
 (`mgmtsystem_nonconformity/models/mgmtsystem_action.py:13`), the inverse side of the
@@ -241,7 +260,7 @@ Inherits `mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form`, after
 | Position | Content |
 |---|---|
 | field `stage_id` (in `<header>`) before | button `action_suggest_response`, `type="object"`, `string="Suggest Response"`, `invisible="state != 'analysis'"`, `groups="mgmtsystem.group_mgmtsystem_user"` |
-| field `stage_id` (in `<header>`) before (step 3) | button `action_generate_actions`, `type="object"`, `string="Generate Actions"`, `invisible="state != 'pending'"`, `groups="mgmtsystem.group_mgmtsystem_user"` |
+| field `stage_id` (in `<header>`) before (step 3) | button `action_generate_actions`, `type="object"`, `string="Generate Actions"`, `confirm="Generate actions from the suggested responses?"`, `invisible="state != 'pending'"`, `groups="mgmtsystem.group_mgmtsystem_user"` |
 
 The Action Plan state's value is `pending`, not `action_plan`
 (`mgmtsystem_nonconformity_stage.py:18`). OCA's own Actions page is already editable only
@@ -318,17 +337,19 @@ the browser with a restricted page and a user outside its group.
 ## Tests — `tests/test_qms_generate_actions.py` (step 3)
 
 `TestGenerateActions(TransactionCase)`, `@tagged("post_install", "-at_install")`: the
-fixtures create nonconformities and actions. Two templates — one with `type_action =
-"prevention"`, a description, a responsible user and a tag; one with no `type_action` —
-on a group-level rule, so every *Torn* item matches it.
+fixtures create nonconformities and actions. Two templates — *Typed*, with `type_action =
+"prevention"`, a description, a responsible user and a tag; *Untyped*, with no
+`type_action` — on a group-level rule, so every *Torn* item matches it.
 
 | Test | Asserts |
 |---|---|
-| `test_one_action_per_template_per_line` | one item, two templates on its rule: two actions, both in the nonconformity's `action_ids` |
-| `test_copies_template_fields` | the generated action's name, type, description, user, tags and `template_id` equal the template's, and the name carries no `"NEW "` prefix |
-| `test_corrective_fallback` | the template with no `type_action` gives an action of type `correction` |
+| `test_one_action_per_typed_template` | one item gives one action, for *Typed*, in the nonconformity's `action_ids` |
+| `test_copies_template_fields` | name, type, description, user, tags and `template_id` match *Typed*, and the name carries no `"NEW "` prefix |
+| `test_untyped_template_skipped` | *Untyped* produces no action |
+| `test_skipped_templates_notified` | the return value is a `display_notification` whose message names *Untyped* once, even across two lines |
+| `test_nothing_skipped_returns_true` | with only typed templates, the button returns `True` |
 | `test_manual_line_included` | a hand-added line's templates generate actions too |
-| `test_two_lines_two_actions` | two items on the same rule give two actions per template — no deduplication |
-| `test_press_twice_generates_twice` | pressing again doubles the actions — D27, deliberate |
+| `test_two_lines_two_actions` | two items on the same rule give two actions for *Typed* — no deduplication |
+| `test_generate_twice_generates_twice` | pressing again doubles the actions — D27, deliberate |
 | `test_no_lines_no_actions` | a nonconformity with no response lines generates nothing |
 

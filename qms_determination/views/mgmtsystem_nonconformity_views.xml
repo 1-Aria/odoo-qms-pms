@@ -23,6 +23,17 @@
                     invisible="state != 'analysis'"
                     groups="mgmtsystem.group_mgmtsystem_user"
                 />
+                <!-- 'pending' is the Action Plan state's value
+                     (mgmtsystem_nonconformity_stage.py:18). -->
+                <button
+                    name="action_generate_actions"
+                    type="object"
+                    string="Generate Actions"
+                    class="btn-primary"
+                    confirm="Generate actions from the suggested responses?"
+                    invisible="state != 'pending'"
+                    groups="mgmtsystem.group_mgmtsystem_user"
+                />
             </field>
 
             <!-- After qms_nonconformity's items, so the page reads Analysis,

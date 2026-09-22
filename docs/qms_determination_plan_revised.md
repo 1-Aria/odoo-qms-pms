@@ -1,7 +1,9 @@
 # `qms_determination` — revised plan
 
-**Status:** draft for review. Nothing here is applied to
-`Odoo-QMS-PMS-Development-Plan.md`.
+**Status:** implemented — `qms_determination` built and tested 2026-09-22. The main plan
+points here for §7.3, §7.5, the Analysis and Action Plan steps of §7.8, the
+`qms_determination` row of §8, and D26–D30. Implementation details that differ from this
+text are logged in `docs/modules/qms_determination.md`.
 
 **Scope:** replaces the determination parts of the plan — §7.3 in full, §7.5 in full,
 the Analysis and Action Plan steps of §7.8, and the `qms_determination` row of §8 — and
@@ -264,7 +266,7 @@ in the same Action Plan table as hand-made ones.
 | Action field | Value |
 |---|---|
 | `name` | the template's name |
-| `type_action` | the template's `type_action`; **Corrective (`correction`) if the template has none** |
+| `type_action` | the template's `type_action`; **a template without one is skipped** |
 | `description` | the template's description |
 | `user_id` | the template's `user_id` |
 | `tag_ids` | the template's tags |
@@ -279,24 +281,21 @@ only `template_id` set would **fail**, not merely be empty. The button must copy
 itself; the table above mirrors the onchange, which should be cited in a comment as the
 source to diff against on an OCA upgrade.
 
-**Why the fallback.** `type_action` is optional on the template but required on the action.
-A corrective action is the natural default for a response suggested by nonconformity
-analysis.
-
-**Where the fallback lives.** In the button's create values, and nowhere else. Changing
-`mgmtsystem_action` itself is ruled out — OCA code is never edited in place. Giving
-`type_action` a default through `_inherit` would be additive, but it would make *every*
-action anywhere default to Corrective, including hand-created ones. Setting it in the
-button confines it to the actions this module generates.
+**Why templates without a type are skipped.** `type_action` is optional on the template but
+required on the action. A template left without one may be deliberate — not meant for
+automatic use — and giving it a type would be a guess about its author's intent. The
+skipped templates are named in a notification after the click, since the confirmation
+before it is fixed text.
 
 **Why no `"NEW "` prefix.** The onchange prefixes the name because in a form it is a
 placeholder the user is about to overwrite. Generated actions are finished records.
 
 **No deduplication and no memory of earlier presses.** A template on two lines gives two
 actions, which usually means one action per affected defect. Pressing the button again
-generates again. The control is the button being visible only in `pending`, and users
-remain free to delete what they do not want. This is deliberate: guarding against it would
-cost more than the duplicates do.
+generates again. Actions cannot be deleted — no group has `unlink` on `mgmtsystem.action`
+— so an unwanted one is cancelled through its stage. The controls are the button being
+visible only in `pending` and a confirmation on the click. This is deliberate: guarding
+against duplicates would cost more than they do.
 
 ---
 
@@ -390,7 +389,7 @@ is declared. `document_page_work_instruction` is not otherwise in the chain.
 | # | Decision | Rationale | Rejected alternative |
 |---|---|---|---|
 | D26 | Every matching rule applies | Outputs are lists; top-wins drops a group rule's outputs whenever a narrower rule matches | Rank by specificity and take the top rule |
-| D27 | Generate Actions creates actions from response lines without deduplication | Simple; duplicates are harmless and deletable; the button is gated to `pending` | Skip templates that already produced an action |
+| D27 | Generate Actions creates actions from response lines without deduplication | Simple; the button is gated to `pending` and asks for confirmation, and an unwanted action is cancelled through its stage — actions cannot be deleted | Skip templates that already produced an action |
 | D28 | Rule documents are shown with `related_sudo=False` and limited to procedures and work instructions | Per-page access rules must filter, not raise; the type limit keeps rules relevant | Any `document.page`; a superuser-computed related field |
 | D29 | A rule must set at least one of its three conditions | Strict matching makes an all-empty rule a catch-all; any single condition keeps cause-only and part-only rules possible | Allow all-empty rules; require the defect code specifically |
 | D30 | Suggest Response deletes every line, manual ones included, before regenerating | One-sentence behaviour; the cost is confined to Analysis, where the button lives | Keep manual lines across reruns, distinguished by a `source` field |
