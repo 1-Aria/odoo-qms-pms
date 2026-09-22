@@ -224,6 +224,47 @@ cleanly and then appears broken.
 
 ---
 
+## Lessons from building
+
+Each was found by running code, not by reading it. Details and source references are in
+the module doc named.
+
+**Tests**
+- Tests creating core records are `post_install` — see *Tests that create core records* above.
+- Test methods inherited from a shared base class are collected only with
+  `allow_inherited_tests_method = True`; without it the run passes with zero tests. Check
+  the test count, never just `exit=0`. (`qms_catalog`)
+- Build fixture codes from `unique_code_prefix()` — `ref_code` is unique per table and the
+  instance holds real data. (`qms_catalog`)
+- Asserting on tracking takes two `self.env.cr.precommit.run()` calls: `create()` discards
+  tracking for the rest of the transaction, and messages post only at commit. (`qms_nonconformity`)
+- A dependency or constraint trigger that no test exercises is decoration. Write the test
+  that changes that field on an existing record. (`qms_catalog`, `qms_nonconformity`, `qms_determination`)
+- An access test needs a positive control — the same user succeeding at an ordinary write —
+  or it passes for the wrong reason. (`qms_catalog`, dropped step 6)
+
+**ORM**
+- `@api.constrains` runs only when its fields are in the create/write values, so it cannot
+  catch an absent value; use a SQL CHECK. (`qms_determination`)
+- A non-stored recursive compute must read through the same path its `@api.depends` names:
+  invalidation cascades only through cached records. (`qms_catalog`, step 5)
+- An editable stored compute keeps a record's value when the method does not assign it.
+  (`qms_nonconformity`)
+- Read ancestors from `parent_path`, not a `parent_of` search, which drops archived
+  records. (`qms_determination`)
+- `related_sudo=False` applies the user's record rules; a model ACL still raises, so gate
+  the column with `groups`. (`qms_determination`)
+- Anything reaching `hr` fields (`employee_id`) needs `hr` declared — put it in a bridge
+  module. (`qms_nonconformity_hr`)
+
+**Views**
+- View inheritance may not select on a translated attribute such as `@string`; select
+  positionally. (`qms_nonconformity`)
+- A button's `confirm=` is fixed text; report anything dynamic after the click with a
+  `display_notification`. (`qms_determination`)
+
+---
+
 ## Working style
 
 **Ask rather than assume** when a choice would change the architecture, add a
