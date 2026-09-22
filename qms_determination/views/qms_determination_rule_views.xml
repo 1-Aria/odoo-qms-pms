@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="qms_determination_rule_view_list" model="ir.ui.view">
+        <field name="name">qms.determination.rule.list</field>
+        <field name="model">qms.determination.rule</field>
+        <field name="arch" type="xml">
+            <list string="Determination Rules">
+                <field name="sequence" widget="handle" />
+                <field name="name" />
+                <field name="domain_kind" />
+                <field name="defect_code_id" />
+                <field name="object_part_id" />
+                <field name="cause_id" />
+                <field name="severity_id" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_determination_rule_view_form" model="ir.ui.view">
+        <field name="name">qms.determination.rule.form</field>
+        <field name="model">qms.determination.rule</field>
+        <field name="arch" type="xml">
+            <form string="Determination Rule">
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="Archived"
+                        bg_color="text-bg-danger"
+                        invisible="active"
+                    />
+                    <field name="active" invisible="1" />
+                    <group>
+                        <group>
+                            <field name="name" />
+                            <field name="domain_kind" />
+                        </group>
+                        <group>
+                            <field name="sequence" />
+                        </group>
+                    </group>
+                    <!-- No dropdown filter: a rule may be keyed on a group or a
+                         code, and an empty condition means any. -->
+                    <group name="conditions" string="When">
+                        <field name="defect_code_id" options="{'no_create': True}" />
+                        <field name="object_part_id" options="{'no_create': True}" />
+                        <field name="cause_id" options="{'no_create': True}" />
+                    </group>
+                    <group name="outputs" string="Suggest">
+                        <field name="severity_id" options="{'no_create': True}" />
+                        <field name="action_template_ids" widget="many2many_tags" />
+                        <!-- Gated: document.page is readable only by Knowledge's
+                             document users, which no management-system group
+                             implies. -->
+                        <field
+                            name="document_ids"
+                            widget="many2many_tags"
+                            groups="document_knowledge.group_document_user"
+                        />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="qms_determination_rule_view_search" model="ir.ui.view">
+        <field name="name">qms.determination.rule.search</field>
+        <field name="model">qms.determination.rule</field>
+        <field name="arch" type="xml">
+            <search string="Determination Rules">
+                <field name="name" />
+                <field name="defect_code_id" />
+                <field name="object_part_id" />
+                <field name="cause_id" />
+                <filter
+                    name="archived"
+                    string="Archived"
+                    domain="[('active', '=', False)]"
+                />
+                <group name="group_by">
+                    <filter
+                        name="group_by_domain_kind"
+                        string="Domain"
+                        context="{'group_by': 'domain_kind'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="qms_determination_rule_action" model="ir.actions.act_window">
+        <field name="name">Determination Rules</field>
+        <field name="res_model">qms.determination.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="qms_determination_rule_view_search" />
+    </record>
+
+    <!-- Directly after qms_catalog's Catalogs (sequence 20). -->
+    <menuitem
+        id="menu_qms_determination_rule"
+        name="Determination Rules"
+        parent="mgmtsystem.menu_mgmtsystem_configuration"
+        action="qms_determination_rule_action"
+        groups="mgmtsystem.group_mgmtsystem_manager"
+        sequence="25"
+    />
+
+</odoo>

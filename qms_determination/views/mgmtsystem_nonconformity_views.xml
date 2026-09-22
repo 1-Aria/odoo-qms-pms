@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="view_mgmtsystem_nonconformity_form" model="ir.ui.view">
+        <field name="name">mgmtsystem.nonconformity.form.qms.determination</field>
+        <field name="model">mgmtsystem.nonconformity</field>
+        <field
+            name="inherit_id"
+            ref="mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form"
+        />
+        <field name="arch" type="xml">
+
+            <!-- Hidden outside Analysis rather than disabled: rerunning later
+                 means moving the stage back, which stage_id's tracking already
+                 records. -->
+            <field name="stage_id" position="before">
+                <button
+                    name="action_suggest_response"
+                    type="object"
+                    string="Suggest Response"
+                    class="btn-primary"
+                    invisible="state != 'analysis'"
+                    groups="mgmtsystem.group_mgmtsystem_user"
+                />
+            </field>
+
+            <!-- After qms_nonconformity's items, so the page reads Analysis,
+                 Analysis Items, Suggested Responses, Analysis Confirmation. -->
+            <field name="item_ids" position="after">
+                <separator string="Suggested Responses" />
+                <field name="response_ids" readonly="state != 'analysis'">
+                    <list editable="bottom">
+                        <field name="item_id" />
+                        <field
+                            name="rule_id"
+                            readonly="id"
+                            options="{'no_create': True}"
+                        />
+                        <field name="rule_defect_code_id" />
+                        <field name="rule_object_part_id" />
+                        <field name="rule_cause_id" />
+                        <field name="suggested_severity_id" />
+                        <field name="action_template_ids" widget="many2many_tags" />
+                        <field
+                            name="document_ids"
+                            widget="many2many_tags"
+                            groups="document_knowledge.group_document_user"
+                        />
+                    </list>
+                </field>
+            </field>
+
+        </field>
+    </record>
+
+</odoo>

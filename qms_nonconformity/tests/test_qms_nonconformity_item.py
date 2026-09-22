@@ -117,6 +117,18 @@ class TestNonconformityItem(TransactionCase):
         self.assertEqual(item.defect_code_id, self.defect_code)
         self.assertEqual(self.nonconformity.item_ids, item)
 
+    def test_item_display_name(self):
+        item = self.env["qms.nonconformity.item"].create(
+            {
+                "nonconformity_id": self.nonconformity.id,
+                "defect_code_id": self.defect_code.id,
+                "object_part_id": self.part_code.id,
+            }
+        )
+        self.assertEqual(item.display_name, "Torn · Sleeves")
+        item.object_part_id = False
+        self.assertEqual(item.display_name, "Torn")
+
     def test_item_cascade(self):
         nonconformity = self._create_nonconformity(product=self.product)
         item = self.env["qms.nonconformity.item"].create(

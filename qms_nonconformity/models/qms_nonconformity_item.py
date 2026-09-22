@@ -7,8 +7,9 @@ class QmsNonconformityItem(models.Model):
     """One line of analysis: what is wrong, where, and why.
 
     A nonconformity carries many items. ondelete="restrict" on the catalog
-    links keeps a code that has been used in analysis from being deleted;
-    catalogs are archived rather than deleted.
+    and cause links keeps anything used in analysis from being deleted.
+    Defect codes and object parts are archived instead; OCA gives causes no
+    active field, so a cause in use stays until no item refers to it.
     """
 
     _name = "qms.nonconformity.item"
@@ -49,6 +50,17 @@ class QmsNonconformityItem(models.Model):
     )
     qty_affected = fields.Float(string="Quantity Affected")
     note = fields.Char()
+
+    @api.depends("defect_code_id.name", "object_part_id.name")
+    def _compute_display_name(self):
+        """Show as "Torn · Sleeves": what is wrong, then where, when known.
+
+        Leaf names rather than the codes' full "Group / Code" display names,
+        which would crowd a Many2one column.
+        """
+        for item in self:
+            parts = [item.defect_code_id.name, item.object_part_id.name]
+            item.display_name = " · ".join(part for part in parts if part)
 
     @api.depends("defect_code_id")
     def _compute_severity_id(self):

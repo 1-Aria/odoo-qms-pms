@@ -10,6 +10,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 1 | `qms.nonconformity.item`, header `item_ids`, items in Causes and Analysis, §7.6 code filtering | done | installed and tested 2026-09-21, `exit=0`, 7 tests, 0 failures; the Analysis Items dropdown was confirmed in the browser to offer only the product's profiled leaf codes, and the page reads Analysis → Analysis Items → Analysis Confirmation with no Causes section. Two failures on the way: `setUpClass` creating a product at `at_install` hit `product_template.sale_line_warn`, fixed with the `post_install` tag; and the first placement used `separator[@string='Causes']` as an inheritance selector, which core refuses, fixed by selecting the separator positionally |
 | 2 | Header: `partner_id` relaxed, responsible / manager prefill, `disposition_id` and the `qms.disposition` model, and the `qms_nonconformity_hr` bridge for department and manager | done | two passes, both 2026-09-21. First: Selection-based disposition, `exit=0`, 12 tests + 2 in the bridge. Reopened the same day to make disposition a user-editable model while the column held no real data, and to move the manager prefill into the bridge — `res.users.employee_id` comes from `hr`, which `qms_nonconformity` does not depend on, so `default_get` would have raised `AttributeError` anywhere `hr` was absent. Second pass `exit=0`, 10 tests here and 4 in the bridge, UI checked: partner optional, prefill working, dispositions listed under Configuration → Nonconformities with `code` greyed out, archived filter working |
 | 3 | `qms_severity_rank` shown on the severity form, `default_severity_id` on `qms.defect.code`, item severity default, header roll-up | done | upgraded and tested 2026-09-21, `exit=0`, 19 tests, 0 failures; the header recompute over existing nonconformities ran clean; UI checked: rank on the severity form, default severity on defect codes, items and header filling in. Rank seeding was dropped before any code was written — each implementation defines its own severities, so ranks start at 0 and the unconfigured state is documented and tested (the first item wins ties). A review then showed no test moved an existing item's `sequence`, so `item_ids.sequence` in `@api.depends` was unproven; `test_header_rollup_follows_reorder` closes that |
+| 4 | `display_name` on `qms.nonconformity.item`, for Many2one columns in `qms_determination` and `qms_quality_control` | done | upgraded and tested 2026-09-22, `exit=0`, 20 tests, 0 failures; items read *Torn · Sleeves* in `qms_determination`'s response lines. Added after the module closed, because the item has no name field and a Many2one to it rendered as `qms.nonconformity.item,12` |
 
 ## Divergences from the plan
 
@@ -106,13 +107,19 @@ through. `mgmtsystem_partner` is **not** a dependency — see divergence 3.
 | `qty_affected` | Float | |
 | `note` | Char | |
 
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_compute_display_name` (step 4) | `@api.depends("defect_code_id.name", "object_part_id.name")` | `"Torn · Sleeves"` — the defect code's name, then the object part's when set. Leaf names, not the codes' `Group / Code` display names, which would crowd a column |
+
 `defect_code_id` is required and `object_part_id` is not: an item records what is wrong,
 while where it is wrong may be unknown — and §7.6 notes that an inspection resolves only
 a defect code.
 
-`ondelete="restrict"` on the three catalog links keeps a code that has been used in
-analysis from being deleted, which matches `qms_catalog`'s own archive-rather-than-delete
-rule.
+`ondelete="restrict"` on the three links keeps anything used in analysis from being
+deleted. Defect codes and object parts are archived instead, matching `qms_catalog`'s
+archive-rather-than-delete rule. Causes cannot be archived — OCA gives
+`mgmtsystem.nonconformity.cause` no `active` field — so a cause in use stays until no item
+refers to it.
 
 ### `mgmtsystem.nonconformity` — `models/mgmtsystem_nonconformity.py`
 
@@ -467,6 +474,7 @@ is a working database.
 | Test | Asserts |
 |---|---|
 | `test_item_created` | an item on the nonconformity holds its defect code, and `item_ids` shows it |
+| `test_item_display_name` (step 4) | an item reads `Torn · Sleeves`, and `Torn` once its object part is cleared |
 | `test_item_cascade` | deleting the nonconformity deletes its items |
 | `test_defect_code_restrict` | deleting a defect code used by an item raises `IntegrityError` |
 | `test_effective_profiles_related` | the header's `qms_effective_profile_ids` equals the product's |

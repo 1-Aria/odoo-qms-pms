@@ -1,0 +1,7 @@
+"id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
+"access_qms_determination_rule_viewer","qms.determination.rule.viewer","model_qms_determination_rule","mgmtsystem.group_mgmtsystem_viewer",1,0,0,0
+"access_qms_determination_rule_user","qms.determination.rule.user","model_qms_determination_rule","mgmtsystem.group_mgmtsystem_user",1,0,0,0
+"access_qms_determination_rule_manager","qms.determination.rule.manager","model_qms_determination_rule","mgmtsystem.group_mgmtsystem_manager",1,1,1,1
+"access_qms_nonconformity_response_viewer","qms.nonconformity.response.viewer","model_qms_nonconformity_response","mgmtsystem.group_mgmtsystem_viewer",1,0,0,0
+"access_qms_nonconformity_response_user","qms.nonconformity.response.user","model_qms_nonconformity_response","mgmtsystem.group_mgmtsystem_user",1,1,1,1
+"access_qms_nonconformity_response_manager","qms.nonconformity.response.manager","model_qms_nonconformity_response","mgmtsystem.group_mgmtsystem_manager",1,1,1,1
