@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="qc_test_question_form_view" model="ir.ui.view">
+        <field name="name">qc.test.question.form.qms.defect.code</field>
+        <field name="model">qc.test.question</field>
+        <field
+            name="inherit_id"
+            ref="quality_control_oca.qc_test_question_form_view"
+        />
+        <field name="arch" type="xml">
+            <!-- The only `ok` in this view is the answers list's column. -->
+            <field name="ok" position="after">
+                <field name="qms_defect_code_id" options="{'no_create': True}" />
+            </field>
+            <!-- The group holding min, max and UoM, which the base form
+                 already hides for a qualitative question, so the
+                 question-level code needs no `invisible` of its own. Selected
+                 by @name: view inheritance rejects a translated attribute
+                 such as @string as a selector. -->
+            <xpath expr="//group[@name='quantitative']/div" position="after">
+                <field name="qms_defect_code_id" options="{'no_create': True}" />
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

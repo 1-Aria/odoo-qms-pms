@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- The lines embedded in the inspection form. The column sits between
+         "Valid values" and "Success?": what counts as correct, what the defect
+         is, whether it passed. -->
+    <record id="qc_inspection_form_view" model="ir.ui.view">
+        <field name="name">qc.inspection.form.qms.defect.code</field>
+        <field name="model">qc.inspection</field>
+        <field
+            name="inherit_id"
+            ref="quality_control_oca.qc_inspection_form_view"
+        />
+        <field name="arch" type="xml">
+            <field name="valid_values" position="after">
+                <field name="qms_defect_code_id" optional="show" />
+                <field name="qms_qty_failed" optional="show" />
+            </field>
+        </field>
+    </record>
+
+    <!-- The standalone line list, behind the Inspection Lines menu. It already
+         carries decoration-danger on failures and a Failed filter, so the
+         column turns it into a cross-inspection defect view. -->
+    <record id="qc_inspection_line_tree_view" model="ir.ui.view">
+        <field name="name">qc.inspection.line.list.qms.defect.code</field>
+        <field name="model">qc.inspection.line</field>
+        <field
+            name="inherit_id"
+            ref="quality_control_oca.qc_inspection_line_tree_view"
+        />
+        <field name="arch" type="xml">
+            <field name="valid_values" position="after">
+                <field name="qms_defect_code_id" optional="show" />
+                <field name="qms_qty_failed" optional="show" />
+            </field>
+        </field>
+    </record>
+
+</odoo>

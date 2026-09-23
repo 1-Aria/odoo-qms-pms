@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="view_mgmtsystem_nonconformity_form" model="ir.ui.view">
+        <field
+            name="name"
+        >mgmtsystem.nonconformity.form.qms.populate.defect</field>
+        <field name="model">mgmtsystem.nonconformity</field>
+        <field
+            name="inherit_id"
+            ref="mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form"
+        />
+        <field name="arch" type="xml">
+            <field name="stage_id" position="before">
+                <!-- The client can only evaluate a field present in the arch.
+                     The quality-control group here is load-bearing: without it
+                     the compute runs, and reads the inspection's state, for a
+                     user who has no read access to qc.inspection.
+
+                     One group, not a list: a comma in `groups` means "member of
+                     at least one" (res_users.py:1167-1170, and the same
+                     matching in ir_ui_view._postprocess_access_rights), so
+                     naming the management-system group as well would let every
+                     management-system user through, which is the whole of
+                     what this gate has to stop. Nothing is lost: a pure
+                     quality-control user cannot read mgmtsystem.nonconformity
+                     at all, so they never reach this form. -->
+                <field
+                    name="qms_can_populate_defect"
+                    invisible="1"
+                    groups="quality_control_oca.group_quality_control_user"
+                />
+                <button
+                    name="action_populate_defect"
+                    type="object"
+                    string="Populate Defect"
+                    invisible="not qms_can_populate_defect"
+                    groups="quality_control_oca.group_quality_control_user"
+                />
+            </field>
+        </field>
+    </record>
+
+</odoo>
