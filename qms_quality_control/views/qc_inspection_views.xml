@@ -17,6 +17,34 @@
                 <field name="qms_defect_code_id" optional="show" />
                 <field name="qms_qty_failed" optional="show" />
             </field>
+            <!-- The button box already exists here (qc_inspection_view.xml:59);
+                 OCA's own bridge adds its nonconformity count the same way, and
+                 is the model for the singular/plural spans. Unlike that
+                 button, this one carries the group granting the foreign read
+                 (D31); the missing group on OCA's is why a quality-control
+                 user with no management-system group cannot open an inspection
+                 at all. -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button
+                    name="action_view_qms_actions"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-tasks"
+                    groups="mgmtsystem.group_mgmtsystem_viewer"
+                >
+                    <div class="o_stat_info">
+                        <field name="qms_action_count" class="o_stat_value" />
+                        <span
+                            class="o_stat_text"
+                            invisible="qms_action_count &lt; 2"
+                        > Actions</span>
+                        <span
+                            class="o_stat_text"
+                            invisible="qms_action_count &gt; 1"
+                        > Action</span>
+                    </div>
+                </button>
+            </xpath>
         </field>
     </record>
 

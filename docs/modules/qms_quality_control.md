@@ -10,7 +10,7 @@ Plan: §7.10 (inspection rows), §7.11.
 |---|---|---|---|
 | 1 | `qms_defect_code_id` on `qc.test.question.value` and on `qc.test.question`, both restricted to quality leaf codes, shown on the question form | done | installed and tested 2026-09-23, `exit=0`, 4 tests, 0 failures; UI checked: the Defect Code column on a qualitative question's answers, the field under the quantitative question's min–max–UoM heading — the placement was accepted as it renders — and both dropdowns offering leaf quality codes only |
 | 2 | `qms_defect_code_id` and `qms_qty_failed` on `qc.inspection.line`, shown in the line lists; Populate Defect on the nonconformity, gated on a confirmed inspection and an empty analysis | done | two passes, both 2026-09-23. First: `exit=0`, 19 tests, 0 failures; UI checked — the defect-code column filled on failures only, the button appearing once the inspection is confirmed and going once an item exists, the notification when nothing resolves, and the form opening cleanly for a management-system user outside quality control. A log review then found the group gate did not gate: `groups` reads a comma as *at least one* (`res_users.py:1167-1170`), so naming the management-system group beside the quality-control one passed every management-system user through. Both elements now name the quality-control group alone, `test_view_hides_gate_without_quality_control` covers the arch rather than only the compute, and the two step 1 restrict tests gained the `@mute_logger("odoo.sql_db")` every other restrict test in the repository carries. Second pass added `qms_qty_failed` and its transfer to the item: `exit=0`, 20 tests, 0 failures, both columns and the quantity carry-over checked in the UI |
-| 3 | `mgmtsystem.action.inspection_id`, its inverse, smart buttons both ways | — | |
+| 3 | `mgmtsystem.action.qms_inspection_id` and the field on the action form; on the inspection, a three-path action count and a smart button each way, plus the button box the action form lacks | done | upgraded and tested 2026-09-23, `exit=0`, 33 tests, 0 failures; UI checked — the new button box on the action form, the field beside Reference, the inspection opening from the stat button, the actions list opening at a count of zero with the inspection prefilled on New, and the count including actions reached through the nonconformity and through its immediate action without double-counting one reachable both ways. `_compute_qms_action_count` returns 0 for an unsaved record: a `NewId` cannot go into a domain and the compute runs during onchange, the guard core writes as `isinstance(record.id, models.NewId)` (`crm_lead.py:575`) |
 | 4 | Nonconformity prefill when created from an inspection | — | |
 
 ## Divergences from the plan
@@ -29,6 +29,11 @@ Plan: §7.10 (inspection rows), §7.11.
 | 10 | §7.11 does not say which inspections may be read | only a confirmed one — `waiting`, `success` or `failed` | A defect is not recorded against an inspection nobody has confirmed. It also removes the worst of the unmeasured-line problem: before confirmation a quantitative line reads 0.0 and fails any minimum above zero, so an unconfirmed inspection can resolve codes for questions nobody has answered |
 
 | 11 | §7.11 assumes the analyst can read the inspection | Populate Defect requires `quality_control_oca.group_quality_control_user`, and the button is hidden without it | `qc.inspection` is readable only by that group (`quality_control_oca/security/ir.model.access.csv:2-3`); no management-system group implies it. Anyone who populates defects reads the inspection's lines, so the prerequisite is real rather than cosmetic — but it has to be declared, because the nonconformity form works without it today. See *Known traps* |
+
+| 12 | §7.10 names the field on the action `inspection_id` | `qms_inspection_id` | The prefix rule, as in divergence 1. `mgmtsystem.action` is an OCA model and `inspection_id` is a name a future upstream field could take |
+| 13 | §7.10: "count of zero opens a new form carrying the context defaults; count of one or more opens the matching records filtered" | **action → inspection**: the button is hidden when the field is empty. **inspection → actions**: always the filtered list, whatever the count, with the defaults on the action so its New button prefills | The two directions are not symmetric. An inspection is raised by a quality-control trigger or by hand in Quality Control, never sensibly created from an action, so there is nothing to prefill in that direction and a zero count has nothing to offer. Going the other way, one behaviour beats a branch: at zero the list is empty and its New button carries the same defaults, which is what the plan wanted the branch for. OCA's own bridge branches on the count (`mgmtsystem_nonconformity_quality_control_oca/models/qc_inspection.py`) and sets its context defaults **only** in the single-record branch, so creating from the list of many prefills nothing — the bug that behaviour invites |
+| 14 | §7.10 gives each link an inverse One2many and a button counting it, so an inspection would count only the actions pointing at it | the inspection's button counts three paths — the direct link, the nonconformity's action plan and its immediate action — through an overridable `_qms_action_domain` | §7.10 was written before the determination engine existed. Generate Actions links an action to the nonconformity, so a direct count reads 0 on the main flow. The other direction keeps the plan's shape: an action has one inspection, and the Many2one is the count |
+| 15 | §7.10 does not mention access | both smart buttons and the action's `qms_inspection_id` field carry the one group granting the foreign read, per D31 | `qms_inspection_id` and the inspection button dereference `qc.inspection` (`quality_control_oca.group_quality_control_user`); the actions button dereferences `mgmtsystem.action` (`mgmtsystem.group_mgmtsystem_viewer`). Nothing is granted by ACL — see `docs/Cross_Module_Access_Policy.md` |
 
 **One code per characteristic** is the cost of divergence 2: a quantitative question
 records "out of tolerance", never "too low" as against "too high". A second field for the
@@ -95,6 +100,7 @@ qms_quality_control/
 │   └── mgmtsystem_action_views.xml                       # 3
 ├── tests/__init__.py, test_qms_quality_control.py        # 1
 │         test_qms_populate_defect.py                     # 2
+│         test_qms_action_inspection.py                   # 3
 └── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), 2 (USAGE)
 ```
 
@@ -110,7 +116,7 @@ qms_quality_control/
 | `license` | `AGPL-3` |
 | `category` | `Management System` |
 | `depends` | `qms_nonconformity`, `quality_control_oca`, `mgmtsystem_nonconformity_quality_control_oca`, `mgmtsystem_action` |
-| `data` | `views/qc_test_views.xml`, `views/qc_inspection_views.xml` (step 2), `views/mgmtsystem_nonconformity_views.xml` (step 2) |
+| `data` | `views/qc_test_views.xml`, `views/qc_inspection_views.xml` (step 2, extended in step 3), `views/mgmtsystem_nonconformity_views.xml` (step 2), `views/mgmtsystem_action_views.xml` (step 3) |
 | `installable` | `True` |
 
 No access file: the module adds fields and a button to existing models, whose access
@@ -123,7 +129,7 @@ already has create rights on (`qms_nonconformity/security/ir.model.access.csv`).
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qc_test_question`, `from . import qc_test_question_value`, `from . import qc_inspection_line` (step 2), `from . import mgmtsystem_nonconformity` (step 2) |
+| `models/__init__.py` | `from . import qc_test_question`, `from . import qc_test_question_value`, `from . import qc_inspection_line` (step 2), `from . import mgmtsystem_nonconformity` (step 2), `from . import mgmtsystem_action`, `from . import qc_inspection` (step 3) |
 
 ## The checklist domain
 
@@ -301,6 +307,88 @@ analysis is empty, so a click that creates nothing would otherwise look broken.
 No `params.next`: nothing changed, so there is nothing to reload. On the success path the
 method returns `True` and the client reloads the form itself.
 
+### `mgmtsystem.action` — `models/mgmtsystem_action.py` (step 3)
+
+`_inherit = "mgmtsystem.action"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_inspection_id` | Many2one → `qc.inspection` | `string="Inspection"`, `ondelete="set null"`, `index=True` |
+
+| Method | Behaviour |
+|---|---|
+| `action_view_qms_inspection` | `ensure_one`, returns an `ir.actions.act_window` on `qc.inspection` with `res_id` set and `view_mode` `form` |
+
+`ondelete="set null"` rather than `restrict`, unlike every other link in this system. An
+action is the record of work done and must outlive its source: OCA already refuses to delete
+an inspection that is not in draft (`qc_inspection._unlink_except_autogenerated_and_non_draft`),
+so the only inspection that can disappear is one nobody confirmed, and an action that survives
+it with an empty link loses nothing. `restrict` would instead make a draft inspection
+undeletable because someone raised an action from it.
+
+### `qc.inspection` — `models/qc_inspection.py` (step 3)
+
+`_inherit = "qc.inspection"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_action_ids` | One2many → `mgmtsystem.action` | inverse `qms_inspection_id`, `string="Directly Linked Actions"`; in no view — see below |
+| `qms_action_count` | Integer | `compute="_compute_qms_action_count"`, not stored, `string="# Actions"` |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_qms_action_domain` | — | `ensure_one`; the three ways an action belongs to this inspection, as one domain |
+| `_compute_qms_action_count` | `@api.depends("qms_action_ids", "mgmtsystem_nonconformity_ids.action_ids", "mgmtsystem_nonconformity_ids.immediate_action_id")` | `search_count(inspection._qms_action_domain())` |
+| `action_view_qms_actions` | — | `ensure_one`, returns an `ir.actions.act_window` on `mgmtsystem.action`, `view_mode` `list,form`, `domain=self._qms_action_domain()`, `context={"default_qms_inspection_id": self.id}` |
+
+**The count spans three paths, not one.** Counting `qms_action_ids` alone would read 0 on the
+flow this system is built around: inspection → Populate Defect → Suggest Response → Generate
+Actions links each action to the *nonconformity*, never to the inspection.
+
+```python
+def _qms_action_domain(self):
+    self.ensure_one()
+    return [
+        "|", ("qms_inspection_id", "=", self.id),
+        "|", ("nonconformity_ids.qc_inspection_id", "=", self.id),
+        ("nonconformity_immediate_id.qc_inspection_id", "=", self.id),
+    ]
+```
+
+| Arm | Reaches |
+|---|---|
+| `qms_inspection_id` | an action raised on the inspection directly |
+| `nonconformity_ids.qc_inspection_id` | the action plan of a nonconformity raised from it — what Generate Actions writes (`mgmtsystem_nonconformity/models/mgmtsystem_action.py:12-18`) |
+| `nonconformity_immediate_id.qc_inspection_id` | that nonconformity's **immediate containment action**, which is a Many2one on the nonconformity and is absent from `action_ids`. OCA's own code treats the full set as `action_ids + immediate_action_id` (`mgmtsystem_nonconformity.py:156`), and plan §7.7 makes `immediate_action_id` the fast path for containment — the action a failed inspection most often produces first |
+
+An action reachable by two arms is counted once: it is one search, not a sum.
+
+**`qms_inspection_id` is not written onto generated actions.** Filling it in Generate Actions
+would store the same fact twice, write onto records `qms_determination` owns, and go stale if
+a nonconformity's inspection were corrected. The domain states the relation as it is.
+
+**A method, not an inline domain**, because the maintenance side meets the same gap later:
+D19 and D22 have `maintenance_mgmtsystem_action` ship the direct arm while `qms_maintenance`
+extends it with the nonconformity arms. That split only works if the domain is overridable.
+
+**`qms_action_ids` is kept although nothing counts or displays it**, because a non-stored
+compute needs a dependency path and a `search_count` has none. Without it — and without the two
+nonconformity paths beside it — the count would be computed once per cache lifetime and never
+invalidated, so an action created in the same transaction would not appear. That is also what
+would make the tests flaky. The field is in no view, so it cannot disagree with the button.
+
+The count is not stored: it is read on a form, never searched or grouped.
+
+**No `default_name` in the context.** An action's `name` is its subject, and seeding it with
+an inspection number would put a placeholder where a sentence belongs. `type_action` is
+likewise left for the user: it is required with no default, and guessing it is the mistake
+`qms_determination` step 3 already refused to make for untyped templates.
+
+**Both buttons and the action's field carry a group** (D31): the ones reading `qc.inspection`
+name `quality_control_oca.group_quality_control_user`, the one reading `mgmtsystem.action`
+names `mgmtsystem.group_mgmtsystem_viewer`. A `<field>` inside a gated `<button>` needs no
+group of its own — `_postprocess_access_rights` removes the node with its children.
+
 ## Views — `views/qc_test_views.xml`
 
 Inherits `quality_control_oca.qc_test_question_form_view`. Answers are edited in the
@@ -335,6 +423,42 @@ Failed filter, so it becomes a cross-inspection defect view for free.
 
 The field is computed and not stored, so no `readonly="1"` is needed; Odoo makes a
 compute without an inverse readonly already.
+
+## Views — `views/mgmtsystem_action_views.xml` (step 3)
+
+Inherits `mgmtsystem_action.view_mgmtsystem_action_form`.
+
+| Position | Content |
+|---|---|
+| `//sheet/div[hasclass('oe_title')]` before | `<div name="button_box" class="oe_button_box">` holding one `oe_stat_button`: `action_view_qms_inspection`, `icon="fa-check-square-o"`, the label *Inspection*, `invisible="not qms_inspection_id"`, `groups="quality_control_oca.group_quality_control_user"` |
+| field `reference` after (inside `group[@name='meta']`) | `qms_inspection_id`, `options="{'no_create': True}"`, same group |
+
+**The action form has no button box**, so this module creates it: no `oe_button_box` appears in
+`mgmtsystem_action/views/mgmtsystem_action.xml`, nor in any installed module extending that
+form (`mgmtsystem_action_template`, `mgmtsystem_action_efficacy`, `mgmtsystem_nonconformity`).
+Should a future OCA version add one, this creates a second box beside it rather than failing —
+so it is worth re-checking on an upgrade of `mgmtsystem_action`.
+
+**The field is on the form as well as the button**, in the *meta* group beside `reference`.
+Without it the link could only ever be set from the inspection side, and an action raised
+independently could never be attached to the inspection it came from.
+
+The button is hidden when the field is empty rather than offering to create an inspection — see
+divergence 13.
+
+## Views — `views/qc_inspection_views.xml` (step 3 additions)
+
+| Position | Content |
+|---|---|
+| `//div[hasclass('oe_button_box')]` inside | an `oe_stat_button`: `action_view_qms_actions`, `icon="fa-tasks"`, `qms_action_count` as the stat value with singular and plural labels, `groups="mgmtsystem.group_mgmtsystem_viewer"` |
+
+The button box already exists on the inspection form — OCA's own bridge adds its nonconformity
+count into it the same way (`mgmtsystem_nonconformity_quality_control_oca/views/qc_inspection.xml:12-33`),
+which is also the model for the singular/plural spans.
+
+Unlike that bridge's button, this one carries a group. Its button is the reason a
+quality-control user with no management-system group cannot open an inspection at all, which is
+recorded as an upstream bug in `docs/Cross_Module_Access_Policy.md` §6.
 
 ## Views — `views/mgmtsystem_nonconformity_views.xml` (step 2)
 
@@ -436,6 +560,28 @@ Sixteen tests in step 2. The admin user the other tests run as is in
 `group_quality_control_manager`, which implies the user group
 (`quality_control_oca/security/quality_control_security.xml`), so only
 `test_gate_requires_quality_control_group` needs a user of its own.
+
+## Tests — `tests/test_qms_action_inspection.py` (step 3)
+
+`TestActionInspection(TransactionCase)`, `@tagged("post_install", "-at_install")`: the fixtures
+create a product, an inspection and users. One `qc.test` with a single qualitative question is
+enough — the link does not care what the inspection found.
+
+| Test | Asserts |
+|---|---|
+| `test_direct_action_counts` | an action created with `qms_inspection_id` appears in the inspection's `qms_action_ids` and the count is 1; a second action makes it 2 |
+| `test_generated_action_counts` | an action linked to a nonconformity whose `qc_inspection_id` is this inspection counts, though nothing points at the inspection — the arm the main flow uses |
+| `test_immediate_action_counts` | an action set as that nonconformity's `immediate_action_id`, and absent from its `action_ids`, counts |
+| `test_action_on_unrelated_nonconformity_does_not_count` | an action on a nonconformity with no inspection, and one on a nonconformity from another inspection, are both excluded |
+| `test_action_reachable_twice_counts_once` | an action carrying `qms_inspection_id` *and* sitting on a nonconformity from the same inspection counts once |
+| `test_count_zero` | an inspection with no actions counts 0, which is what the always-visible button shows |
+| `test_count_refreshes_within_transaction` | reading the count, then creating an action by each of the three paths, gives a new number each time — the dependency list is what makes that true, and a `search_count` with no `@api.depends` would fail here |
+| `test_view_actions_domain_and_context` | `action_view_qms_actions` returns a `list,form` action whose domain is `_qms_action_domain()` and whose context carries `default_qms_inspection_id`, so New from the list prefills — including when the list is empty |
+| `test_view_inspection_res_id` | `action_view_qms_inspection` returns a form action on `qc.inspection` with `res_id` set to the linked inspection |
+| `test_draft_inspection_delete_keeps_action` | deleting a **draft** inspection that has an action leaves the action alive with an empty `qms_inspection_id` — the `ondelete="set null"` decision, and the only inspection OCA allows to be deleted |
+| `test_combined_groups_read_both_ways` | a user holding *Quality control · User* **and** *Management system · User* reads the action's inspection and the inspection's action count without error — the positive control D31 rests on, and the test that would have caught every access failure found so far |
+| `test_action_form_hides_inspection_without_quality_control` | `get_view` on the action form contains `qms_inspection_id` for a user with the quality-control group and not for a management-system user without it — the arch, as in step 2 |
+| `test_inspection_form_hides_actions_without_mgmtsystem` | the mirror: `get_view` on the inspection form omits the actions button for a quality-control user with no management-system group. The more exposed of the two, since that button faces every management-system user. It proves our button adds no second failure; it cannot make that user's form work, because OCA's own ungated nonconformity count already breaks it (`docs/Cross_Module_Access_Policy.md` §6) |
 
 ## Readme
 

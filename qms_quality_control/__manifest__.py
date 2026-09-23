@@ -19,6 +19,7 @@
         "views/qc_test_views.xml",
         "views/qc_inspection_views.xml",
         "views/mgmtsystem_nonconformity_views.xml",
+        "views/mgmtsystem_action_views.xml",
     ],
     "installable": True,
 }
