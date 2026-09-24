@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Inherits base_maintenance's extension rather than the core form,
+         because that extension is what puts a button box on the request: core
+         has none (its box is on the equipment form), and base_maintenance adds
+         an empty one before the title, commented "Empty, to be inherited by
+         other modules". Adding into it keeps one box on the form; creating our
+         own gave a second, and a later module's xpath on
+         //div[hasclass('oe_button_box')] would then have two to choose from. -->
+    <record id="hr_equipment_request_view_form" model="ir.ui.view">
+        <field name="name">maintenance.request.form.actions</field>
+        <field name="model">maintenance.request</field>
+        <field
+            name="inherit_id"
+            ref="base_maintenance.equipment_request_view_form"
+        />
+        <field name="arch" type="xml">
+            <!-- The group is what the button reads, not who the feature is for:
+                 mgmtsystem.action grants read to the management-system viewer
+                 group and up, and a count computed for a user without it would
+                 raise on opening the request. -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button
+                    name="action_view_actions"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-tasks"
+                    groups="mgmtsystem.group_mgmtsystem_viewer"
+                >
+                    <div class="o_stat_info">
+                        <field name="action_count" class="o_stat_value" />
+                        <span
+                            class="o_stat_text"
+                            invisible="action_count &lt; 2"
+                        > Actions</span>
+                        <span
+                            class="o_stat_text"
+                            invisible="action_count &gt; 1"
+                        > Action</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -14,7 +14,7 @@ no reliance on this system's role matrix.
 
 | # | Scope | Status | Result |
 |---|---|---|---|
-| 1 | `mgmtsystem.action.maintenance_request_id` and the field on the action form; `action_ids`, an overridable count and a smart button on the request, plus the button box the request form lacks | proposed | |
+| 1 | `mgmtsystem.action.maintenance_request_id` and the field on the action form; `action_ids`, an overridable count and a smart button on the request | done | installed and tested 2026-09-24, `exit=0`, 8 tests, 0 failures; UI checked — the count on the request, New from an empty list carrying the request, the field on the action opening it, one field each and no button box on an action linked to both an inspection and a request, and no button for a user outside the management system. A review then found the form already had a button box from `base_maintenance`, so this module was adding a second: it now inherits that module's view and fills the existing box, with `base_maintenance` declared and a ninth test asserting there is only one box. Second run `exit=0`, 9 tests, 0 failures, one cluster of buttons confirmed on the request form |
 
 ## Divergences from the plan
 
@@ -52,7 +52,7 @@ maintenance_mgmtsystem_action/
 | `website` | `https://github.com/1-Aria/odoo-qms-pms` |
 | `license` | `AGPL-3` |
 | `category` | `Maintenance` |
-| `depends` | `maintenance`, `mgmtsystem_action` |
+| `depends` | `maintenance`, `mgmtsystem_action`, `base_maintenance` (for the request form's button box) |
 | `data` | `views/mgmtsystem_action_views.xml`, `views/maintenance_request_views.xml` |
 | `installable` | `True` |
 
@@ -130,16 +130,27 @@ with neither creating a button box there is nothing to collide over.
 
 ## Views — `views/maintenance_request_views.xml`
 
-Inherits `maintenance.hr_equipment_request_view_form`.
+Inherits **`base_maintenance.equipment_request_view_form`**, not the core form.
 
 | Position | Content |
 |---|---|
-| `//sheet/div[hasclass('oe_title')]` before | a `<div name="button_box" class="oe_button_box">` holding one `oe_stat_button`: `action_view_actions`, `icon="fa-tasks"`, `action_count` as the stat value with singular and plural labels, `groups="mgmtsystem.group_mgmtsystem_viewer"` |
+| `//div[hasclass('oe_button_box')]` inside | an `oe_stat_button`: `action_view_actions`, `icon="fa-tasks"`, `action_count` as the stat value with singular and plural labels, `groups="mgmtsystem.group_mgmtsystem_viewer"` |
 
-The request form has no button box either — core's is on the *equipment* form
-(`maintenance/views/maintenance_views.xml:372`), not the request
-(`hr_equipment_request_view_form`, `:76-96`). Here the situation is simpler than on the action
-form: no other module in this system adds one.
+**The box belongs to `base_maintenance`.** Core puts none on the request form — its box is on
+the *equipment* form (`maintenance/views/maintenance_views.xml:372`) — but
+`base_maintenance` inherits the request form and inserts an empty one before the title,
+commented "Empty, to be inherited by other modules"
+(`base_maintenance/views/maintenance_request_views.xml:12`). It is a small LGPL module in the
+same OCA repository, and filling its box is what it exists for, so `base_maintenance` is a
+dependency.
+
+That dependency does three things: it makes the box exist, it fixes view application order so
+the `xpath` resolves, and it stops this view outliving the box it targets.
+
+**This was got wrong first.** Step 1 shipped creating its own `<div name="button_box">`, on the
+strength of a check that covered core's views and not the OCA repo's. The form then carried two
+clusters of buttons, and any later module's `//div[hasclass('oe_button_box')]` had two boxes to
+choose from. `test_request_form_has_one_button_box` now asserts there is exactly one.
 
 ## Tests — `tests/test_maintenance_mgmtsystem_action.py`
 
@@ -155,6 +166,7 @@ fixtures create equipment and users.
 | `test_request_delete_keeps_action` | deleting a request that has an action leaves the action alive with an empty `maintenance_request_id` — the `ondelete="set null"` decision |
 | `test_domain_is_the_extension_point` | `_action_domain()` returns the direct-link domain, and a subclass widening it widens `action_count` — the contract `qms_maintenance` relies on. Asserted by patching the method on the model in the test, not by defining a module |
 | `test_actions_button_hidden_without_mgmtsystem` | `get_view` on the request form omits `action_count` for an internal user with no management-system group, and contains it for one with the viewer group |
+| `test_request_form_has_one_button_box` | the combined request form contains exactly one `name="button_box"`, and the count is in it — the regression guard for the mistake above |
 | `test_request_field_has_no_group` | `get_view` on the action form contains `maintenance_request_id` for a management-system user with no maintenance group — core grants request read to every internal user, so gating it would hide a working field. The negative of the test above, and the reason the asymmetry is deliberate rather than an oversight |
 
 ## Readme

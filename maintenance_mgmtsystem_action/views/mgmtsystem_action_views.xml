@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="view_mgmtsystem_action_form" model="ir.ui.view">
+        <field
+            name="name"
+        >mgmtsystem.action.form.maintenance.request</field>
+        <field name="model">mgmtsystem.action</field>
+        <field
+            name="inherit_id"
+            ref="mgmtsystem_action.view_mgmtsystem_action_form"
+        />
+        <field name="arch" type="xml">
+            <!-- The field is the link, so no button and no button box on this
+                 side. It carries no groups either: core grants read on
+                 maintenance.request to base.group_user, so every internal user
+                 can already follow it, and a gate would hide a working field. -->
+            <field name="reference" position="after">
+                <field
+                    name="maintenance_request_id"
+                    options="{'no_create': True}"
+                />
+            </field>
+        </field>
+    </record>
+
+</odoo>
