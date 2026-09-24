@@ -11,7 +11,7 @@ Plan: §7.10 (inspection rows), §7.11.
 | 1 | `qms_defect_code_id` on `qc.test.question.value` and on `qc.test.question`, both restricted to quality leaf codes, shown on the question form | done | installed and tested 2026-09-23, `exit=0`, 4 tests, 0 failures; UI checked: the Defect Code column on a qualitative question's answers, the field under the quantitative question's min–max–UoM heading — the placement was accepted as it renders — and both dropdowns offering leaf quality codes only |
 | 2 | `qms_defect_code_id` and `qms_qty_failed` on `qc.inspection.line`, shown in the line lists; Populate Defect on the nonconformity, gated on a confirmed inspection and an empty analysis | done | two passes, both 2026-09-23. First: `exit=0`, 19 tests, 0 failures; UI checked — the defect-code column filled on failures only, the button appearing once the inspection is confirmed and going once an item exists, the notification when nothing resolves, and the form opening cleanly for a management-system user outside quality control. A log review then found the group gate did not gate: `groups` reads a comma as *at least one* (`res_users.py:1167-1170`), so naming the management-system group beside the quality-control one passed every management-system user through. Both elements now name the quality-control group alone, `test_view_hides_gate_without_quality_control` covers the arch rather than only the compute, and the two step 1 restrict tests gained the `@mute_logger("odoo.sql_db")` every other restrict test in the repository carries. Second pass added `qms_qty_failed` and its transfer to the item: `exit=0`, 20 tests, 0 failures, both columns and the quantity carry-over checked in the UI |
 | 3 | `mgmtsystem.action.qms_inspection_id` and the field on the action form; on the inspection, a three-path action count and a smart button each way, plus the button box the action form lacks | done | upgraded and tested 2026-09-23, `exit=0`, 33 tests, 0 failures; UI checked — the new button box on the action form, the field beside Reference, the inspection opening from the stat button, the actions list opening at a count of zero with the inspection prefilled on New, and the count including actions reached through the nonconformity and through its immediate action without double-counting one reachable both ways. `_compute_qms_action_count` returns 0 for an unsaved record: a `NewId` cannot go into a domain and the compute runs during onchange, the guard core writes as `isinstance(record.id, models.NewId)` (`crm_lead.py:575`) |
-| 4 | Nonconformity prefill when created from an inspection | — | |
+| 4 | Nonconformity prefill when created from an inspection: `action_view_nonconformities` overridden so the defaults apply whatever the count, and the product carried across | done | upgraded and tested 2026-09-24, `exit=0`, 39 tests, 0 failures; UI checked — a new nonconformity opening prefilled from an inspection with none, its Analysis Items dropdowns scoped by the prefilled product, New from the list of several prefilling the same way (the OCA gap this step closes, and the part only a click can prove), and the list showing colleagues' nonconformities rather than only the viewer's. The readme also gained the *Actions* section step 3 shipped without |
 
 ## Divergences from the plan
 
@@ -27,13 +27,13 @@ Plan: §7.10 (inspection rows), §7.11.
 | 8 | §7.11 puts no restriction on which defect codes a checklist may name | both fields carry the same domain: leaf codes, of the quality or both domain | A group is administrative, so an item must always carry a leaf code. On the item's own dropdown the §7.6 domain achieves that as a side effect, but Populate Defect creates items in code and bypasses it, so the restriction has to sit where the code is chosen. The `domain_kind` half keeps a maintenance-only code off a quality checklist, which is what D14 makes the field mean |
 | 9 | §7.11 has Populate Defect read the inspection's answers itself | the resolution lives on `qc.inspection.line` as `qms_defect_code_id`, a non-stored compute the button reads | The rule "qualitative from the answer, quantitative from the question, nothing when the line passed" then exists once instead of once in a method and once for the UI. It also earns its place on the inspection: an inspector sees which defect each failed check will raise before any nonconformity exists |
 | 10 | §7.11 does not say which inspections may be read | only a confirmed one — `waiting`, `success` or `failed` | A defect is not recorded against an inspection nobody has confirmed. It also removes the worst of the unmeasured-line problem: before confirmation a quantitative line reads 0.0 and fails any minimum above zero, so an unconfirmed inspection can resolve codes for questions nobody has answered |
-
 | 11 | §7.11 assumes the analyst can read the inspection | Populate Defect requires `quality_control_oca.group_quality_control_user`, and the button is hidden without it | `qc.inspection` is readable only by that group (`quality_control_oca/security/ir.model.access.csv:2-3`); no management-system group implies it. Anyone who populates defects reads the inspection's lines, so the prerequisite is real rather than cosmetic — but it has to be declared, because the nonconformity form works without it today. See *Known traps* |
-
 | 12 | §7.10 names the field on the action `inspection_id` | `qms_inspection_id` | The prefix rule, as in divergence 1. `mgmtsystem.action` is an OCA model and `inspection_id` is a name a future upstream field could take |
 | 13 | §7.10: "count of zero opens a new form carrying the context defaults; count of one or more opens the matching records filtered" | **action → inspection**: the button is hidden when the field is empty. **inspection → actions**: always the filtered list, whatever the count, with the defaults on the action so its New button prefills | The two directions are not symmetric. An inspection is raised by a quality-control trigger or by hand in Quality Control, never sensibly created from an action, so there is nothing to prefill in that direction and a zero count has nothing to offer. Going the other way, one behaviour beats a branch: at zero the list is empty and its New button carries the same defaults, which is what the plan wanted the branch for. OCA's own bridge branches on the count (`mgmtsystem_nonconformity_quality_control_oca/models/qc_inspection.py`) and sets its context defaults **only** in the single-record branch, so creating from the list of many prefills nothing — the bug that behaviour invites |
 | 14 | §7.10 gives each link an inverse One2many and a button counting it, so an inspection would count only the actions pointing at it | the inspection's button counts three paths — the direct link, the nonconformity's action plan and its immediate action — through an overridable `_qms_action_domain` | §7.10 was written before the determination engine existed. Generate Actions links an action to the nonconformity, so a direct count reads 0 on the main flow. The other direction keeps the plan's shape: an action has one inspection, and the Many2one is the count |
 | 15 | §7.10 does not mention access | both smart buttons and the action's `qms_inspection_id` field carry the one group granting the foreign read, per D31 | `qms_inspection_id` and the inspection button dereference `qc.inspection` (`quality_control_oca.group_quality_control_user`); the actions button dereferences `mgmtsystem.action` (`mgmtsystem.group_mgmtsystem_viewer`). Nothing is granted by ACL — see `docs/Cross_Module_Access_Policy.md` |
+| 16 | §7.10: "count of zero opens a new form carrying the context defaults. Count of one or more opens the matching records filtered, with the same defaults still on the action so that creating from that list prefills identically" | true only after step 4 overrides `action_view_nonconformities` | OCA's bridge sets its context **only** in the branch it takes for zero or one nonconformity (`mgmtsystem_nonconformity_quality_control_oca/models/qc_inspection.py`). With two or more it sets a domain and leaves the action's stored context, so New from that list prefills nothing — precisely the behaviour the plan asked for and the same gap step 3 designed around on the action side |
+| 17 | — | the override replaces the action's context rather than merging into it, so OCA's stored `search_default_user_id` is dropped | The stored context is the string `{"search_default_user_id":uid}`, evaluated by the client, so merging means string surgery. Dropping it is also better behaviour: on a list already scoped to one inspection, a "my nonconformities" filter hides the ones raised by colleagues, which is the opposite of what someone clicking that button wants |
 
 **One code per characteristic** is the cost of divergence 2: a quantitative question
 records "out of tolerance", never "too low" as against "too high". A second field for the
@@ -101,6 +101,7 @@ qms_quality_control/
 ├── tests/__init__.py, test_qms_quality_control.py        # 1
 │         test_qms_populate_defect.py                     # 2
 │         test_qms_action_inspection.py                   # 3
+│         test_qms_nonconformity_prefill.py                # 4
 └── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), 2 (USAGE)
 ```
 
@@ -193,7 +194,6 @@ from the test at creation (`_prepare_inspection_line`,
 |---|---|---|
 | `qms_defect_code_id` | Many2one → `qms.defect.code` | `compute="_compute_qms_defect_code_id"`, not stored, `string="Defect Code"`, `help="The defect this line records. Empty while the line passes."` |
 | `qms_qty_failed` | Float | `string="Quantity Failed"`, plain stored field, default 0.0 |
-
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_compute_qms_defect_code_id` | `@api.depends("success", "question_type", "qualitative_value.qms_defect_code_id", "test_line.qms_defect_code_id")` | empty when `success`; otherwise the answer's code for a qualitative line and the question's for a quantitative one |
@@ -247,7 +247,6 @@ copy is lossless. `digits="Quality Control"` belongs to measurement values, and
 | Field | Type | Attributes |
 |---|---|---|
 | `qms_can_populate_defect` | Boolean | `compute="_compute_qms_can_populate_defect"`, not stored, `string="Can Populate Defect"` — the whole visibility rule for the button |
-
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_compute_qms_can_populate_defect` | `@api.depends("state", "item_ids", "qc_inspection_id.state")` | true when the nonconformity is in Analysis, holds no item, and has an inspection whose state is in `INSPECTION_DONE_STATES` |
@@ -314,7 +313,6 @@ method returns `True` and the client reloads the form itself.
 | Field | Type | Attributes |
 |---|---|---|
 | `qms_inspection_id` | Many2one → `qc.inspection` | `string="Inspection"`, `ondelete="set null"`, `index=True` |
-
 | Method | Behaviour |
 |---|---|
 | `action_view_qms_inspection` | `ensure_one`, returns an `ir.actions.act_window` on `qc.inspection` with `res_id` set and `view_mode` `form` |
@@ -334,7 +332,6 @@ undeletable because someone raised an action from it.
 |---|---|---|
 | `qms_action_ids` | One2many → `mgmtsystem.action` | inverse `qms_inspection_id`, `string="Directly Linked Actions"`; in no view — see below |
 | `qms_action_count` | Integer | `compute="_compute_qms_action_count"`, not stored, `string="# Actions"` |
-
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_qms_action_domain` | — | `ensure_one`; the three ways an action belongs to this inspection, as one domain |
@@ -388,6 +385,48 @@ likewise left for the user: it is required with no default, and guessing it is t
 name `quality_control_oca.group_quality_control_user`, the one reading `mgmtsystem.action`
 names `mgmtsystem.group_mgmtsystem_viewer`. A `<field>` inside a gated `<button>` needs no
 group of its own — `_postprocess_access_rights` removes the node with its children.
+
+### `qc.inspection` — nonconformity prefill (step 4)
+
+Same file. No view work: the button and its label are OCA's, and only what the button hands
+the client changes.
+
+| Method | Behaviour |
+|---|---|
+| `_qms_nonconformity_context` | `ensure_one`; the defaults a nonconformity raised from this inspection starts with |
+| `action_view_nonconformities` | `super()`, then replaces the returned action's `context` with `_qms_nonconformity_context()` |
+
+**The context**
+
+| Key | Value | Why |
+|---|---|---|
+| `default_qc_inspection_id` | `self.id` | the link, so the new nonconformity knows its source and Populate Defect is available on it |
+| `default_product_id` | `self.product_id.id` | **the one the plan asked for and OCA never set.** It is what makes the §7.6 catalog filtering work on the new record: the product resolves the profiles that scope the defect and object-part dropdowns |
+| `default_name` | `self.name` | as OCA does — the inspection number as an opening title |
+| `default_company_id` | `self.company_id.id` | as OCA does |
+| `search_default_qc_inspection_id` | `self.id` | as OCA does, and now in the many-record branch too, so the list visibly says why it is scoped |
+
+**What the override fixes.** OCA's method sets its context only in the branch it takes for
+zero or one nonconformity; with two or more it sets a domain and leaves the action's stored
+context, so New from that list prefills nothing (divergence 16). Setting the context outside
+the branch makes the plan's "the same defaults still on the action" true for every count.
+
+**Why it replaces rather than merges.** The stored context of
+`mgmtsystem_nonconformity.open_mgmtsystem_nonconformity_list` is the string
+`{"search_default_user_id":uid}` (`views/mgmtsystem_nonconformity.xml:325`), evaluated by the
+client, so merging into it means string surgery. Dropping it is also the better behaviour: on
+a list already scoped to one inspection, a "my nonconformities" filter hides the ones raised
+by colleagues (divergence 17).
+
+**A picking-based inspection prefills no product**, and that is the §7.6 fallback rather than
+a fault. `product_id` on the inspection is computed from `object_id` and resolves only for a
+product, a stock move or a lot (`quality_control_oca/models/qc_inspection.py:28-35`,
+`quality_control_stock_oca/models/qc_inspection.py:59-68`) — a picking carries many products,
+so there is nothing to carry. The dropdowns are then empty until the user clears the filter.
+
+**No smart button from the nonconformity to the inspection.** The OCA bridge already puts
+`qc_inspection_id` on the nonconformity form, and a Many2one is itself a link to the record. A
+button beside it would be a second way to do the same thing.
 
 ## Views — `views/qc_test_views.xml`
 
@@ -583,9 +622,24 @@ enough — the link does not care what the inspection found.
 | `test_action_form_hides_inspection_without_quality_control` | `get_view` on the action form contains `qms_inspection_id` for a user with the quality-control group and not for a management-system user without it — the arch, as in step 2 |
 | `test_inspection_form_hides_actions_without_mgmtsystem` | the mirror: `get_view` on the inspection form omits the actions button for a quality-control user with no management-system group. The more exposed of the two, since that button faces every management-system user. It proves our button adds no second failure; it cannot make that user's form work, because OCA's own ungated nonconformity count already breaks it (`docs/Cross_Module_Access_Policy.md` §6) |
 
+## Tests — `tests/test_qms_nonconformity_prefill.py` (step 4)
+
+`TestNonconformityPrefill(TransactionCase)`, `@tagged("post_install", "-at_install")`: the
+fixtures create a product, an inspection and nonconformities. Every test reads the dictionary
+`action_view_nonconformities` returns — what the client is handed is the whole of this step.
+
+| Test | Asserts |
+|---|---|
+| `test_defaults_with_no_nonconformity` | on an inspection with none, the action opens a form with no `res_id` and the context carries all five defaults — the plan's "count of zero opens a new form carrying the context defaults" |
+| `test_defaults_with_one_nonconformity` | with one, the action opens that record and the defaults are still there |
+| `test_defaults_with_several_nonconformities` | with two, the action carries a domain **and** the defaults — the OCA gap, and the only test that fails against unpatched behaviour |
+| `test_product_default_from_inspection` | `default_product_id` is the inspection's product, which is what makes the §7.6 dropdowns work on the new record |
+| `test_no_product_default_without_object` | an inspection with no `object_id` resolves no product, so `default_product_id` is `False` — the same result a picking-based inspection gives, and by design |
+| `test_user_filter_dropped` | `search_default_user_id` is absent from the context, so the list shows every nonconformity from this inspection rather than only the viewer's |
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | Records which defect a failed inspection answer or an out-of-tolerance measurement represents, so a nonconformity raised from the inspection can be analysed from it |
-| `readme/USAGE.md` (step 2) | Two sections. **Checklists**: a qualitative question carries a defect code on each answer, a quantitative one on the question; both offer leaf codes of the quality domain, and the inspection lines show which defect each failed line records and how many units it affected. **Populate Defect**: visible on a nonconformity in Analysis whose source inspection has been confirmed and which holds no items yet, it adds one item per recorded defect with the question in the note and the failed quantity carried over; it never deletes, so repopulating means deleting the items by hand first; object part and cause are left for the analyst. The button needs the Quality control / User group, since it reads the inspection |
+| `readme/USAGE.md` (steps 2, 4) | Two sections. **Checklists**: a qualitative question carries a defect code on each answer, a quantitative one on the question; both offer leaf codes of the quality domain, and the inspection lines show which defect each failed line records and how many units it affected. **Populate Defect**: visible on a nonconformity in Analysis whose source inspection has been confirmed and which holds no items yet, it adds one item per recorded defect with the question in the note and the failed quantity carried over; it never deletes, so repopulating means deleting the items by hand first; object part and cause are left for the analyst. The button needs the Quality control / User group, since it reads the inspection. Step 4 adds a third line: raising a nonconformity from an inspection carries the inspection, its product, name and company onto the new record, and the product is what scopes the catalog dropdowns |

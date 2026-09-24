@@ -72,6 +72,50 @@ class QcInspection(models.Model):
                 inspection._qms_action_domain()
             )
 
+    def _qms_nonconformity_context(self):
+        """The defaults a nonconformity raised from this inspection starts with.
+
+        default_product_id is the one plan 7.10 asked for and the OCA bridge
+        never set. It is what makes the 7.6 catalog filtering work on the new
+        record: the product resolves the profiles that scope the defect and
+        object-part dropdowns. An inspection on a picking resolves no product
+        (product_id is computed from object_id and covers a product, a stock
+        move or a lot only), so the prefill is empty there and the dropdowns
+        fall back to asking the user to clear the filter -- by design.
+
+        search_default_user_id, which the action carries in its own stored
+        context, is deliberately not reproduced: on a list already scoped to one
+        inspection, a "my nonconformities" filter hides the ones raised by
+        colleagues.
+        """
+        self.ensure_one()
+        return {
+            "search_default_qc_inspection_id": self.id,
+            "default_qc_inspection_id": self.id,
+            "default_product_id": self.product_id.id,
+            "default_name": self.name,
+            "default_company_id": self.company_id.id,
+        }
+
+    def action_view_nonconformities(self):
+        """OCA's button, with the defaults applied whatever the count.
+
+        The bridge sets its context only in the branch it takes for zero or one
+        nonconformity (mgmtsystem_nonconformity_quality_control_oca/models/
+        qc_inspection.py); with two or more it sets a domain and leaves the
+        action's stored context, so New from that list prefills nothing.
+        Setting the context outside the branch makes plan 7.10's "the same
+        defaults still on the action" true for every count.
+
+        It replaces rather than merges because that stored context is the string
+        {"search_default_user_id":uid}, evaluated by the client
+        (mgmtsystem_nonconformity/views/mgmtsystem_nonconformity.xml:325), so
+        merging into it would mean string surgery.
+        """
+        action = super().action_view_nonconformities()
+        action["context"] = self._qms_nonconformity_context()
+        return action
+
     def action_view_qms_actions(self):
         """Open this inspection's actions, whatever the count.
 

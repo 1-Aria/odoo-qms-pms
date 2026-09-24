@@ -28,3 +28,22 @@ item. To populate again, delete the items by hand first.
 
 It requires the *Quality control / User* group, because it reads the inspection. A
 management-system user without that group sees no button.
+
+## Raising a nonconformity from an inspection
+
+The inspection's **Nonconformities** button opens the ones already raised from it, or a new
+form when there are none. Either way the new record starts with the inspection, its product,
+its number as a title and its company. The product matters beyond convenience: it is what
+scopes the defect and object-part dropdowns to the catalog profiles that apply.
+
+An inspection recorded against a picking carries no product of its own — a picking holds
+many — so the prefill is empty there and the dropdowns offer nothing until the filter is
+cleared in the search panel.
+
+## Actions
+
+An action can point at the inspection it came from, through the **Inspection** field on the
+action, and opens it from the button beside the title. The inspection's **Actions** button
+counts every action it led to: raised on the inspection directly, listed in the action plan of
+a nonconformity raised from it, or set as that nonconformity's immediate action. An action
+reachable two ways is counted once.
