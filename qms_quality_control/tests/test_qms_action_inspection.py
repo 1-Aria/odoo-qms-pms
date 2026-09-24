@@ -154,13 +154,6 @@ class TestActionInspection(TransactionCase):
             result["context"]["default_qms_inspection_id"], self.inspection.id
         )
 
-    def test_view_inspection_res_id(self):
-        action = self._action(qms_inspection_id=self.inspection.id)
-        result = action.action_view_qms_inspection()
-        self.assertEqual(result["res_model"], "qc.inspection")
-        self.assertEqual(result["res_id"], self.inspection.id)
-        self.assertEqual(result["view_mode"], "form")
-
     def test_draft_inspection_delete_keeps_action(self):
         """An action outlives its source -- ondelete="set null".
 

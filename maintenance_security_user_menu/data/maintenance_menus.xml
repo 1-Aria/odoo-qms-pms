@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<!--
+    maintenance_security re-groups nine core maintenance menus to
+    maintenance.group_equipment_manager alone. Core ships them as
+    "group_equipment_manager,base.group_user", so every internal user sees
+    maintenance in a plain Odoo; and core grants maintenance.request read,
+    write, create and unlink to base.group_user
+    (maintenance/security/ir.model.access.csv), which leaves a technician with
+    full rights on requests and no menu to reach them.
+
+    This file restores core's own grouping, value for value. Configuration and
+    Teams stay manager-only, as in core: maintenance_security never touched
+    them and neither does this.
+-->
+<odoo>
+
+    <!-- Core gives the root menu no groups at all: it shows when a child does. -->
+    <record model="ir.ui.menu" id="maintenance.menu_maintenance_title">
+        <field name="groups_id" eval="[(5, 0, 0)]" />
+    </record>
+
+    <record model="ir.ui.menu" id="maintenance.menu_m_dashboard">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+    <record model="ir.ui.menu" id="maintenance.menu_m_request">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+    <record model="ir.ui.menu" id="maintenance.menu_m_request_form">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+    <record model="ir.ui.menu" id="maintenance.menu_m_request_calendar">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+    <record model="ir.ui.menu" id="maintenance.menu_equipment_form">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+    <record model="ir.ui.menu" id="maintenance.menu_m_reports">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+    <record model="ir.ui.menu" id="maintenance.menu_m_reports_oee">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+    <record model="ir.ui.menu" id="maintenance.menu_m_reports_losses">
+        <field
+            name="groups_id"
+            eval="[(6, 0, [ref('maintenance.group_equipment_manager'), ref('base.group_user')])]"
+        />
+    </record>
+
+</odoo>

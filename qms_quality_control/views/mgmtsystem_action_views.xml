@@ -10,34 +10,15 @@
             ref="mgmtsystem_action.view_mgmtsystem_action_form"
         />
         <field name="arch" type="xml">
-            <!-- The action form has no button box: none appears in
-                 mgmtsystem_action's own view, nor in any installed module
-                 extending it (mgmtsystem_action_template,
-                 mgmtsystem_action_efficacy, mgmtsystem_nonconformity). Should a
-                 future OCA version add one, this creates a second box beside it
-                 rather than failing, so re-check on an upgrade. -->
-            <xpath expr="//sheet/div[hasclass('oe_title')]" position="before">
-                <div name="button_box" class="oe_button_box">
-                    <button
-                        name="action_view_qms_inspection"
-                        type="object"
-                        class="oe_stat_button"
-                        icon="fa-check-square-o"
-                        invisible="not qms_inspection_id"
-                        groups="quality_control_oca.group_quality_control_user"
-                    >
-                        <div class="o_stat_info">
-                            <span class="o_stat_text">Inspection</span>
-                        </div>
-                    </button>
-                </div>
-            </xpath>
-            <!-- The field on the form as well as the button: without it the
-                 link could only ever be set from the inspection side, and an
-                 action raised independently could never be attached to the
-                 inspection it came from. Its group also makes the button's
-                 invisible expression evaluable, both nodes being gated
-                 together. -->
+            <!-- The field is the link: a Many2one on a form opens its record,
+                 so no smart button is added on this side. The aggregate side
+                 earns one, being a count of many actions that no field shows,
+                 and that side is the inspection.
+
+                 It also keeps this module out of the way of
+                 maintenance_mgmtsystem_action: the action form has no button box
+                 of its own, so two modules each creating one would give a form
+                 two clusters of buttons. -->
             <field name="reference" position="after">
                 <field
                     name="qms_inspection_id"

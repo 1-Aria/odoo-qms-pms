@@ -43,7 +43,7 @@ cleared in the search panel.
 ## Actions
 
 An action can point at the inspection it came from, through the **Inspection** field on the
-action, and opens it from the button beside the title. The inspection's **Actions** button
+action, which opens that inspection when clicked. The inspection's **Actions** button
 counts every action it led to: raised on the inspection directly, listed in the action plan of
 a nonconformity raised from it, or set as that nonconformity's immediate action. An action
 reachable two ways is counted once.

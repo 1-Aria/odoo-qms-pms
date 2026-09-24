@@ -21,19 +21,7 @@ class MgmtsystemAction(models.Model):
         help="The inspection this action was raised from.",
     )
 
-    def action_view_qms_inspection(self):
-        """Open the source inspection.
-
-        The button is hidden when the field is empty rather than offering to
-        create an inspection: an inspection is raised by a quality-control
-        trigger or by hand in Quality Control, never sensibly from an action,
-        so there is nothing to prefill in this direction.
-        """
-        self.ensure_one()
-        return {
-            "type": "ir.actions.act_window",
-            "name": self.env._("Inspection"),
-            "res_model": "qc.inspection",
-            "res_id": self.qms_inspection_id.id,
-            "view_mode": "form",
-        }
+    # No smart button on this side: the field is itself a link to the
+    # inspection, so a button would be a second way to do the same thing. The
+    # aggregate direction is the one that earns a button, and it lives on
+    # qc.inspection, where a count summarises records no field shows.
