@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Inherits base_maintenance's extension, the module that owns the request
+         form's button box, which arrives here as a dependency of
+         maintenance_mgmtsystem_action. This button sits beside that module's
+         Actions button, in the one box. -->
+    <record id="hr_equipment_request_view_form" model="ir.ui.view">
+        <field
+            name="name"
+        >maintenance.request.form.qms.nonconformities</field>
+        <field name="model">maintenance.request</field>
+        <field
+            name="inherit_id"
+            ref="base_maintenance.equipment_request_view_form"
+        />
+        <field name="arch" type="xml">
+            <!-- The group is what the count reads: mgmtsystem.nonconformity
+                 grants read to the management-system viewer group and up, and a
+                 count computed for a user without it would raise on opening the
+                 request. -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button
+                    name="action_view_qms_nonconformities"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-exclamation-triangle"
+                    groups="mgmtsystem.group_mgmtsystem_viewer"
+                >
+                    <div class="o_stat_info">
+                        <field
+                            name="qms_nonconformity_count"
+                            class="o_stat_value"
+                        />
+                        <span
+                            class="o_stat_text"
+                            invisible="qms_nonconformity_count &lt; 2"
+                        > Nonconformities</span>
+                        <span
+                            class="o_stat_text"
+                            invisible="qms_nonconformity_count &gt; 1"
+                        > Nonconformity</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="view_mgmtsystem_nonconformity_form" model="ir.ui.view">
+        <field
+            name="name"
+        >mgmtsystem.nonconformity.form.qms.maintenance.request</field>
+        <field name="model">mgmtsystem.nonconformity</field>
+        <field
+            name="inherit_id"
+            ref="mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form"
+        />
+        <field name="arch" type="xml">
+            <!-- After system_id, which is where the OCA quality bridge anchors
+                 qc_inspection_id too. On an instance running both, the two link
+                 fields appear in whichever order the views load; anchoring to
+                 qc_inspection_id itself is not available, since this module does
+                 not depend on the module that adds it.
+
+                 No groups: core grants maintenance.request read to
+                 base.group_user, so an attribute here would document the read
+                 rather than restrict anything. -->
+            <field name="system_id" position="after">
+                <field
+                    name="qms_maintenance_request_id"
+                    options="{'no_create': True}"
+                />
+            </field>
+        </field>
+    </record>
+
+</odoo>

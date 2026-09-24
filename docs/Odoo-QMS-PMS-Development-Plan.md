@@ -781,8 +781,13 @@ Conceptual correspondence only. **Not** an assertion of schema equivalence.
   OCA `<base_module>_<feature>` naming where they are generic enough to be
   contributed upstream.
 - Custom models are prefixed `qms.`.
-- Fields added to OCA models are prefixed `qms_` to avoid collision with future
-  upstream fields.
+- Fields added to OCA or core models are prefixed `qms_` when they are declared by a
+  `qms_*` module, so they cannot collide with a future upstream field. Modules named in
+  OCA's `<base_module>_<feature>` form and intended for contribution use unprefixed
+  names, since the prefix would carry this system's name upstream —
+  `mgmtsystem.action.maintenance_request_id` in `maintenance_mgmtsystem_action` is
+  unprefixed for that reason, while `mgmtsystem.nonconformity.qms_maintenance_request_id`
+  is not.
 
 ## Appendix C — Problem-resolution coverage
 

@@ -216,9 +216,14 @@ cleanly and then appears broken.
 ### Naming
 
 - Custom models are prefixed `qms.` — e.g. `qms.defect.code`.
-- Fields added to OCA or core models are prefixed `qms_` to avoid collision with
-  future upstream fields. Exception: fields the plan names explicitly without the
-  prefix, such as the link fields in §7.10.
+- Fields added to OCA or core models are prefixed `qms_` when they are declared by a
+  `qms_*` module, so they cannot collide with a future upstream field. Modules named in
+  OCA's `<base_module>_<feature>` form and intended for contribution use unprefixed
+  names, since the prefix would carry this system's name upstream —
+  `mgmtsystem.action.maintenance_request_id` in `maintenance_mgmtsystem_action` is
+  unprefixed for that reason, while `mgmtsystem.nonconformity.qms_maintenance_request_id`
+  is not. This supersedes the plan's earlier exemption for the link fields §7.10 names
+  without a prefix.
 - Modules use `qms_` when they belong to this system, or OCA's
   `<base_module>_<feature>` form when generic enough to contribute upstream.
 
