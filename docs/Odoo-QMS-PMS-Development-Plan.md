@@ -332,6 +332,7 @@ never written to the item.
 | `defect_code_id` | Many2one → `qms.defect.code` | domain-filtered by profile |
 | `object_part_id` | Many2one → `qms.object.part` | domain-filtered by profile |
 | `cause_id` | Many2one → `mgmtsystem.nonconformity.cause` | |
+| `origin_id` | Many2one → `mgmtsystem.nonconformity.origin` | where the nonconformity came from; amended 2026-09-24 — the header's `origin_ids` is hidden and relaxed, as `cause_ids` is |
 | `severity_id` | Many2one → `mgmtsystem.nonconformity.severity` | **defaulted, not solicited** — see below |
 | `qty_affected` | Float | |
 | `note` | Char | |
@@ -353,32 +354,40 @@ Suggest Response replaces every line (D30).
 ### 7.6 Code filtering
 
 The item's defect and object-part fields carry a **static search domain** that
-reads the product's resolved profiles:
+reads the product's resolved profiles — **amended 2026-09-24**: the domain is computed
+in Python rather than written statically, for the reasons under D7.
 
 ```python
-[('parent_id.profile_ids', 'in', parent.qms_effective_profile_ids)]
+LEAF_ONLY = [('parent_id', '!=', False)]
+
+# every leaf code when the switch is on or no profile resolves
+LEAF_ONLY + [('parent_id.profile_ids', 'in', profiles.ids)]   # otherwise
 ```
 
 `qms_catalog` computes those profiles as `qms_effective_profile_ids` on
 `product.product` — its own profiles, its template's, and its category's
 including every ancestor category (§7.2). The nonconformity exposes the
-product's set as a related field of the same name (§7.9), and the domain matches
-any code whose group belongs to one of them.
+product's set as a related field of the same name (§7.9), the item computes its
+two domains from it, and each catalog field reads its own through
+`domain="<field>"` — core's idiom for a computed domain
+(`account.tax.tag_ids_domain`, `account/models/account_tax.py:4621`, used at
+`account/views/account_tax_views.xml:49`).
 
 This requires `profile_ids` as the inverse Many2many on the catalog models —
 free, being the other end of an existing relation.
 
 The additive rule of D6 lives in the computation, not here, so it is stated once
-and tested in `qms_catalog`. Core uses the same shape of domain — an x2many read
-from the parent record — at
-`odoo/addons/point_of_sale/views/pos_order_view.xml:157`, against the non-stored
-field at `pos_order.py:353`.
+and tested in `qms_catalog`.
 
-**Fallback behaviour is by design:** if a product resolves to no profile, the
-dropdown is empty and the user removes the condition from the search panel to
-see the full catalog. Using the standard search filter rather than a computed
-field means the restriction is always visible and always escapable, which is the
-unintrusive principle applied literally.
+**The filter is advisory, in two ways.** A product that resolves to no profile is
+offered **every** leaf code, not an empty list; and a *Show all catalog codes*
+switch on the nonconformity widens the dropdowns even when profiles do resolve.
+Profiles reduce noise; they never decide which codes are legitimate.
+
+**Leaf codes only, in every branch.** A group is a heading, never a finding.
+The first implementation got this as a side effect — a group's
+`parent_id.profile_ids` is empty — so it is now stated on its own, which is what
+makes the unfiltered branch safe.
 
 **Known constraint:** `parent_id.` is exactly one hop, so the catalog trees must
 stay **two levels deep** (group → code). `qms_catalog` enforces that with
@@ -676,7 +685,7 @@ Recorded so future work does not relitigate them.
 | D4 | Profiles reference groups only — never codes, never other profiles | Two tiers already exist inside the catalog; nesting profiles would let one restriction be expressed two ways | Recursive profiles |
 | D5 | Profiles attach to Product only | `maintenance_product` unifies Equipment with Product, so one resolution path serves both domains — cheaper than SAP's dual assignment | Separate equipment profile fields |
 | D6 | Assignment is additive across product / template / category, and a category profile also applies to subcategories. The rule is computed in `qms_catalog` as `qms_effective_profile_ids`, never re-encoded in a domain | Profiles widen vocabulary; override would silently drop the broader set. Mirrors `quality_control_oca` Test assignment, which is additive and walks up the category tree. Expressing it once, in Python, makes it testable where it is defined and leaves the filter with no rule to drift from | Nearest-level-wins; direct category only; the rule spelled out again in the §7.6 domain |
-| D7 | Filtering by static search domain, over a computed set of profiles | The domain keeps the restriction visible and removable in the search panel, which is the point of the decision. Resolving *which* profiles apply is a computation, and doing it in Python beats a second encoding of D6 inside the domain | A domain that walks the assignment relations itself; a computed field that filters the codes directly |
+| D7 | Filtering by a **computed domain** over the resolved profiles, advisory in two ways: no profile means no filter, and a switch on the nonconformity widens it when profiles do apply. Amended 2026-09-24 | Resolving *which* profiles apply is a computation, and doing it in Python beats a second encoding of D6 inside a domain. The first version of this decision claimed a static field domain was "always visible and always escapable" through the search panel: that is false. A field `domain` also governs the *Search More…* dialog, so nothing could escape it, and a product with no profile was offered nothing at all — enforcement where this system suggests. The computed domain puts both escapes in Python, where they are tested | A static field domain, which cannot be escaped; a domain that walks the assignment relations itself; a computed field that filters the codes directly |
 | D8 | Determination by wildcard conditions ranked by specificity | Pre-creating every defect × part × cause combination is combinatorially impossible. Group-level rules collapse dozens of cases into one | Pre-built profile picklist |
 | D9 | Suggestions written by button, not `compute=` | A `compute=` field silently rewrites historical suggestions when rules change, destroying the audit comparison | Computed suggestion field |
 | D10 | No Activity model. `type_action` plus stage lifecycle covers it | "Kind of response" and "planned vs performed" are independent axes and both already exist | Separate activity log, or an extra NC phase |
@@ -698,7 +707,7 @@ Recorded so future work does not relitigate them.
 | D26 | Every matching rule applies | Outputs are lists; top-wins drops a group rule's outputs whenever a narrower rule matches | Rank by specificity and take the top rule |
 | D27 | Generate Actions creates actions from response lines without deduplication | Simple; the button is gated to `pending` and asks for confirmation, and an unwanted action is cancelled through its stage — actions cannot be deleted | Skip templates that already produced an action |
 | D28 | Rule documents are shown with `related_sudo=False` and limited to procedures and work instructions | Per-page access rules must filter, not raise; the type limit keeps rules relevant | Any `document.page`; a superuser-computed related field |
-| D29 | A rule must set at least one of its three conditions | Strict matching makes an all-empty rule a catch-all; any single condition keeps cause-only and part-only rules possible | Allow all-empty rules; require the defect code specifically |
+| D29 | A rule must set at least one of its **four** conditions — defect code, object part, cause, origin. Amended 2026-09-24, origin added | Strict matching makes an all-empty rule a catch-all; any single condition keeps cause-only, part-only and origin-only rules possible. Origin belongs with the other three because the engine matches a rule against an *item*, and a condition read from the header would give the rule table two subjects | Allow all-empty rules; require the defect code specifically; leave origin on the header as a fifth wheel |
 | D30 | Suggest Response deletes every line, manual ones included, before regenerating | One-sentence behaviour; the cost is confined to Analysis, where the button lives | Keep manual lines across reruns, distinguished by a `source` field |
 | D31 | An operational user holds their domain group **and** the management-system group at the matching level, so cross-domain reads are in scope by role assignment and **no module grants foreign model access by ACL row**. A view element that dereferences a foreign model names the single group granting that read; a related field to a comodel with per-record rules uses `related_sudo=False` so those rules filter instead of raising; a module meant for upstream contribution gates without relying on the matrix. Reasoning and the verified access tables: `docs/Cross_Module_Access_Policy.md` | `mgmtsystem` is the shared layer between QM and PM and the workflow requires the same people in both, so a single-domain user is a misassignment, not a role. Granting would widen each OCA module's intent — quality-control users reading every management-system action, management-system viewers every inspection — to fix forms that work under the matrix. The group on the element still matters: without it a misassigned user cannot open the record at all, rather than merely missing a button | Granting foreign read by ACL row in each linking module; relying on view gating alone, with no matrix on the record |
 

@@ -31,6 +31,20 @@
                     readonly="state != 'analysis'"
                     context="{'default_nonconformity_id': id}"
                 />
+                <!-- Directly under the items, because it governs their
+                     dropdowns and that is where someone looks for it.
+
+                     Inside a group, which is what draws the label: a field
+                     placed straight into a page body renders bare. The group is
+                     named so other modules can anchor to it: qms_determination
+                     puts the response lines after it, which is what keeps this
+                     switch next to the list it governs. -->
+                <group name="qms_code_scope">
+                    <field
+                        name="qms_show_all_codes"
+                        readonly="state != 'analysis'"
+                    />
+                </group>
             </field>
 
             <!-- Cause is recorded per item, so the header's own cause list is
@@ -47,6 +61,43 @@
             <field name="cause_ids" position="attributes">
                 <attribute name="invisible">1</attribute>
             </field>
+
+            <!-- Origin is recorded per item too, so the header's list is hidden
+                 on the same terms as the cause list: the field stays on the
+                 model, relaxed to optional in Python. -->
+            <field name="origin_ids" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </field>
+
+            <!-- Severity is a header verdict like disposition, and nothing
+                 about it belongs to the Analysis phase, so it moves out of the
+                 Analysis Confirmation group and stops being readonly outside
+                 that phase. The roll-up compute is unchanged.
+
+                 The two xpaths come first, while severity is still inside the
+                 group they select through: they hide the heading and the group
+                 the move would otherwise leave behind as blank space. Selected
+                 through severity's own position rather than by @string, which
+                 inheritance may not match, and rather than by separator order,
+                 which other modules add to. -->
+            <xpath
+                expr="//field[@name='severity_id']/ancestor::group[2]/preceding-sibling::separator[1]"
+                position="attributes"
+            >
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath
+                expr="//field[@name='severity_id']/ancestor::group[2]"
+                position="attributes"
+            >
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <field name="severity_id" position="attributes">
+                <attribute name="readonly">state in ('done', 'cancel')</attribute>
+            </field>
+            <group name="meta" position="inside">
+                <field name="severity_id" position="move" />
+            </group>
 
         </field>
     </record>

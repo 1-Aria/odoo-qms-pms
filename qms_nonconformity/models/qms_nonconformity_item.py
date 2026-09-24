@@ -2,6 +2,12 @@
 
 from odoo import api, fields, models
 
+# A group is a heading, never a finding, so only leaf codes are ever offered.
+# Step 1 got this as a side effect of the profile term -- a group's
+# parent_id.profile_ids is empty -- which is why it is stated on its own now:
+# the unfiltered branch below has no profile term to lean on.
+LEAF_ONLY_DOMAIN = [("parent_id", "!=", False)]
+
 
 class QmsNonconformityItem(models.Model):
     """One line of analysis: what is wrong, where, and why.
@@ -40,6 +46,19 @@ class QmsNonconformityItem(models.Model):
         string="Cause",
         ondelete="restrict",
     )
+    # Origin is analysis, and analysis is per item: one nonconformity can carry
+    # defects found different ways, and a determination rule matches an item, so
+    # a condition read from the header would give the rule table two subjects.
+    # The header's own origin_ids is relaxed and hidden, as cause_ids is.
+    #
+    # ondelete="restrict" with archiving as the way out -- unlike causes,
+    # origins have an active field, so a retired origin can be archived while
+    # the items that used it keep it.
+    origin_id = fields.Many2one(
+        comodel_name="mgmtsystem.nonconformity.origin",
+        string="Origin",
+        ondelete="restrict",
+    )
     severity_id = fields.Many2one(
         comodel_name="mgmtsystem.nonconformity.severity",
         string="Severity",
@@ -50,6 +69,51 @@ class QmsNonconformityItem(models.Model):
     )
     qty_affected = fields.Float(string="Quantity Affected")
     note = fields.Char()
+
+    # The catalog dropdowns read these through domain="<field>", core's idiom
+    # for a domain that has to be computed (account.tax.tag_ids_domain,
+    # account/models/account_tax.py:4621, used at
+    # account/views/account_tax_views.xml:49).
+    #
+    # Step 1 wrote the domain statically in the view, which made it
+    # inescapable: a field domain also governs the "Search More..." dialog, so a
+    # product with no profile offered nothing at all. Profiles reduce noise;
+    # they never decide which codes are legitimate.
+    qms_defect_code_domain = fields.Binary(
+        string="Defect Code Domain",
+        compute="_compute_qms_code_domains",
+    )
+    qms_object_part_domain = fields.Binary(
+        string="Object Part Domain",
+        compute="_compute_qms_code_domains",
+    )
+
+    @api.depends(
+        "nonconformity_id.qms_effective_profile_ids",
+        "nonconformity_id.qms_show_all_codes",
+    )
+    def _compute_qms_code_domains(self):
+        """Leaf codes, narrowed to the product's profiles when that helps.
+
+        Three states, and the first is the one step 1 got wrong:
+
+        - no profile resolves, or no product: every leaf code, no filter
+        - profiles resolve: the leaf codes of their groups
+        - profiles resolve and the header's switch is on: every leaf code
+
+        A code matches a profile through its group, so ``parent_id.`` is one
+        hop, which is why qms_catalog holds the catalogs to two levels.
+        """
+        for item in self:
+            nonconformity = item.nonconformity_id
+            profiles = nonconformity.qms_effective_profile_ids
+            if nonconformity.qms_show_all_codes or not profiles:
+                item.qms_defect_code_domain = LEAF_ONLY_DOMAIN
+                item.qms_object_part_domain = LEAF_ONLY_DOMAIN
+                continue
+            profile_term = [("parent_id.profile_ids", "in", profiles.ids)]
+            item.qms_defect_code_domain = LEAF_ONLY_DOMAIN + profile_term
+            item.qms_object_part_domain = LEAF_ONLY_DOMAIN + profile_term
 
     @api.depends("defect_code_id.name", "object_part_id.name")
     def _compute_display_name(self):

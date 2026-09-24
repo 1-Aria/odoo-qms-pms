@@ -22,6 +22,10 @@ class MgmtsystemNonconformity(models.Model):
     # A nonconformity raised from an inspection or a maintenance request often
     # has no partner at all. Every other attribute is inherited.
     partner_id = fields.Many2one(required=False)
+    # Origin moved to the analysis item, so the header's list is relaxed and
+    # hidden rather than removed: it stays available to other views, to the API
+    # and to any OCA code that reads it. The same treatment cause_ids has.
+    origin_ids = fields.Many2many(required=False)
     responsible_user_id = fields.Many2one(
         default=lambda self: self._default_responsible_user_id()
     )
@@ -30,6 +34,17 @@ class MgmtsystemNonconformity(models.Model):
         store=True,
         readonly=False,
         tracking=True,
+    )
+    # The escape hatch for the catalog filtering: the profiles reduce noise on
+    # the item dropdowns, and this widens them to the whole catalog when the
+    # analyst judges a code outside the assigned profiles to be the right one.
+    # On the header rather than the line, because it governs every line and a
+    # per-line switch would be a column of checkboxes.
+    qms_show_all_codes = fields.Boolean(
+        string="Show all catalog codes",
+        default=False,
+        help="Offer every defect code and object part, instead of only those in "
+        "the catalog profiles assigned to this product.",
     )
     disposition_id = fields.Many2one(
         comodel_name="qms.disposition",

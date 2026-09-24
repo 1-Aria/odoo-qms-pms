@@ -13,6 +13,7 @@
                 <field name="defect_code_id" />
                 <field name="object_part_id" />
                 <field name="cause_id" />
+                <field name="origin_id" />
                 <field name="severity_id" />
                 <field name="active" column_invisible="True" />
             </list>
@@ -47,6 +48,7 @@
                         <field name="defect_code_id" options="{'no_create': True}" />
                         <field name="object_part_id" options="{'no_create': True}" />
                         <field name="cause_id" options="{'no_create': True}" />
+                    <field name="origin_id" options="{'no_create': True}" />
                     </group>
                     <group name="outputs" string="Suggest">
                         <field name="severity_id" options="{'no_create': True}" />
@@ -74,6 +76,7 @@
                 <field name="defect_code_id" />
                 <field name="object_part_id" />
                 <field name="cause_id" />
+                <field name="origin_id" />
                 <filter
                     name="archived"
                     string="Archived"

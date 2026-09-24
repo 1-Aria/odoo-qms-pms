@@ -11,6 +11,9 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 2 | Header: `partner_id` relaxed, responsible / manager prefill, `disposition_id` and the `qms.disposition` model, and the `qms_nonconformity_hr` bridge for department and manager | done | two passes, both 2026-09-21. First: Selection-based disposition, `exit=0`, 12 tests + 2 in the bridge. Reopened the same day to make disposition a user-editable model while the column held no real data, and to move the manager prefill into the bridge — `res.users.employee_id` comes from `hr`, which `qms_nonconformity` does not depend on, so `default_get` would have raised `AttributeError` anywhere `hr` was absent. Second pass `exit=0`, 10 tests here and 4 in the bridge, UI checked: partner optional, prefill working, dispositions listed under Configuration → Nonconformities with `code` greyed out, archived filter working |
 | 3 | `qms_severity_rank` shown on the severity form, `default_severity_id` on `qms.defect.code`, item severity default, header roll-up | done | upgraded and tested 2026-09-21, `exit=0`, 19 tests, 0 failures; the header recompute over existing nonconformities ran clean; UI checked: rank on the severity form, default severity on defect codes, items and header filling in. Rank seeding was dropped before any code was written — each implementation defines its own severities, so ranks start at 0 and the unconfigured state is documented and tested (the first item wins ties). A review then showed no test moved an existing item's `sequence`, so `item_ids.sequence` in `@api.depends` was unproven; `test_header_rollup_follows_reorder` closes that |
 | 4 | `display_name` on `qms.nonconformity.item`, for Many2one columns in `qms_determination` and `qms_quality_control` | done | upgraded and tested 2026-09-22, `exit=0`, 20 tests, 0 failures; items read *Torn · Sleeves* in `qms_determination`'s response lines. Added after the module closed, because the item has no name field and a Many2one to it rendered as `qms.nonconformity.item,12` |
+| 5 | Advisory code filtering: computed domains on the item, a *Show all catalog codes* switch on the header; `severity_id` moved to the header's meta group | done | upgraded and tested 2026-09-24, `exit=0`, 25 tests, 0 failures; UI checked — a list column honours `domain="<field>"` from a hidden sibling column, the dropdowns narrow with a profile and offer everything without one, the switch widens them, and severity now sits beside Disposition with no empty Analysis Confirmation heading left behind. Two follow-ups came out of the first look: the switch rendered label-less until it was wrapped in a group, and `qms_determination`'s response lines had to be re-anchored from `item_ids` to that group, which had pushed the switch to the foot of the page |
+| 6 | The three nonconformity gates made configurable: action-plan comments, evaluation comments, all-actions-done | proposed | |
+| 7 | `origin_id` on `qms.nonconformity.item`; the header's `origin_ids` relaxed and hidden | done | upgraded and tested 2026-09-24, `exit=0`, 27 tests, 0 failures; UI checked — the Origin column on the analysis items and the header's own Origin field gone. Done before step 6, paired with `qms_determination` step 4, which cannot match on origin until the item carries it |
 
 ## Divergences from the plan
 
@@ -23,6 +26,10 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 5 | §8 lists nine modules and does not include an HR bridge | `qms_nonconformity_hr` exists | `department_id` belongs to `mgmtsystem_nonconformity_hr`, which is `auto_install` on `hr`. Depending on it directly would force `hr` onto every site running the quality system, so the default lives in an `auto_install` bridge — the same pattern OCA uses for the field |
 | 6 | §7.9 makes `disposition` a Selection with five fixed values | `disposition_id`, a Many2one to a new `qms.disposition` model seeded with those five | Every other vocabulary in this system is a record the user controls; a hardcoded list is the odd one out and is exactly what a plant will want to extend. Logic branches on `qms.disposition.code`, not on ids |
 | 7 | §7.4 has the item's `severity_id` "populated by onchange from `defect_code_id.default_severity_id`" | a stored, editable compute on `defect_code_id` | An onchange fires only in a form, so items created in code — the inspection prefill in `qms_quality_control` — would get no severity. The compute keeps the field editable, and a manual value stands until the defect code changes |
+| 8 | §7.6 and D7 describe the filter as a static search domain that is "always visible and always escapable", with the user removing the condition from the search panel | a **computed domain** on the item, with two escapes: no profile means no filter, and a switch on the header widens it even when profiles are set | D7's rationale was factually wrong. A field `domain` is not a search-panel filter: it also governs the *Search More…* dialog, so nothing could escape it. Profiles are meant to reduce noise, never to decide which codes are legitimate — the governing principle of suggesting over enforcing. Core's own idiom for a domain that has to be computed is a `fields.Binary` compute referenced as `domain="<field>"` (`account.tax.tag_ids_domain`, `account/models/account_tax.py:4621`, used at `account/views/account_tax_views.xml:49`) |
+| 9 | §7.9 has `severity_id` roll up on the header, and OCA shows it in the Causes and Analysis page, readonly outside Analysis | the field moves to the header's meta group beside `disposition_id`, and is readonly only in `done` and `cancel` | The roll-up is unchanged; this is placement and gating. Severity is a header verdict like disposition, and nothing about it belongs to the Analysis phase — OCA's `readonly="state not in 'analysis'"` (`views/mgmtsystem_nonconformity.xml:269`) made a header-level judgement editable in one phase only |
+| 10 | the plan says nothing about OCA's mandatory comments | the three gates OCA enforces are configurable, defaulting to on | `_check_open_with_action_comments` and `_check_close_with_evaluation` (`models/mgmtsystem_nonconformity.py:158-187`) enforce action-plan comments at *In Progress*, and evaluation comments plus all-actions-done at *Closed*. Whether each is useful is a site's decision, not a developer's; the defaults keep OCA's behaviour, so installing changes nothing |
+| 11 | §7.4 lists the item's fields without an origin, and §7.9 leaves the header's `origin_ids` as OCA has it | `origin_id` on the item, and the header's `origin_ids` relaxed to optional and hidden | The determination engine matches a rule against an item, so a condition it cannot read from an item is a condition with a different subject. With origin on the grain, the rule table stays one thing: *(any defect, any part, any cause, External Supplier) → procurement works with the supplier*. Nothing restricts a nonconformity to one origin either — items found different ways can sit on one record, which is why cause moved to the item too. The header field is hidden rather than removed, as `cause_ids` is, and relaxed with the same one-line `required=False` override `partner_id` needed |
 
 ## Known traps in the base modules
 
@@ -50,7 +57,8 @@ qms_nonconformity/
 │   ├── mgmtsystem_nonconformity.py                       # 1 (item_ids, related profiles), 2, 3
 │   ├── qms_disposition.py                                # 2
 │   ├── mgmtsystem_nonconformity_severity.py              # 3 (qms_severity_rank)
-│   └── qms_defect_code.py                                # 3 (default_severity_id)
+│   ├── qms_defect_code.py                                # 3 (default_severity_id)
+│   └── res_config_settings.py                            # 6
 ├── data/qms_disposition.xml                              # 2 (noupdate)
 ├── security/ir.model.access.csv                          # 1, 2
 ├── views/
@@ -58,10 +66,13 @@ qms_nonconformity/
 │   ├── qms_disposition_views.xml                         # 2
 │   ├── mgmtsystem_nonconformity_views.xml                # 1 (items), 2 (disposition)
 │   ├── mgmtsystem_nonconformity_severity_views.xml       # 3 (rank on the severity form)
-│   └── qms_defect_code_views.xml                         # 3 (default severity on the code)
+│   ├── qms_defect_code_views.xml                         # 3 (default severity on the code)
+│   └── res_config_settings_views.xml                     # 6
 ├── tests/__init__.py, test_qms_nonconformity_item.py     # 1
 │         test_qms_nonconformity_header.py                # 2
 │         test_qms_nonconformity_severity.py              # 3
+│         test_qms_code_domain.py                          # 5
+│         test_qms_nonconformity_gates.py                  # 6
 └── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), 3 (USAGE)
 ```
 
@@ -77,7 +88,7 @@ qms_nonconformity/
 | `license` | `AGPL-3` |
 | `category` | `Management System` |
 | `depends` | `qms_catalog`, `mgmtsystem_nonconformity`, `mgmtsystem_nonconformity_product` |
-| `data` | `security/ir.model.access.csv`, `data/qms_disposition.xml` (step 2), `views/qms_nonconformity_item_views.xml`, `views/qms_disposition_views.xml` (step 2), `views/mgmtsystem_nonconformity_views.xml`, `views/mgmtsystem_nonconformity_severity_views.xml` (step 3), `views/qms_defect_code_views.xml` (step 3) |
+| `data` | `security/ir.model.access.csv`, `data/qms_disposition.xml` (step 2), `views/qms_nonconformity_item_views.xml`, `views/qms_disposition_views.xml` (step 2), `views/mgmtsystem_nonconformity_views.xml`, `views/mgmtsystem_nonconformity_severity_views.xml` (step 3), `views/qms_defect_code_views.xml` (step 3), `views/res_config_settings_views.xml` (step 6) |
 | `installable` | `True` |
 
 `mgmtsystem_nonconformity_product` supplies `product_id`, which the filtering resolves
@@ -88,7 +99,7 @@ through. `mgmtsystem_partner` is **not** a dependency — see divergence 3.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import qms_disposition` (step 2), `from . import mgmtsystem_nonconformity`, `from . import mgmtsystem_nonconformity_severity`, `from . import qms_defect_code` (step 3) |
+| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import qms_disposition` (step 2), `from . import mgmtsystem_nonconformity`, `from . import mgmtsystem_nonconformity_severity`, `from . import qms_defect_code` (step 3), `from . import res_config_settings` (step 6) |
 
 ## Models
 
@@ -133,38 +144,69 @@ refers to it.
 The related field is what the §7.6 domain reads. It is declared on the header because a
 domain may only reach `parent.<field>`, and the client evaluates that to a plain id list.
 
-## Code filtering (§7.6)
+## Code filtering (§7.6) — rewritten in step 5
 
-Both catalog fields on the item carry a static domain:
+The item's two catalog fields are filtered by a **computed domain**, not a static one. Step 1
+shipped the static version the plan describes, and it turned out to be inescapable: a field
+`domain` also governs the *Search More…* dialog, so a product with no profile offered nothing
+and a product with one offered nothing outside it. Profiles are a noise reducer, so the
+mechanism had to change (divergence 8).
 
-```xml
-domain="[('parent_id.profile_ids', 'in', parent.qms_effective_profile_ids)]"
+### `qms.nonconformity.item` — the domains
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_defect_code_domain` | Binary | `compute="_compute_qms_code_domains"`, not stored |
+| `qms_object_part_domain` | Binary | same compute, not stored |
+
+`fields.Binary` holding a domain list is core's idiom for a domain that must be computed —
+`account.tax.tag_ids_domain` (`account/models/account_tax.py:4621`), used as
+`domain="tag_ids_domain"` (`account/views/account_tax_views.xml:49`).
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_compute_qms_code_domains` | `@api.depends("nonconformity_id.qms_effective_profile_ids", "nonconformity_id.qms_show_all_codes")` | leaf-only when the switch is on or no profile resolves; otherwise leaf-only plus the profile filter |
+
+```python
+LEAF_ONLY = [("parent_id", "!=", False)]
+
+for item in self:
+    nonconformity = item.nonconformity_id
+    profiles = nonconformity.qms_effective_profile_ids
+    if nonconformity.qms_show_all_codes or not profiles:
+        defect_domain = part_domain = LEAF_ONLY
+    else:
+        defect_domain = LEAF_ONLY + [("parent_id.profile_ids", "in", profiles.ids)]
+        part_domain = LEAF_ONLY + [("parent_id.profile_ids", "in", profiles.ids)]
 ```
 
-A code matches when its **group** belongs to one of the product's resolved profiles.
-`parent_id.` is one hop, which is why `qms_catalog` holds the catalogs to two levels.
+**Three rules, all in one place:**
 
-**The domain also excludes groups**, and that is deliberate. A group has
-`parent_id = False`, so `parent_id.profile_ids` is empty and no group can ever match.
-With `defect_code_id` required, an item therefore always carries a leaf code — "Fabric
-Defect" is not selectable, only "Torn" or "Scratch" beneath it. It is a second job the
-domain does silently, so it is written down here.
+| Situation | Offered |
+|---|---|
+| no profile resolves, or no product | every leaf code — **no filter**, where step 1 offered nothing |
+| profiles resolve | the leaf codes of their groups |
+| profiles resolve and *Show all catalog codes* is on | every leaf code |
 
-**Verified in the browser, 2026-09-21.** `parent.qms_effective_profile_ids` resolves
-from inside a One2many line without the field appearing in the header arch: on a
-nonconformity whose product carries a profile, the Defect Code dropdown offers only
-that profile's leaf codes. This matches core's use of the same shape at
-`odoo/addons/point_of_sale/views/pos_order_view.xml:157` against a non-stored related
-x2many (`pos_order.py:353`), also undeclared.
+**Leaf-only in every branch.** A group is a heading, never a finding, and with
+`defect_code_id` required an item always carries a leaf. Step 1 got this as a side effect of
+the profile term — `parent_id.profile_ids` is empty for a group — so the rule is now explicit
+rather than incidental, which is what makes the unfiltered branch safe.
 
-A Python test cannot cover this — the domain is evaluated by the web client — so it
-stays a browser check, worth repeating on an Odoo upgrade. Should a future version
-stop resolving it, the fix is one line: declare `qms_effective_profile_ids`
-`invisible="1"` on the header form.
+**The header carries the switch.**
 
-**Fallback is by design:** a product with no profile gives an empty dropdown, and the
-user removes the condition from the search panel to see the whole catalog. A
-nonconformity with no product resolves to an empty set and behaves the same way.
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_show_all_codes` | Boolean | `default=False`, `string="Show all catalog codes"`, help naming what it widens |
+
+On the header rather than the line: it governs every line's dropdowns, and a per-line switch
+would be a column of checkboxes nobody wants.
+
+**This mechanism is testable.** The step 1 domain had to be verified in a browser, because it
+relied on the client resolving `parent.qms_effective_profile_ids` from inside a One2many. The
+computed version resolves everything in Python, so a test can read the domain and run it as a
+search. What still needs the browser is only that the client honours `domain="<field>"` on a
+list column.
 
 ## Header changes (step 2)
 
@@ -386,6 +428,82 @@ deliberately incomplete dependency list:
   uses the ranks current when the items last changed, which matches how item severity
   stores what was applied (D16)
 
+## Configurable gates (step 6)
+
+OCA enforces three things through `@api.constrains` on `stage_id`
+(`mgmtsystem_nonconformity/models/mgmtsystem_nonconformity.py:158-187`): action-plan comments
+before *In Progress*, and evaluation comments plus every action closed before *Closed*. Each
+becomes a setting, defaulting to on.
+
+### `res.config.settings` — `models/res_config_settings.py`
+
+`_inherit = "res.config.settings"`
+
+| Field | Type | `config_parameter` |
+|---|---|---|
+| `qms_require_action_plan_comments` | Boolean, default True | `qms_nonconformity.require_action_plan_comments` |
+| `qms_require_evaluation_comments` | Boolean, default True | `qms_nonconformity.require_evaluation_comments` |
+| `qms_require_actions_done` | Boolean, default True | `qms_nonconformity.require_actions_done` |
+
+`config_parameter` rather than fields on `res.company`: these are policy for the installation,
+and a per-company version would mean three company fields and a multi-company story this
+instance does not need. Moving them to the company later is additive.
+
+### `mgmtsystem.nonconformity` — the overrides
+
+| Method | Behaviour |
+|---|---|
+| `_check_open_with_action_comments` | returns when its setting is off; otherwise raises as OCA does |
+| `_check_close_with_evaluation` | checks the evaluation comment and the all-actions-closed rule independently, each behind its own setting |
+
+**Both checks are restated rather than delegated.** `_check_close_with_evaluation` enforces two
+unrelated things in one method, so calling `super()` can only keep or skip both. The override
+reimplements them — about a dozen lines, citing the OCA method as the source to diff against on
+an upgrade, the same way Generate Actions mirrors `_onchange_template_id` in `qms_determination`.
+
+A helper reads the flags once: `self.env["ir.config_parameter"].sudo().get_param(key, "True") == "True"`.
+`sudo()` because `ir.config_parameter` is readable only by system users, and a constraint runs as
+whoever moved the stage.
+
+### Views — `views/res_config_settings_views.xml`
+
+A block inside the *Management Systems* app section `mgmtsystem` already defines
+(`mgmtsystem/views/res_config.xml`), titled *Nonconformities*, holding the three settings with
+help text naming the stage each one gates. Visible to
+`mgmtsystem.group_mgmtsystem_user_manager`, as that app section is.
+
+## Origin on the item (step 7)
+
+### `qms.nonconformity.item`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `origin_id` | Many2one → `mgmtsystem.nonconformity.origin` | `ondelete="restrict"`, optional |
+
+Optional like `cause_id`: an inspection resolves neither, and Populate Defect leaves both for
+the analyst. `ondelete="restrict"` with archiving as the alternative — origins have an `active`
+field, unlike causes, so a retired origin can be archived while the items that used it keep it.
+
+`mgmtsystem.nonconformity.origin` needs no work: it is already `_parent_store` with `ref_code`,
+`active` and a `Group / Code` display name
+(`mgmtsystem_nonconformity/models/mgmtsystem_nonconformity_origin.py`), which is what our own
+catalogs are. `qms_determination` matches a rule's origin against the item's ancestors through
+the same `parent_path` walk it uses for the other three.
+
+### `mgmtsystem.nonconformity` — the header field
+
+| Field | Change |
+|---|---|
+| `origin_ids` | `required=False` — the whole override, as `partner_id` took |
+
+Hidden on the form, not removed, exactly as `cause_ids` is: it stays available to other views,
+to the API and to any OCA code that reads it. Origin is analysis, and analysis is per item.
+
+**The consequence to know:** an origin rule fires only when the analyst sets origin *on an
+item*. Nothing reads the header's origins any more, so a rule keyed on origin alone stays quiet
+on an inspection-derived analysis until someone fills it in — the same trade object part and
+cause already make.
+
 ## Security — `security/ir.model.access.csv`
 
 Mirrors the ACLs OCA gives the nonconformity itself
@@ -448,6 +566,49 @@ prefill (`qms_quality_control`) is unaffected.
 The header needs no `qms_effective_profile_ids` field in the arch: step 1 confirmed the
 line domain resolves it without one.
 
+Step 5 changes what the line domain is. The item list carries the two computed domain fields as
+hidden columns — a domain referencing a field needs that field in the arch — and each catalog
+field reads its own:
+
+| Field | Attribute |
+|---|---|
+| `qms_defect_code_domain`, `qms_object_part_domain` | `column_invisible="True"` |
+| `defect_code_id` | `domain="qms_defect_code_domain"` |
+| `object_part_id` | `domain="qms_object_part_domain"` |
+
+The header's `qms_effective_profile_ids` is no longer read by a domain, so nothing depends on
+the client resolving `parent.<field>` from inside a One2many any more. The field stays: the
+compute reads it, and it is worth seeing on a nonconformity.
+
+**To verify in the UI:** that a list column honours `domain="<field>"` from a sibling column.
+Core's example of the pattern is a form field (`account/views/account_tax_views.xml:49`); the
+mechanism is the same, but this is the first list use in this project.
+
+Step 5 also moves the header's severity and tidies what it leaves behind:
+
+| Position | Content |
+|---|---|
+| field `severity_id`, `position="attributes"` | `readonly` becomes `state in ('done', 'cancel')` |
+| group `meta` inside, then field `severity_id` `position="move"` | the field lands beside `disposition_id` — the two header verdicts together |
+| the *Analysis Confirmation* separator and the group that held severity | `invisible="1"`, selected positionally, since view inheritance rejects a translated `@string` as a selector |
+| after the `item_ids` list | a group `qms_code_scope` holding `qms_show_all_codes`, the switch that widens the code dropdowns |
+
+The switch sits directly under the Analysis Items list rather than at the foot of the page: it
+governs those dropdowns, and next to them is where someone looks for it. Two things are needed
+for that, both found by looking at the result:
+
+- **It must be inside a group.** A field placed straight into a page body renders without its
+  label, since Odoo draws labels for fields in groups.
+- **The group is named, and `qms_determination` anchors to it.** That module inserted its
+  response lines after `item_ids`, which put them between the list and the switch — so the
+  switch ended up at the foot of the page after all. Its anchor is now
+  `//group[@name='qms_code_scope']`, and the page reads Analysis, items, switch, suggestions.
+  Upgrade `qms_nonconformity` before `qms_determination`, since the anchor has to exist first.
+
+Step 7 adds `origin_id` to the item list after `cause_id`, and hides the header's `origin_ids`
+the way `cause_ids` is hidden.
+
+
 ## Tests — `tests/test_qms_nonconformity_item.py`
 
 `TestNonconformityItem(TransactionCase)`, decorated `@tagged("post_install", "-at_install")`
@@ -504,10 +665,47 @@ this module never sets.
 | `test_header_no_items_untouched` | a severity set on a header with no items is not blanked |
 | `test_rank_change_does_not_recompute` | raising `Low`'s rank above `High` leaves the stored header severity unchanged until an item changes — `qms_severity_rank` is deliberately outside `@api.depends` |
 
+## Tests — `tests/test_qms_code_domain.py` (step 5)
+
+`TestCodeDomain(TransactionCase)`, `@tagged("post_install", "-at_install")`: the fixtures create
+a product. They build two defect groups — one in a profile carried by the product, one outside
+any profile — each with a leaf code, and the same for object parts.
+
+| Test | Asserts |
+|---|---|
+| `test_domain_filters_to_profile` | with a profile resolved, the domain returns the in-profile leaf and not the outside one, for both catalogs, run as a real `search` |
+| `test_domain_without_profile_is_unfiltered` | a nonconformity whose product carries no profile, and one with no product at all, both give a domain that returns **every** leaf code — what step 1 got wrong |
+| `test_show_all_codes_widens_domain` | with a profile resolved and the switch on, the outside leaf is returned too |
+| `test_domain_never_returns_groups` | in all three states the domain excludes parent-less records, so an item can never take a group |
+| `test_domain_follows_profile_change` | adding a profile to the product changes what the domain returns without touching the item — the `@api.depends` path through `nonconformity_id` |
+
+## Tests — `tests/test_qms_nonconformity_gates.py` (step 6)
+
+`TestNonconformityGates(TransactionCase)`, `@tagged("post_install", "-at_install")`. Fixtures: a
+nonconformity, the OCA stages `stage_open` and `stage_done`, and an action in a non-ending stage
+for the actions gate.
+
+| Test | Asserts |
+|---|---|
+| `test_action_comments_required_by_default` | moving to *In Progress* with no `action_comments` raises `ValidationError` |
+| `test_action_comments_gate_off` | with the setting off, the same move succeeds |
+| `test_evaluation_comments_required_by_default` | closing with no `evaluation_comments` raises |
+| `test_evaluation_comments_gate_off` | with the setting off, closing succeeds, provided the actions gate is satisfied |
+| `test_actions_done_required_by_default` | closing with an action in a non-ending stage raises |
+| `test_actions_done_gate_off` | with that setting off, closing succeeds with the action still open |
+| `test_gates_are_independent` | turning the comments gate off leaves the actions gate raising, and the reverse — the reason the override restates both checks instead of delegating to `super()` |
+
+## Tests — `tests/test_qms_nonconformity_item.py` (step 7 additions)
+
+| Test | Asserts |
+|---|---|
+| `test_item_origin` | an item holds its origin, and deleting an origin in use raises `IntegrityError` |
+| `test_header_origin_optional` | a nonconformity is created with no `origin_ids` — the relaxed requirement, which every other fixture in the suite hides by always passing one |
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | Multi-line analysis on the nonconformity, catalog dropdowns scoped to the product's profiles |
-| `readme/USAGE.md` (step 3) | Analysis items in Causes and Analysis; the header's cause list is hidden because cause is per item; dispositions are configurable, and automation matches on their code. **Severity ranks start at 0 and must be set** under *Configuration → Nonconformities → Severities*: higher is more severe, and a nonconformity takes the severity of its most severe item. Until ranks are set it takes its first item's severity. Re-ranking does not rewrite existing nonconformities |
+| `readme/USAGE.md` (steps 3, 5, 6, 7) | Analysis items in Causes and Analysis; the header's cause list is hidden because cause is per item; dispositions are configurable, and automation matches on their code. **Severity ranks start at 0 and must be set** under *Configuration → Nonconformities → Severities*: higher is more severe, and a nonconformity takes the severity of its most severe item. Until ranks are set it takes its first item's severity. Re-ranking does not rewrite existing nonconformities. **Catalog codes** (step 5): the dropdowns show the product's profiled codes, every code when no profile applies, and every code when *Show all catalog codes* is ticked; groups are never offered. **Gates** (step 6): the three requirements before In Progress and Closed can each be turned off under Settings → Management Systems → Nonconformities. **Origin** (step 7): origin is recorded per analysis item, beside cause, and determination rules can key on it |
 

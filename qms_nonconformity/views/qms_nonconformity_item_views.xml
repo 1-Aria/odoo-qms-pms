@@ -2,26 +2,33 @@
 <!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
 <odoo>
 
-    <!-- The catalog domains match a code whose GROUP belongs to one of the
-         product's resolved profiles. A group itself has parent_id = False, so
-         it never matches: an item always carries a leaf code. -->
+    <!-- The catalog dropdowns read a computed domain from the record, core's
+         idiom for a domain that has to be computed
+         (account/views/account_tax_views.xml:49). The two domain fields are
+         hidden columns because a domain referencing a field needs that field
+         present in the arch. Step 1 wrote the domain here statically, which made
+         it inescapable; the computed version offers every leaf code when no
+         profile applies, and the header's switch widens it when one does. -->
     <record id="qms_nonconformity_item_view_list" model="ir.ui.view">
         <field name="name">qms.nonconformity.item.list</field>
         <field name="model">qms.nonconformity.item</field>
         <field name="arch" type="xml">
             <list string="Analysis Items" editable="bottom">
                 <field name="sequence" widget="handle" />
+                <field name="qms_defect_code_domain" column_invisible="True" />
+                <field name="qms_object_part_domain" column_invisible="True" />
                 <field
                     name="defect_code_id"
-                    domain="[('parent_id.profile_ids', 'in', parent.qms_effective_profile_ids)]"
+                    domain="qms_defect_code_domain"
                     options="{'no_create': True}"
                 />
                 <field
                     name="object_part_id"
-                    domain="[('parent_id.profile_ids', 'in', parent.qms_effective_profile_ids)]"
+                    domain="qms_object_part_domain"
                     options="{'no_create': True}"
                 />
                 <field name="cause_id" options="{'no_create': True}" />
+                <field name="origin_id" options="{'no_create': True}" />
                 <field name="severity_id" options="{'no_create': True}" />
                 <field name="qty_affected" />
                 <field name="note" />
@@ -36,10 +43,21 @@
             <form string="Analysis Item">
                 <sheet>
                     <group>
+                        <field name="qms_defect_code_domain" invisible="1" />
+                        <field name="qms_object_part_domain" invisible="1" />
                         <group>
-                            <field name="defect_code_id" options="{'no_create': True}" />
-                            <field name="object_part_id" options="{'no_create': True}" />
+                            <field
+                                name="defect_code_id"
+                                domain="qms_defect_code_domain"
+                                options="{'no_create': True}"
+                            />
+                            <field
+                                name="object_part_id"
+                                domain="qms_object_part_domain"
+                                options="{'no_create': True}"
+                            />
                             <field name="cause_id" options="{'no_create': True}" />
+                            <field name="origin_id" options="{'no_create': True}" />
                         </group>
                         <group>
                             <field name="severity_id" options="{'no_create': True}" />

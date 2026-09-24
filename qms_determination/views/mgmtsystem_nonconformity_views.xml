@@ -36,9 +36,15 @@
                 />
             </field>
 
-            <!-- After qms_nonconformity's items, so the page reads Analysis,
-                 Analysis Items, Suggested Responses, Analysis Confirmation. -->
-            <field name="item_ids" position="after">
+            <!-- After qms_nonconformity's code-scope group, not after
+                 item_ids: anchoring on item_ids put these lines between
+                 the Analysis Items list and the switch that governs its
+                 dropdowns. The page reads Analysis, items, the switch,
+                 then the suggestions. -->
+            <xpath
+                expr="//group[@name='qms_code_scope']"
+                position="after"
+            >
                 <separator string="Suggested Responses" />
                 <field name="response_ids" readonly="state != 'analysis'">
                     <list editable="bottom">
@@ -51,6 +57,7 @@
                         <field name="rule_defect_code_id" />
                         <field name="rule_object_part_id" />
                         <field name="rule_cause_id" />
+                        <field name="rule_origin_id" />
                         <field name="suggested_severity_id" />
                         <field name="action_template_ids" widget="many2many_tags" />
                         <field
@@ -60,7 +67,7 @@
                         />
                     </list>
                 </field>
-            </field>
+            </xpath>
 
         </field>
     </record>

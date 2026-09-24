@@ -13,6 +13,7 @@ were also folded back into it on 2026-09-22.
 | 1 | `qms.determination.rule`: conditions, outputs, the at-least-one-condition and `domain_kind` constraints, access, views, menu | done | installed and tested 2026-09-22, `exit=0`, 8 tests, 0 failures; UI checked: menu after Catalogs, an empty rule refused, a Quality rule refusing a Maintenance code, documents gated and limited to procedures and work instructions. Before any code, a review showed `@api.constrains` would never fire for a rule created without condition fields (`odoo/api.py:184-190`), so the at-least-one-condition rule became the `has_condition` SQL CHECK |
 | 2 | `qms.nonconformity.response`, header `response_ids`, matching, Suggest Response, lines in Causes and Analysis | done | upgraded and tested 2026-09-22, `exit=0`, 18 tests (8 rule, 10 response), 0 failures; UI checked: the button only in Analysis, one line per item per matching rule, manual lines locked once saved, rerun replacing every line, and a procedure page with an access group the viewing user lacked left out of their Documents column without an error. The other gate — the Documents column hidden for a user without Knowledge's `group_document_user` — was **not** exercised: with Central access to Documents on, every internal user has that group, so no such user can exist here. Needed a `display_name` on the item, added to `qms_nonconformity` as its step 4 |
 | 3 | Generate Actions: confirmation on click, one action per typed template per response line, a notification naming skipped templates | done | upgraded and tested 2026-09-22, `exit=0`, 27 tests (8 rule, 10 response, 9 generate), 0 failures; UI checked: confirmation on click, actions without the `NEW` prefix, a template with no response type named in a notification while the others were created, the button only in Action Plan. Two designs were dropped before any code: a fallback to Corrective for untyped templates, replaced by skipping them, since the fallback would guess at the template author's intent; and a confirmation wizard listing skipped templates, replaced by the button's `confirm` plus a notification after the click, the simpler of the two |
+| 4 | `origin_id` as a fourth rule condition: the field, the `has_condition` CHECK, matching, and the related field on the response line | done | upgraded and tested 2026-09-24, `exit=0`, 34 tests, 0 failures; UI checked — a rule saved with nothing but an origin, which the old CHECK refused, and an origin-only rule producing a response line for an item carrying that origin. Widening the CHECK made Odoo drop and recreate it, with every existing rule satisfying the wider version by construction |
 
 ## Divergences from the revised plan
 
@@ -23,6 +24,7 @@ were also folded back into it on 2026-09-22.
 | 3 | §3 gives `domain_kind` no default | `default="both"` | Matches the catalogs and profiles: a rule is unrestricted until someone narrows it |
 | 4 | §7 says of generated actions that "users remain free to delete what they do not want", and D27's rationale calls duplicates "harmless and deletable" | generated actions cannot be deleted; the button asks for confirmation | No group may delete a `mgmtsystem.action` — `perm_unlink` is 0 for viewer, user, auditor and manager alike (`mgmtsystem_action/security/ir.model.access.csv:2-5`). An unwanted action can only be cancelled through its stage. D27 is kept — no deduplication — and the confirmation on the button is the guard against a misclick |
 | 5 | §7 falls back to Corrective when a template has no `type_action` | such a template is skipped, and a notification after the click names it | A template left without a type may be deliberate — not meant for automatic use — and defaulting it would be a guess about the author's intent |
+| 6 | The revised plan §3 gives the rule three conditions — defect code, object part, cause — and D29 requires at least one of the three | **four conditions**: origin joins them, and at least one of the four is required | Origin is where a nonconformity came from, and `qms_nonconformity` step 7 records it per analysis item, beside cause. A condition the engine cannot read from an item would have a different subject from the other three, which is what keeps the rule table one thing: *(any defect, any part, any cause, External Supplier) → procurement works with the supplier* is now expressible. `mgmtsystem.nonconformity.origin` is `_parent_store`, so a group origin matches every origin beneath it through the same `parent_path` walk, and it is exempt from the `domain_kind` check as cause is — it has no such field |
 
 ## Folder structure
 
@@ -41,6 +43,7 @@ qms_determination/
 ├── tests/__init__.py, test_qms_determination_rule.py     # 1
 │         test_qms_nonconformity_response.py              # 2
 │         test_qms_generate_actions.py                    # 3
+│         test_qms_determination_origin.py              # 4
 └── readme/ DESCRIPTION.md                                # 1
 ```
 
@@ -84,6 +87,7 @@ the page types they add (`selection_add` in each `models/document_page.py`).
 | `defect_code_id` | Many2one → `qms.defect.code` | `ondelete="restrict"`; condition, a group matches every code beneath it |
 | `object_part_id` | Many2one → `qms.object.part` | `ondelete="restrict"`; condition |
 | `cause_id` | Many2one → `mgmtsystem.nonconformity.cause` | `ondelete="restrict"`; condition |
+| `origin_id` (step 4) | Many2one → `mgmtsystem.nonconformity.origin` | `ondelete="restrict"`; condition, a group matches every origin beneath it |
 | `severity_id` | Many2one → `mgmtsystem.nonconformity.severity` | `ondelete="restrict"`, `string="Suggested Severity"`; output |
 | `action_template_ids` | Many2many → `mgmtsystem.action.template` | `relation="qms_determination_rule_action_template_rel"`, `column1="rule_id"`, `column2="template_id"`, `string="Action Templates"`; output |
 | `document_ids` | Many2many → `document.page` | `relation="qms_determination_rule_document_page_rel"`, `column1="rule_id"`, `column2="page_id"`, `string="Documents"`, `domain=[("mgmtsystem_page_type", "in", ("procedure", "work_instruction"))]`; output |
@@ -100,7 +104,9 @@ firing on every tear.
 
 | Name | Definition | Message |
 |---|---|---|
-| `has_condition` | `CHECK (defect_code_id IS NOT NULL OR object_part_id IS NOT NULL OR cause_id IS NOT NULL)` | `"A rule needs at least one condition: a defect code, an object part or a cause."` |
+| `has_condition` | `CHECK (defect_code_id IS NOT NULL OR object_part_id IS NOT NULL OR cause_id IS NOT NULL OR origin_id IS NOT NULL)` | `"A rule needs at least one condition: a defect code, an object part, a cause or an origin."` |
+
+**Step 4 widens this constraint.** Odoo drops and recreates a CHECK whose definition changed, and every existing row satisfies the wider version by construction — the old one was stricter — so the upgrade needs no data work. A rule carrying only an origin is legal from that point on.
 
 A SQL constraint rather than `@api.constrains`: a Python constraint runs only when one of
 its declared fields is in the `create` or `write` values (`odoo/api.py:184-190`), so a
@@ -119,7 +125,7 @@ condition.
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_self_and_ancestor_ids(record)` | `@api.model` | the ids in `record.parent_path`, the record's own id last; `[]` for an empty record |
-| `_match_item(item)` | `@api.model` | `search` for rules where each condition is `in [False] + _self_and_ancestor_ids(item.<value>)`, for defect code, object part and cause |
+| `_match_item(item)` | `@api.model` | `search` for rules where each condition is `in [False] + _self_and_ancestor_ids(item.<value>)`, for defect code, object part, cause and origin (step 4) |
 
 Revised plan §5, with ancestors read from `parent_path` rather than a `parent_of` search
 (divergence 1). The `search` is filtered by `active` only on the rules, which is right: an
@@ -142,6 +148,7 @@ rule; a line added by hand goes to the end.
 | `rule_defect_code_id` | Many2one | `related="rule_id.defect_code_id"`, `string="Rule Defect Code"` |
 | `rule_object_part_id` | Many2one | `related="rule_id.object_part_id"`, `string="Rule Object Part"` |
 | `rule_cause_id` | Many2one | `related="rule_id.cause_id"`, `string="Rule Cause"` |
+| `rule_origin_id` (step 4) | Many2one | `related="rule_id.origin_id"`, `string="Rule Origin"` |
 | `suggested_severity_id` | Many2one | `related="rule_id.severity_id"`, `string="Suggested Severity"` |
 | `action_template_ids` | Many2many | `related="rule_id.action_template_ids"` |
 | `document_ids` | Many2many | `related="rule_id.document_ids"`, **`related_sudo=False`** |
@@ -228,7 +235,7 @@ nonconformity's `action_ids`.
 |---|---|---|
 | `qms_determination_rule_view_list` | list | `sequence` (`widget="handle"`), `name`, `domain_kind`, `defect_code_id`, `object_part_id`, `cause_id`, `severity_id`, `active` (`column_invisible="True"`) |
 | `qms_determination_rule_view_form` | form | see below |
-| `qms_determination_rule_view_search` | search | fields `name`, `defect_code_id`, `object_part_id`, `cause_id`; filter `archived`, `domain="[('active', '=', False)]"`; group by `domain_kind` |
+| `qms_determination_rule_view_search` | search | fields `name`, `defect_code_id`, `object_part_id`, `cause_id`, `origin_id` (step 4); filter `archived`, `domain="[('active', '=', False)]"`; group by `domain_kind` |
 | `qms_determination_rule_action` | action | `name`: `Determination Rules`, `res_model`: `qms.determination.rule`, `view_mode`: `list,form`, `search_view_id` |
 
 **Form** `qms_determination_rule_view_form`
@@ -242,7 +249,7 @@ form
     │   ├── group: name, domain_kind
     │   └── group: sequence
     ├── group name="conditions" string="When"
-    │   └── defect_code_id, object_part_id, cause_id — each options="{'no_create': True}"
+    │   └── defect_code_id, object_part_id, cause_id, origin_id (step 4) — each options="{'no_create': True}"
     └── group name="outputs" string="Suggest"
         ├── severity_id  options="{'no_create': True}"
         ├── action_template_ids  widget="many2many_tags"
@@ -266,11 +273,11 @@ The Action Plan state's value is `pending`, not `action_plan`
 (`mgmtsystem_nonconformity_stage.py:18`). OCA's own Actions page is already editable only
 in `pending`; the button uses `!=` rather than OCA's `state not in 'pending'`, which
 matches substrings.
-| field `item_ids` after | separator "Suggested Responses", then `response_ids`, `readonly="state != 'analysis'"`, with the list below |
+| `//group[@name='qms_code_scope']` after | separator "Suggested Responses", then `response_ids`, `readonly="state != 'analysis'"`, with the list below. Anchored on that group, which `qms_nonconformity` step 5 added, rather than on `item_ids`: the latter put these lines between the Analysis Items list and the switch governing its dropdowns |
 
 **`response_ids` list**, `editable="bottom"`: `item_id` (readonly), `rule_id`
 (`readonly="id"`, `options="{'no_create': True}"`), `rule_defect_code_id`,
-`rule_object_part_id`, `rule_cause_id`, `suggested_severity_id`, `action_template_ids`
+`rule_object_part_id`, `rule_cause_id`, `rule_origin_id`, `suggested_severity_id`, `action_template_ids`
 (`widget="many2many_tags"`), `document_ids` (`widget="many2many_tags"`,
 `groups="document_knowledge.group_document_user"`).
 
@@ -308,7 +315,23 @@ codes and causes only, no core records. Fixture codes use `unique_code_prefix()`
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Determination rules map analysis — defect, object part, cause — to a suggested response: a severity, action templates and documents. Every matching rule applies |
+| `readme/DESCRIPTION.md` | Determination rules map analysis — defect, object part, cause, origin — to a suggested response: a severity, action templates and documents. Every matching rule applies |
+
+## Tests — `tests/test_qms_determination_origin.py` (step 4)
+
+`TestDeterminationOrigin(TransactionCase)`, `@tagged("post_install", "-at_install")`: the
+fixtures create nonconformities. Origins: a group *External* with a child *External Supplier*,
+and an unrelated *Internal Audit*.
+
+| Test | Asserts |
+|---|---|
+| `test_rule_origin_only_allowed` | a rule with only an origin is accepted — the widened `has_condition` |
+| `test_matches_on_origin` | an item whose origin is *External Supplier* matches an origin-only rule, and an item with a different origin does not |
+| `test_matches_origin_group` | a rule keyed on the *External* group matches an item carrying *External Supplier* |
+| `test_item_without_origin_does_not_match` | an item with no origin matches no rule that asks for one, while rules leaving origin empty still match — the `[False]` rule applied to a fourth dimension |
+| `test_four_conditions_together` | a rule setting all four conditions matches only the item that fits all four |
+| `test_response_line_shows_rule_origin` | the line's `rule_origin_id` reads the rule's origin |
+| `test_origin_restrict` | deleting an origin a rule uses raises `IntegrityError` |
 
 ## Tests — `tests/test_qms_nonconformity_response.py` (step 2)
 

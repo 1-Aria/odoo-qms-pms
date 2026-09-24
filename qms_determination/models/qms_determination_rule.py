@@ -23,9 +23,9 @@ class QmsDeterminationRule(models.Model):
         (
             "has_condition",
             "CHECK (defect_code_id IS NOT NULL OR object_part_id IS NOT NULL "
-            "OR cause_id IS NOT NULL)",
-            "A rule needs at least one condition: a defect code, an object part "
-            "or a cause.",
+            "OR cause_id IS NOT NULL OR origin_id IS NOT NULL)",
+            "A rule needs at least one condition: a defect code, an object part, "
+            "a cause or an origin.",
         ),
     ]
 
@@ -63,6 +63,12 @@ class QmsDeterminationRule(models.Model):
         ondelete="restrict",
         help="Empty means any. A cause matches every cause beneath it.",
     )
+    origin_id = fields.Many2one(
+        comodel_name="mgmtsystem.nonconformity.origin",
+        string="Origin",
+        ondelete="restrict",
+        help="Empty means any. An origin matches every origin beneath it.",
+    )
 
     # Outputs.
     severity_id = fields.Many2one(
@@ -91,7 +97,7 @@ class QmsDeterminationRule(models.Model):
         """Reject a direct clash between the rule's domain and a condition's.
 
         The same clash-only rule qms.catalog.profile applies to its groups.
-        Cause is exempt: it has no domain_kind.
+        Cause and origin are exempt: neither has a domain_kind.
         """
         kinds = dict(self._fields["domain_kind"]._description_selection(self.env))
         for rule in self:
@@ -148,6 +154,11 @@ class QmsDeterminationRule(models.Model):
                     "cause_id",
                     "in",
                     [False] + self._self_and_ancestor_ids(item.cause_id),
+                ),
+                (
+                    "origin_id",
+                    "in",
+                    [False] + self._self_and_ancestor_ids(item.origin_id),
                 ),
             ]
         )

@@ -141,6 +141,40 @@ class TestNonconformityItem(TransactionCase):
         self.assertFalse(item.exists())
 
     @mute_logger("odoo.sql_db")
+    def test_item_origin(self):
+        """Origin is per item, and an origin in use cannot be deleted."""
+        origin = self.env["mgmtsystem.nonconformity.origin"].create(
+            {"name": f"Supplier {self.prefix}"}
+        )
+        item = self.env["qms.nonconformity.item"].create(
+            {
+                "nonconformity_id": self.nonconformity.id,
+                "defect_code_id": self.defect_code.id,
+                "origin_id": origin.id,
+            }
+        )
+        self.assertEqual(item.origin_id, origin)
+        with self.assertRaises(IntegrityError), self.cr.savepoint():
+            origin.unlink()
+
+    def test_header_origin_optional(self):
+        """The relaxed requirement, which every other fixture hides.
+
+        Base mgmtsystem_nonconformity declares origin_ids required=True; origin
+        now lives on the item, so the header's list is optional and hidden.
+        """
+        user = self.env.user
+        nonconformity = self.env["mgmtsystem.nonconformity"].create(
+            {
+                "description": "No origin",
+                "responsible_user_id": user.id,
+                "manager_user_id": user.id,
+                "user_id": user.id,
+            }
+        )
+        self.assertFalse(nonconformity.origin_ids)
+
+    @mute_logger("odoo.sql_db")
     def test_defect_code_restrict(self):
         code = self.env["qms.defect.code"].create(
             {

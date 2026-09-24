@@ -31,6 +31,7 @@ revision does three things:
 | 4 | `document_ids` holds "any type, not only procedures" (§7.3) | **Procedures and work instructions only**, and shown on the response line without bypassing record rules | Document pages carry per-page access rules; an unreadable page must not break the nonconformity — see §8 |
 | 5 | Rerunning the button "is expected and fine" (§7.8) | Rerun **deletes every line, manual ones included, and regenerates** | The plan did not say what happens to existing lines. A full reset is the simplest behaviour; a person re-adds manual lines after rerunning |
 | 5a | Every condition may be empty, so a rule with none matches every item (§7.3) | A rule needs **at least one condition** — defect code, object part or cause | A rule with no conditions is a catch-all nobody intends. Requiring the defect code specifically would rule out cause-only rules such as *Machine fault → Raise maintenance request* |
+| 9 | Three conditions: defect code, object part, cause | **four** — origin joins them, matched against the item's `origin_id` | Added 2026-09-24. `qms_nonconformity` records origin per analysis item, so a rule can key on where the nonconformity came from without the engine reading a second subject |
 | 5b | Lines carry `source`, `suggested` or `manual` (§7.5) | **No `source` field** | Rerun no longer treats the two differently, so nothing reads it. A manual line is one with no `item_id` |
 | 6 | Running the button after the stage advances "requires reverting the stage, which is logged" (§7.8) | Unchanged in effect. Each button is **hidden outside its state**, which is what makes reverting the stage necessary; the revert is logged because `stage_id` is tracked | The plan stated the outcome without the mechanism. Hiding the button supplies it, and OCA's stage tracking already supplies the log |
 | 7 | `domain_kind` on the rule, with no stated meaning (§7.3) | A classifier that **must not clash** with the rule's catalog conditions | Same invariant already enforced on catalogs and profiles |
@@ -69,6 +70,7 @@ which say what it suggests.
 | `defect_code_id` | Many2one → `qms.defect.code` | condition | empty = any; a group matches every code beneath it |
 | `object_part_id` | Many2one → `qms.object.part` | condition | empty = any; a group matches every part beneath it |
 | `cause_id` | Many2one → `mgmtsystem.nonconformity.cause` | condition | empty = any; matches every cause beneath it |
+| `origin_id` | Many2one → `mgmtsystem.nonconformity.origin` | condition | empty = any; matches every origin beneath it. **Added 2026-09-24** |
 | `severity_id` | Many2one → `mgmtsystem.nonconformity.severity` | output | the suggested severity for this combination |
 | `action_template_ids` | Many2many → `mgmtsystem.action.template` | output | templates Generate Actions turns into actions |
 | `document_ids` | Many2many → `document.page` | output | procedures and work instructions only, see §8 |
@@ -77,17 +79,19 @@ which say what it suggests.
 reader would only be maintenance.
 
 **At least one condition.** A rule must set at least one of `defect_code_id`,
-`object_part_id` and `cause_id`. Under strict matching (§5) a rule with all three empty
+`object_part_id`, `cause_id` and `origin_id`. Under strict matching (§5) a rule with all three empty
 would match every item on every nonconformity — a catch-all nobody intends. Any one
 condition is enough: requiring the defect code specifically would rule out rules keyed on
-cause or object part alone, and *any defect / any part / Machine fault → Raise
-maintenance request* is exactly the kind of rule that bridges quality to maintenance.
+cause, object part or origin alone. *Any defect / any part / Machine fault → Raise
+maintenance request* bridges quality to maintenance, and *any defect / any part / any cause /
+External Supplier → Procurement works with the supplier* is the same shape on the origin
+dimension.
 
 **`domain_kind` constraint.** A rule's domain must not contradict its catalog conditions:
 a `qm` rule may not have a `pm` defect code or object part as a condition, and the
 reverse; `both` on either side is accepted. This is the non-empty-intersection rule
-`qms.catalog.profile` already applies to its groups. **Cause is exempt** —
-`mgmtsystem.nonconformity.cause` has no `domain_kind`.
+`qms.catalog.profile` already applies to its groups. **Cause and origin are exempt** — neither
+`mgmtsystem.nonconformity.cause` nor `mgmtsystem.nonconformity.origin` has a `domain_kind`.
 
 **Delete versus archive.** Response lines point at rules, so a rule that has ever been
 suggested is archived, not deleted (§5, `rule_id` is `ondelete="restrict"`). This is the
@@ -152,6 +156,8 @@ def _match_rules(self, item):
         ("defect_code_id", "in", [False] + self_and_ancestors(item.defect_code_id)),
         ("object_part_id", "in", [False] + self_and_ancestors(item.object_part_id)),
         ("cause_id", "in", [False] + self_and_ancestors(item.cause_id)),
+        # Added 2026-09-24, with origin_id on the item.
+        ("origin_id", "in", [False] + self_and_ancestors(item.origin_id)),
     ])
 ```
 
@@ -160,7 +166,8 @@ list and adds `OR field IS NULL`. For an empty item value the list is just `[Fal
 matches only rules whose condition is also empty — the third row above.
 
 `qms.defect.code` and `qms.object.part` are `_parent_store` through `qms.catalog.mixin`;
-`mgmtsystem.nonconformity.cause` is `_parent_store` in OCA. The catalogs are held to two
+`mgmtsystem.nonconformity.cause` and `mgmtsystem.nonconformity.origin` are `_parent_store`
+in OCA. The catalogs are held to two
 levels; OCA places no depth limit on causes, and `parent_of` needs none.
 
 **Worked example, revised.** Item *(Torn, Sleeves, Machine fault)*:

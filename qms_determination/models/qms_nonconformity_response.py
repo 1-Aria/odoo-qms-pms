@@ -45,6 +45,9 @@ class QmsNonconformityResponse(models.Model):
         related="rule_id.object_part_id", string="Rule Object Part"
     )
     rule_cause_id = fields.Many2one(related="rule_id.cause_id", string="Rule Cause")
+    rule_origin_id = fields.Many2one(
+        related="rule_id.origin_id", string="Rule Origin"
+    )
 
     # What it suggests.
     suggested_severity_id = fields.Many2one(
