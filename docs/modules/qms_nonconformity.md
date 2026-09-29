@@ -12,7 +12,7 @@ Plan: §7.4, §7.6, §7.9, D6–D9, D16.
 | 3 | `qms_severity_rank` shown on the severity form, `default_severity_id` on `qms.defect.code`, item severity default, header roll-up | done | upgraded and tested 2026-09-21, `exit=0`, 19 tests, 0 failures; the header recompute over existing nonconformities ran clean; UI checked: rank on the severity form, default severity on defect codes, items and header filling in. Rank seeding was dropped before any code was written — each implementation defines its own severities, so ranks start at 0 and the unconfigured state is documented and tested (the first item wins ties). A review then showed no test moved an existing item's `sequence`, so `item_ids.sequence` in `@api.depends` was unproven; `test_header_rollup_follows_reorder` closes that |
 | 4 | `display_name` on `qms.nonconformity.item`, for Many2one columns in `qms_determination` and `qms_quality_control` | done | upgraded and tested 2026-09-22, `exit=0`, 20 tests, 0 failures; items read *Torn · Sleeves* in `qms_determination`'s response lines. Added after the module closed, because the item has no name field and a Many2one to it rendered as `qms.nonconformity.item,12` |
 | 5 | Advisory code filtering: computed domains on the item, a *Show all catalog codes* switch on the header; `severity_id` moved to the header's meta group | done | upgraded and tested 2026-09-24, `exit=0`, 25 tests, 0 failures; UI checked — a list column honours `domain="<field>"` from a hidden sibling column, the dropdowns narrow with a profile and offer everything without one, the switch widens them, and severity now sits beside Disposition with no empty Analysis Confirmation heading left behind. Two follow-ups came out of the first look: the switch rendered label-less until it was wrapped in a group, and `qms_determination`'s response lines had to be re-anchored from `item_ids` to that group, which had pushed the switch to the foot of the page |
-| 6 | The three nonconformity gates made configurable: action-plan comments, evaluation comments, all-actions-done | proposed | |
+| 6 | The three nonconformity gates made configurable: action-plan comments, evaluation comments, all-actions-done | done | upgraded and tested 2026-09-24, `exit=0`, 35 tests, 0 failures; UI checked — the three switches under Settings → Management Systems → Nonconformities, and a nonconformity moving to In Progress with the Plan Review box empty once its switch is off. Specced against `ir.config_parameter` and built on `res.company` instead: `set_param` deletes a parameter whose value is falsy, so a default-on switch read back as on as soon as it was turned off. A review before the run also confirmed OCA marks neither comment field `required` in the view, so nothing enforces them besides the constraints, and added the settings round-trip test that the storage change called for |
 | 7 | `origin_id` on `qms.nonconformity.item`; the header's `origin_ids` relaxed and hidden | done | upgraded and tested 2026-09-24, `exit=0`, 27 tests, 0 failures; UI checked — the Origin column on the analysis items and the header's own Origin field gone. Done before step 6, paired with `qms_determination` step 4, which cannot match on origin until the item carries it |
 
 ## Divergences from the plan
@@ -58,6 +58,7 @@ qms_nonconformity/
 │   ├── qms_disposition.py                                # 2
 │   ├── mgmtsystem_nonconformity_severity.py              # 3 (qms_severity_rank)
 │   ├── qms_defect_code.py                                # 3 (default_severity_id)
+│   ├── res_company.py                                    # 6
 │   └── res_config_settings.py                            # 6
 ├── data/qms_disposition.xml                              # 2 (noupdate)
 ├── security/ir.model.access.csv                          # 1, 2
@@ -99,7 +100,7 @@ through. `mgmtsystem_partner` is **not** a dependency — see divergence 3.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import qms_disposition` (step 2), `from . import mgmtsystem_nonconformity`, `from . import mgmtsystem_nonconformity_severity`, `from . import qms_defect_code` (step 3), `from . import res_config_settings` (step 6) |
+| `models/__init__.py` | `from . import qms_nonconformity_item`, `from . import qms_disposition` (step 2), `from . import mgmtsystem_nonconformity`, `from . import mgmtsystem_nonconformity_severity`, `from . import qms_defect_code` (step 3), `from . import res_company`, `from . import res_config_settings` (step 6) |
 
 ## Models
 
@@ -435,19 +436,29 @@ OCA enforces three things through `@api.constrains` on `stage_id`
 before *In Progress*, and evaluation comments plus every action closed before *Closed*. Each
 becomes a setting, defaulting to on.
 
+### `res.company` — `models/res_company.py`
+
+| Field | Type | Gates |
+|---|---|---|
+| `qms_require_action_plan_comments` | Boolean, default True | action-plan comments before *In Progress* |
+| `qms_require_evaluation_comments` | Boolean, default True | evaluation comments before *Closed* |
+| `qms_require_actions_done` | Boolean, default True | every action in an ending stage before *Closed* |
+
+**Not `ir.config_parameter`, which this spec first named and which cannot carry a default-on
+switch.** `res.config.settings` writes a False Boolean by calling `set_param(key, False)`, and
+`set_param` **deletes** the parameter when the value is falsy
+(`base/models/ir_config_parameter.py:91-98`). `get_param` then returns the caller's default, so
+a gate read with a default of `True` would come back *on* the moment someone switched it off —
+the toggles would have looked broken for the only value that matters. A Boolean column stores
+`False` as `False`.
+
+Putting them on the company also makes the policy per company at no cost, and matches the
+pattern `mgmtsystem_hazard_risk` uses for its own setting.
+
 ### `res.config.settings` — `models/res_config_settings.py`
 
-`_inherit = "res.config.settings"`
-
-| Field | Type | `config_parameter` |
-|---|---|---|
-| `qms_require_action_plan_comments` | Boolean, default True | `qms_nonconformity.require_action_plan_comments` |
-| `qms_require_evaluation_comments` | Boolean, default True | `qms_nonconformity.require_evaluation_comments` |
-| `qms_require_actions_done` | Boolean, default True | `qms_nonconformity.require_actions_done` |
-
-`config_parameter` rather than fields on `res.company`: these are policy for the installation,
-and a per-company version would mean three company fields and a multi-company story this
-instance does not need. Moving them to the company later is additive.
+Three `related="company_id.<field>"` Booleans with `readonly=False`, which is what makes them
+editable in Settings.
 
 ### `mgmtsystem.nonconformity` — the overrides
 
@@ -461,9 +472,14 @@ unrelated things in one method, so calling `super()` can only keep or skip both.
 reimplements them — about a dozen lines, citing the OCA method as the source to diff against on
 an upgrade, the same way Generate Actions mirrors `_onchange_template_id` in `qms_determination`.
 
-A helper reads the flags once: `self.env["ir.config_parameter"].sudo().get_param(key, "True") == "True"`.
-`sudo()` because `ir.config_parameter` is readable only by system users, and a constraint runs as
-whoever moved the stage.
+A helper, `_qms_gates()`, returns `self.company_id or self.env.company` — the record holding the
+three switches, falling back to the active company for a nonconformity with none.
+
+**Both overrides keep `@api.constrains("stage_id")`.** The decorator is what makes a method a
+constraint: `_constraint_methods` collects it from the resolved class attribute
+(`odoo/models.py:902-916`), so an override without the decorator would not relax the rule, it
+would delete it. The messages are ours rather than OCA's, and each names the switch, so someone
+who meets a gate learns it can be turned off.
 
 ### Views — `views/res_config_settings_views.xml`
 
@@ -693,6 +709,7 @@ for the actions gate.
 | `test_evaluation_comments_gate_off` | with the setting off, closing succeeds, provided the actions gate is satisfied |
 | `test_actions_done_required_by_default` | closing with an action in a non-ending stage raises |
 | `test_actions_done_gate_off` | with that setting off, closing succeeds with the action still open |
+| `test_settings_form_writes_the_company` | creating `res.config.settings` with a gate off and calling `execute()` clears the company Boolean, and setting it back restores it — the round trip the `ir.config_parameter` version would have failed |
 | `test_gates_are_independent` | turning the comments gate off leaves the actions gate raising, and the reverse — the reason the override restates both checks instead of delegating to `super()` |
 
 ## Tests — `tests/test_qms_nonconformity_item.py` (step 7 additions)

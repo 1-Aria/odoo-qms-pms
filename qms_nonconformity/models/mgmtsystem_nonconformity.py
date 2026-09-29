@@ -1,6 +1,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class MgmtsystemNonconformity(models.Model):
@@ -56,6 +57,74 @@ class MgmtsystemNonconformity(models.Model):
 
     def _default_responsible_user_id(self):
         return self.env.user
+
+    def _qms_gates(self):
+        """The company whose gate switches apply to this nonconformity."""
+        self.ensure_one()
+        return self.company_id or self.env.company
+
+    # Both constraints below keep @api.constrains. The decorator is what makes a
+    # method a constraint at all: _constraint_methods collects it from the
+    # resolved class attribute (odoo/models.py:902-916), so an override without
+    # it would not relax the rule -- it would delete it.
+    #
+    # The messages are ours rather than OCA's: they name the switch, so someone
+    # who meets the gate knows it can be turned off.
+    @api.constrains("stage_id")
+    def _check_open_with_action_comments(self):
+        """OCA's gate at In Progress, behind a company switch.
+
+        Source: mgmtsystem_nonconformity/models/mgmtsystem_nonconformity.py,
+        _check_open_with_action_comments -- diff against it on an OCA upgrade.
+        """
+        for nonconformity in self:
+            if nonconformity.state != "open":
+                continue
+            if not nonconformity._qms_gates().qms_require_action_plan_comments:
+                continue
+            if not nonconformity.action_comments:
+                raise ValidationError(
+                    self.env._(
+                        "Action plan comments are required before a "
+                        "nonconformity can move to In Progress. This "
+                        "requirement can be turned off in the settings."
+                    )
+                )
+
+    @api.constrains("stage_id")
+    def _check_close_with_evaluation(self):
+        """OCA's two gates at Closed, each behind its own company switch.
+
+        Restated rather than delegated: OCA enforces two unrelated things in one
+        method, so calling super() could only keep or skip both. Source:
+        mgmtsystem_nonconformity/models/mgmtsystem_nonconformity.py,
+        _check_close_with_evaluation -- diff against it on an OCA upgrade.
+        """
+        for nonconformity in self:
+            if nonconformity.state != "done":
+                continue
+            gates = nonconformity._qms_gates()
+            if (
+                gates.qms_require_evaluation_comments
+                and not nonconformity.evaluation_comments
+            ):
+                raise ValidationError(
+                    self.env._(
+                        "Evaluation comments are required before a "
+                        "nonconformity can be closed. This requirement can be "
+                        "turned off in the settings."
+                    )
+                )
+            if gates.qms_require_actions_done:
+                actions = nonconformity._get_all_actions()
+                if not all(actions.mapped("stage_id.is_ending")):
+                    raise ValidationError(
+                        self.env._(
+                            "Every action must be in an ending stage before a "
+                            "nonconformity can be closed. This requirement can "
+                            "be turned off in the settings."
+                        )
+                    )
 
     # qms_severity_rank is deliberately NOT a dependency: re-ranking severities
     # would otherwise recompute every nonconformity not overridden by hand,

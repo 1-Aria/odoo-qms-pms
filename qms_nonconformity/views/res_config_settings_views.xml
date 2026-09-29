@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field
+            name="name"
+        >res.config.settings.view.form.inherit.qms.nonconformity</field>
+        <field name="model">res.config.settings</field>
+        <field
+            name="inherit_id"
+            ref="mgmtsystem.res_config_settings_view_form"
+        />
+        <field name="arch" type="xml">
+            <!-- A block in the Management Systems app section mgmtsystem
+                 already defines, so these sit with the other management-system
+                 settings rather than in a section of their own. -->
+            <xpath expr="//app[@name='mgmtsystem']" position="inside">
+                <block
+                    title="Nonconformities"
+                    name="qms_nonconformity_setting"
+                >
+                    <setting
+                        string="Require action plan comments"
+                        help="Action plan comments must be filled before a nonconformity can move to In Progress."
+                    >
+                        <field name="qms_require_action_plan_comments" />
+                    </setting>
+                    <setting
+                        string="Require evaluation comments"
+                        help="Evaluation comments must be filled before a nonconformity can be closed."
+                    >
+                        <field name="qms_require_evaluation_comments" />
+                    </setting>
+                    <setting
+                        string="Require all actions done"
+                        help="Every action of a nonconformity must be in an ending stage before it can be closed."
+                    >
+                        <field name="qms_require_actions_done" />
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
