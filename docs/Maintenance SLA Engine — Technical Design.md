@@ -110,6 +110,22 @@ flowchart BT
 
 Arrows point from a module to what it depends on. Waivers, pause handling and preventive support stay inside `maintenance_sla`: they are part of the clock's integrity or pure configuration, and would have no purpose as separate modules.
 
+### 3.2 Fit with this instance
+
+Checked against the running code and database on 2026-09-29. These are the facts the implementation may rely on; re-check them after any OCA pull.
+
+| Fact | Consequence for the code |
+|---|---|
+| None of this design's field names exists yet on `maintenance.request`, `.equipment`, `.equipment.category`, `.stage` or `.team`, and no installed model has `sla` in its name | Nothing to rename or defend against |
+| **No installed module overrides `write()` on `maintenance.request`** | The stage hook is the only one; it calls `super()` first, then reads `stage_id` from the records |
+| Only `maintenance_request_sequence` overrides `create()`, to stamp `code` from a sequence | Matching runs after `super().create()`, so the record already has its code and stage |
+| Nothing in the installed stack writes `stage_id` behind the engine's back | Stage transitions are observable in one place |
+| `maintenance.request` inherits `mail.thread.cc` and `mail.activity.mixin` | Chatter posts and future activities need no mixin of ours |
+| `_check_access(self, operation) -> tuple \| None` exists in this core (`odoo/models.py:4464`) | The delegation in section 4.3 is valid here, not only in the helpdesk module it comes from |
+| `maintenance_plan` sets both `request_date` and `schedule_date` on every generated request, from a date | A preventive clock always has a start; it begins at midnight of the due day, which is what "allowed lateness" counts from |
+| The instance runs four stages, sequences 1–4, all distinct | Resequencing for section 5.4 touches no ids and loses no links |
+| `maintenance_plan_only` forces `recurring_maintenance = False` | Core's copy-on-recurrence path is dormant; `copy=False` is still required for the UI's Duplicate action |
+
 ## 4. Data model
 
 Two new configuration models, one new evidence model, and small additions to existing maintenance models.
@@ -129,7 +145,7 @@ One row is one commitment, e.g. "P3 · Response · reach *In progress* · 0:15".
 | `start_from` | Selection: `reported`, `scheduled` | Clock start: `reported_at` or `schedule_date`. |
 | `target_stage_id` | Many2one `maintenance.stage` | Reaching this stage, or any later one by sequence, stops the clock. Cannot be a cancel stage. |
 | `pause_stage_ids` | Many2many `maintenance.stage` | Time spent in these stages is not counted. |
-| `duration` | Float, hours (`float_time` widget) | The target. |
+| `duration` | Float, hours (`float_time` widget) | The target. Label it **Target (hours)** in every view: `maintenance.request.duration` already exists in core as a manual estimate used for calendar and gantt display, and the two will sit near each other in reports. |
 | `at_risk_pct` | Integer, default 75 | Share of the duration after which the record is at risk. |
 
 ### 4.2 Priority and criticality
@@ -161,6 +177,7 @@ One row is one commitment, e.g. "P3 · Response · reach *In progress* · 0:15".
 | `waived`, `waive_reason`, `waived_by_id`, `waived_at` | Boolean, Char, Many2one, Datetime | Manager-only. |
 | `live_state` | Selection, non-stored with search | `on_track`, `at_risk`, `overdue`, or empty when not running. |
 | `team_id`, `equipment_id`, `category_id`, `priority`, `maintenance_type` | related, stored | Grouping dimensions. They belong to `maintenance_sla`, not to the reporting module: they are attributes of the evidence, and uninstalling a report must not drop them. |
+| `company_id` | Many2one, related to the request, stored | Related rather than independent: `maintenance.request` carries `_check_company_auto = True` (`maintenance.py:221`), and a company on the evidence that could drift from its request would be a silent inconsistency nothing checks. |
 
 **Access follows the request.** Rather than a second set of rules, `_check_access` falls back to
 the request's own access, so whoever may read a request may read its SLA records —
@@ -179,11 +196,11 @@ def _check_access(self, operation):
 | `criticality` | Selection, stored | Copied from the equipment when set; later equipment edits do not change past requests. Copies with a recurring occurrence deliberately — the machine is the same. |
 | `urgency` | Selection, tracked | `safety`, `line_stopped`, `defects`, `degraded`, `no_impact`. Copies with a recurring occurrence deliberately — for planned work the expected impact is the same. |
 | `priority_suggested` | Selection, stored compute | Priority rule lookup. |
-| `priority` (native) | Selection, stored compute, editable by managers, tracked | Follows the suggestion unless overridden. Turning the native field into a stored compute is a migration event: every existing request recomputes on install, so requests that never carried a priority acquire one, and core's team KPI counts priority `3` (`maintenance.py:447`). |
+| `priority` (native) | Selection, stored compute, editable by managers, tracked | Follows the suggestion unless overridden. The compute must be the editable kind — `store=True, readonly=False`, assigning only when it has something to assign — so a manual override survives any later recompute. Turning a core field into a stored compute recomputes every existing request on install, so requests that never carried a priority acquire one; on this instance that is a non-event, since the existing requests are deleted before the module goes in, but it is a migration step anywhere else. Core's team KPI counts priority `3` (`maintenance.py:447`), so those counters move too. |
 | `priority_reason` | Char, tracked, `copy=False` | Required when `priority` differs from the suggestion. An override justification must not travel to the next occurrence. |
 | `reported_at` | Datetime, tracked, `copy=False` | Defaults to creation. A new occurrence reports itself. |
-| `sla_ids` | One2many SLA records, `copy=False` | **Load-bearing.** When a recurring request reaches a done stage, core copies the whole request to create the next occurrence (`maintenance.py:349-356`), and a One2many copies by default — which would duplicate finished records, snapshots and waivers onto the new request and corrupt every report. |
-| `next_deadline` | Datetime, stored compute | Earliest deadline of running records; default kanban order. |
+| `sla_ids` | One2many SLA records, `copy=False` | A One2many copies by default, and copying a request would duplicate finished records, snapshots and waivers onto the copy. Two paths reach `copy()`: core creates the next occurrence of a **recurring** request that way (`maintenance.py:349-356`), which `maintenance_plan_only` currently disables by forcing `recurring_maintenance = False`, and the **Duplicate** action in the UI, which nothing disables. So the attribute is required even though the recurring path is dormant on this instance. |
+| `next_deadline` | Datetime, stored compute | Earliest deadline of running records. Ordering by it belongs in the kanban view's `default_order`, **not** in the model's `_order`: core sets `maintenance.request._order = "id desc"` (`maintenance.py:220`), and changing it would reorder every list and dropdown in the app. |
 | `sla_live_state` | Selection, non-stored with search | Worst live state of the request's records. |
 
 ## 5. Behaviour
@@ -292,9 +309,13 @@ Restore confirmation is the move from *Restored – to confirm* to *Done*. A rej
 
 **"Restored – to confirm" must not be flagged `done`**, or core sets `close_date` before the requester has confirmed anything (`maintenance.py:336-339`). *Scrap* keeps `done`, being terminal.
 
+**Confirmation is for corrective work only, and preventive Completion rules must target the `done` stage.** `maintenance_plan` decides whether to generate the next occurrence by looking for requests that are **not** `stage_id.done` (`maintenance_plan/models/maintenance_plan.py:147, 176, 223`; `maintenance_equipment.py:193`). A preventive request parked in *Restored – to confirm* therefore still counts as open, and the plan would withhold the next occurrence until somebody confirmed it — coupling the preventive schedule to confirmation discipline. Targeting *Done* for preventive rules keeps the two apart; corrective restores still route through confirmation.
+
 ## 6. Reporting
 
 Reporting is a standard pivot and graph action on `maintenance.request.sla` (Maintenance → Reporting → SLA Analysis), shipped in the maintenance\_sla\_report module. The SLA records already hold every measure and dimension, so no report model or custom code is needed.
+
+**The menu carries its own `groups`.** Its parent, core's *Reporting* menu, is one of the nine whose `groups_id` is rewritten by `maintenance_security` and rewritten back by `maintenance_security_user_menu`; a child menu is only visible when its parent is, so relying on inheritance would make SLA Analysis appear or vanish according to which of those modules was upgraded last. Name the groups that should see it — equipment managers, or a dedicated SLA group — on the menu item itself.
 
 | Measure | Field and aggregation | Default filter |
 | --- | --- | --- |
