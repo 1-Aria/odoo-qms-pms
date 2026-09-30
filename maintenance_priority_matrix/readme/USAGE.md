@@ -16,16 +16,25 @@ not a default worth guessing.
 
 ## Reporting a request
 
-Set **Urgency** on the request. The **Suggested Priority** field shows what the rules make of
-it together with the machine's criticality, and **Priority** follows the suggestion.
+Set **Urgency** on the request; it is required for corrective work. The **Suggested Priority**
+field shows what the rules make of it together with the machine's criticality — shown read-only
+beside it, since criticality belongs to the machine — and **Priority** follows the suggestion.
+
+You do not set priority yourself in the normal case: save the request and it arrives carrying
+the suggestion. Preventive requests, which the maintenance plan generates without a reporter,
+carry no urgency either.
 
 Priority is yours to override: set it to anything, and give a reason — the form asks for one as
-soon as your value differs from the suggestion. Both the priority and the reason are recorded in
+soon as your value differs from the suggestion, whether you change it while raising the request
+or afterwards. Both the priority and the reason are recorded in
 the chatter.
 
+Change urgency on a request you have not overridden and the priority follows at once, in the
+form — you do not have to save to see it.
+
 An overridden priority stays put. Once you have moved it by hand, a later change of urgency
-updates the suggestion but leaves your value alone, until someone sets it back to match the
-suggestion. Clearing the priority counts as an override too.
+updates the suggestion and leaves your value alone, until someone sets it back to match the
+suggestion. Clearing the priority counts as an override too, so it stays cleared.
 
 The suggestion is shown as soon as you change urgency, but the priority itself moves when the
 request is saved.

@@ -11,16 +11,60 @@
         />
         <field name="arch" type="xml">
             <!-- priority sits in the form's second group
-                 (maintenance/views/maintenance_views.xml:131). Both terms of
-                 the reason's required expression matter: without the first, a
-                 request would demand a justification whenever no suggestion
-                 exists at all, which is the state before the grid is filled. -->
+                 (maintenance/views/maintenance_views.xml:131).
+
+                 The star widget is one click with no confirmation, which is too
+                 casual for the field every SLA target hangs off. A plain
+                 selection makes setting it deliberate and shows the label. The
+                 kanban and list keep the star: there it is a display.
+
+                 Not required, and that is deliberate. A view requirement is
+                 evaluated before the save, while priority is filled by create()
+                 after it, so requiring the field makes the automatic path
+                 unreachable: the form refuses to save, create() never runs, and
+                 the requester has to pick a priority on every request, which is
+                 the inconsistency this module exists to remove. It was tried
+                 and reverted.
+
+                 An empty priority is therefore possible, and the SLA engine is
+                 where it is answered: an SLA rule with no priority matches any,
+                 so a site's priority-agnostic rows are what such a request
+                 collects. -->
+            <field name="priority" position="attributes">
+                <attribute name="widget">selection</attribute>
+            </field>
             <field name="priority" position="after">
-                <field name="urgency" />
+                <!-- Both inputs of the suggestion are on the form, so an
+                     empty suggestion explains itself: it means no rule covers
+                     this pair. Criticality is shown read-only: it belongs to the
+                     machine, as in SAP PM and Maximo, and a second editable copy
+                     of it here would give one decision two override points. The
+                     auditable override is priority itself, with a reason. The
+                     field stays writable on the model, so an import or a script
+                     can still correct a snapshot. -->
+                <field name="criticality" readonly="1" />
+                <field
+                    name="urgency"
+                    required="maintenance_type == 'corrective'"
+                />
                 <field name="priority_suggested" readonly="1" />
+                <!-- Three terms, each answering a case:
+
+                     priority_suggested   nothing to differ from before the grid
+                                          is filled, so nothing to justify.
+                     priority != ...      the override itself.
+                     (id or priority)     the trap. A form expression is
+                                          evaluated before the save, while
+                                          create() fills priority after it, so on
+                                          an untouched new record the suggestion
+                                          already differs from an empty priority
+                                          and this would block the very save that
+                                          fills it. id is falsy while unsaved; a
+                                          priority picked by hand on a new record
+                                          still asks for its reason. -->
                 <field
                     name="priority_reason"
-                    required="priority_suggested and priority != priority_suggested"
+                    required="priority_suggested and priority != priority_suggested and (id or priority)"
                 />
             </field>
         </field>

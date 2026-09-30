@@ -14,7 +14,7 @@ never depends on this module.
 | # | Scope | Status | Result |
 |---|---|---|---|
 | 1 | `criticality` on equipment and category, `maintenance.priority.rule` with its uniqueness index, access, views and menu | done | two passes, both 2026-09-30. First run failed `test_rule_uniqueness`: the constraint was `unique (criticality, urgency, company_id)` and PostgreSQL treats NULLs as distinct, so the company-less rows — the common case — could be duplicated. Replaced by a unique index over `COALESCE(company_id, -1)`, after which an `@api.constrains` added for a readable message failed too and was removed: it cannot front-run the index on either path. Second run `exit=0`, 10 tests, 0 failures; UI checked — the editable grid, duplicates refused, criticality on categories and machines, and the priority dropdown offering core's four values. The UI check also confirmed that setting a category's criticality does not reach equipment already in it, which is the design and stays |
-| 2 | Request fields: `criticality` snapshot, `urgency`, `priority_suggested`, the write-time derivation of `priority`, `priority_reason` | proposed | |
+| 2 | Request fields: `criticality` snapshot, `urgency`, `priority_suggested`, the write-time derivation of `priority`, `priority_reason` | done | two passes, both 2026-09-30. First: 20 tests with one failure — `test_priority_override_tracked` asserted on message text, where a tracked change carries no body but `mail.tracking.value` rows; rewritten to read `tracking_value_ids.field_id.name`. Second run `exit=0`, 20 tests, 0 failures. The UI check then changed three things: `criticality` put on the form, because an empty suggestion was unreadable without both inputs visible; `urgency` required for corrective requests; and core's star widget replaced by a selection on the form. The empty suggestion that prompted the first was not a fault — the grid held no row for that criticality and urgency pair. A third pass then made `criticality` read-only rather than editable, since a second editable criticality gave one decision two override points and imported an ITSM shape into a CMMS model, and required `priority` on corrective requests, since an empty priority is a hole in the SLA promise rather than a usable state. A fourth run then failed in `TestRequestPriority.setUpClass`: a grid row added during the UI check occupied a fixture pair, and this vocabulary is closed, so both test classes now clear the table first. Fifth pass removed the `priority` requirement again: a view requirement is evaluated before the save while `create()` fills the field after it, so requiring it made the automatic path unreachable and forced a manual pick on every request. A sixth pass guarded `priority_reason`'s requirement the same way: it too was evaluated before the save and blocked it, since an empty priority differs from a computed suggestion. A seventh pass fixed the create path, which the browser showed empty: the guard tested for the *key* `priority` in the values, and the web client sends `priority: False` for an untouched form field, so nothing was ever filled on a request raised from the form — while the tests passed by omitting the key. Now tested on the value. An eighth pass added the form onchange: changing urgency moved the suggestion while priority waited for the save, so the reason was demanded for a difference the save then removed. The rule now lives in `_should_follow_suggestion`, called by both `write()` and the onchange. Runs: `exit=0`, 21 tests, then 22, 23, 24, and finally 28 with 0 failures; the UI sequence passed — priority filled in the form before saving, following a changed urgency, an override holding with its reason, and the reason demanded only for a real difference |
 
 ## Divergences from the design
 
@@ -208,13 +208,43 @@ which is more weight than a field set once per machine is worth.
 | `priority` | native Selection | **not redeclared as a compute.** `tracking=True` is added, and the value is derived at write time — see below |
 | `priority_reason` | Char | `tracking=True`, `copy=False` — an override justification must not travel to the next occurrence |
 
+**The rule has one home and two callers.** `_should_follow_suggestion(current, old, old_suggested)`
+answers "may this priority follow a moved suggestion?", and both callers differ only in where
+*before* comes from — `write()` captures it from the database, the form's onchange reads
+`self._origin`. Keeping it a shared predicate is what stops the form and the server disagreeing
+about what "overridden" means:
+
+```python
+return current_priority == old_priority and old_priority == old_suggested
+```
+
+The first term protects a value the user set or cleared in the current edit; in `write()` it is
+implied, since a write naming `priority` returns early. The second is what "never an override"
+means.
+
+**An onchange moves the priority in the form**, on `equipment_id`, `criticality` and `urgency`.
+Without it the form judged a half-finished state: changing urgency moved the suggestion while
+priority still held its old value, so `priority_reason` became required for a difference the save
+then removed by following the suggestion anyway. This reverses the module's first position, which
+was that an onchange would be a second implementation of the rule — true of writing the logic
+twice, not of an onchange that calls the shared predicate.
+
+`equipment_id` is named as a trigger in its own right. The recompute does chain into the onchange
+today, because the web onchange loop reruns for fields whose value changed and are in the view's
+spec (`addons/web/models/models.py:1041-1057`) — but only while `criticality` stays on the form.
+Naming `equipment_id` does not depend on the view's contents.
+
 **The derivation, at write time**
 
 | Moment | Behaviour |
 |---|---|
-| `create()` | after `super()`, a record created without an explicit `priority` takes `priority_suggested` when there is one |
+| `create()` | after `super()`, a record whose `priority` value is **falsy** takes `priority_suggested` when there is one. On the *value*, never on the key: the web client sends `priority: False` for a form field left untouched, so a `"priority" not in vals` guard filled nothing on any request raised from the form. `"0"` is a truthy string, so an explicit Very Low is still honoured |
 | every `write()` | the `(priority, priority_suggested)` pair is read **per record, before** `super()`. Afterwards, a record whose suggestion moved *and* whose priority still equalled the old suggestion follows the new one |
 | `write()` including `priority` | left alone: the user is setting it deliberately |
+
+**A caller cannot ask for an empty priority while a suggestion exists.** That state is
+indistinguishable from the form's untouched field, so it is filled; clearing the value afterwards
+is the way to say it, and counts as an override.
 
 **Captured on every write, not on a trigger list.** `criticality` on the request is itself a
 stored compute on `equipment_id`, so reassigning a request to another machine changes the
@@ -291,15 +321,83 @@ there is no `category_id` on a category, so the technician field is the anchor t
 
 | Position | Content |
 |---|---|
-| field `priority` after, inside the request form's second group (`maintenance/views/maintenance_views.xml:131`) | `urgency`, then `priority_suggested` (`readonly="1"`), then `priority_reason` with `required="priority != priority_suggested"` |
-| field `priority` in the request list (`:240`) after | `urgency`, `optional="show"` |
+| field `priority`, `position="attributes"` | `widget` becomes `selection` |
+| field `priority` after, in the request form's second group (`maintenance/views/maintenance_views.xml:131`) | `criticality` (`readonly="1"`); `urgency` with `required="maintenance_type == 'corrective'"`; `priority_suggested` (`readonly="1"`); `priority_reason` with `required="priority_suggested and priority != priority_suggested and (id or priority)"` |
+| field `stage_id` after, in the request list (`:192-208`) | `urgency`, `optional="show"` |
 
-`priority` appears three times in that file — the form at `:131`, the kanban at `:175` and the
-list at `:240` — so each inheritance selects it inside the view it means, never by a bare
-`<field name="priority" position="after">` on the form record alone.
+**The list has no `priority` column to anchor to.** `priority` appears three times in core's
+file — the form at `:131`, the kanban at `:175` and the calendar at `:240` — and the list
+(`hr_equipment_request_view_tree`, `:192-208`) carries none of them, so `stage_id` is the anchor
+there. Each view record is inherited separately, so the form's `position="after"` is unambiguous.
 
-`criticality` is not shown on the request: it is a snapshot the matching reads, and a second
-criticality field beside the equipment's would invite the question of which one counts.
+**`criticality` is on the form**, and editable, as it is on the model. It was left off at first on
+the grounds that it is a snapshot the matching reads — which turned out to make an empty
+suggestion unreadable: with only urgency visible there is no way to tell that the pair has no
+rule from the lookup being broken. Both inputs beside the suggestion make it explain itself.
+
+**`urgency` is required for corrective requests only**, and in the view rather than on the model.
+`maintenance_plan` generates preventive requests without it
+(`maintenance_equipment.py:81-99`), so a model-level requirement would break plan generation —
+and preventive work has no reporter to judge urgency in the first place.
+
+**Priority is deliberately not required**, and the attempt to require it is worth recording.
+A view requirement is evaluated *before* the save, while `priority` is filled by `create()`
+*after* it — so requiring the field made the automatic path unreachable: the form refused to
+save, `create()` never ran, and a requester had to pick a priority on every corrective request,
+which is the inconsistency this module exists to remove. It was tried, seen in the UI, and
+reverted.
+
+The `required="id and maintenance_type == 'corrective'"` variant would have allowed creation
+while blocking a later clearing. Rejected as well: when no rule matches, the request saves with
+an empty priority and the next person to edit anything on it is forced to invent one.
+
+**An empty priority is therefore possible, and `maintenance_sla` is where it is answered.** A
+rule with no priority matches any priority (design §4.1), so such a request collects a site's
+priority-agnostic commitments. That module's spec states it as a decision, with a test, rather
+than inheriting the default silently. Wildcard rows in *this* grid — optional criticality and
+urgency, empty meaning any — would remove most empty priorities at the source and stay
+configuration, but they need a precedence rule (`sequence`, first match wins, since this table
+must yield exactly one answer, unlike D26's accumulating rules) and the uniqueness index
+extended to COALESCE those columns too. Deferred until real requests turn out to be
+unsuggestable: with urgency required on corrective work and criticality set on machines, the
+fifteen pairs cover it.
+
+**The star is replaced by a selection on the form.** Core's `widget="priority"` is a one-click
+toggle with no confirmation, too casual for the field every SLA target will hang off: a click
+meant for one star lands on another and nothing asks. The kanban and list keep the star, where it
+is a display rather than an input.
+
+**One trap, twice — and the reason every condition in this section is shaped around it.**
+A form expression is evaluated **before** the save, while `create()` fills `priority` **after**
+it. So on an untouched new record the suggestion already differs from an empty priority, and any
+condition written in the obvious way blocks the very save that would have filled the field. It
+caught the priority requirement, which was removed, and then the reason requirement, which was
+guarded. Anything added here later that mentions `priority` must be true of an unsaved record
+where it is still empty.
+
+**The reason's three terms**, each answering one case:
+
+| Term | Case it answers |
+|---|---|
+| `priority_suggested` | before the grid is filled — or with no urgency, or a machine with no criticality — there is nothing to differ from, so nothing to justify |
+| `priority != priority_suggested` | the override itself |
+| `(id or priority)` | the trap: `id` is falsy while unsaved, so an untouched new record saves; a priority picked by hand on that same new record still asks for its reason, which is when an override is likeliest |
+
+On a saved record both remaining cases are covered: a priority moved away from the suggestion,
+and a priority cleared, which counts as an override and now has to say why.
+
+## A note both test files carry
+
+**The fixtures clear the rule table first.** The instance holds a configured grid, and this
+vocabulary is *closed*: fifteen criticality-urgency pairs exist and no more, so there is no
+collision-proof fixture pair — the `unique_code_prefix()` trick that protects the catalog
+fixtures has no equivalent. A fixture pair that a site happens to have configured makes the
+run fail on the INSERT, which is how this was found: a grid row added during a UI check broke
+`TestRequestPriority.setUpClass` on the next run.
+
+Clearing inside the test transaction is safe, because a `TransactionCase` rolls back — the
+instance's own rows are untouched — and it makes the fixtures the only rules in play, which the
+derivation tests need anyway.
 
 ## Tests — `tests/test_maintenance_priority_rule.py` (step 1)
 
@@ -327,13 +425,21 @@ create equipment, and a later module could extend it.
 | `test_criticality_snapshot` | a request takes its equipment's criticality, and changing the equipment's afterwards leaves the request alone |
 | `test_suggestion_from_rules` | `priority_suggested` follows the rule table for the request's criticality and urgency |
 | `test_priority_follows_suggestion_on_create` | a request created without a priority takes the suggestion |
+| `test_falsy_priority_in_vals_still_fills` | a request created with `priority=False` — **what the client sends** for an untouched form field — is filled too. The test that was missing: the others omit the key, which the client never does |
 | `test_explicit_priority_on_create_kept` | a request created with a priority keeps it |
 | `test_priority_follows_new_suggestion` | changing urgency on a non-overridden request moves its priority |
 | `test_reassigned_equipment_moves_priority` | moving a request to equipment of another criticality moves the suggestion **and** the priority, though `vals` carried only `equipment_id` — the gap a trigger list on `criticality`/`urgency` would have left |
 | `test_cleared_priority_is_an_override` | emptying `priority` survives a later change of urgency: a blank is a decision, not an absence |
 | `test_override_survives_new_suggestion` | a priority set by hand is not moved when urgency changes — the override case, and the reason the old pair is read before `super()` |
 | `test_no_rules_leaves_priority_alone` | with no rules configured, creating and editing a request never writes `priority` |
-| `test_priority_tracked` | an override appears in the chatter, with the two `self.env.cr.precommit.run()` calls the project's tracking tests need |
+| `test_onchange_moves_priority_in_the_form` | on a saved, non-overridden request, changing urgency in the form moves both the suggestion and the priority |
+| `test_onchange_leaves_an_override_alone` | an overridden priority is untouched, so the mismatch and the reason requirement are real |
+| `test_onchange_leaves_an_unsaved_change_alone` | a priority picked by hand in the current edit survives a later urgency change — the `current == old` term |
+| `test_onchange_fills_a_new_record` | on a new request the priority is filled before the save, which is also what stops the reason being demanded on creation |
+| `test_priority_form_is_a_plain_selection` | the arch's `priority` field carries `widget="selection"` and **no** `required` — the star is gone and the requirement stays gone |
+| `test_reason_requirement_allows_the_unsaved_state` | the arch's `priority_reason` carries all three terms, `(id or priority)` included — the guard that keeps the create path open, pinned so it cannot be simplified away |
+| `test_priority_fills_on_save_without_being_required` | a request created with urgency and no priority comes back carrying the suggestion: the path the requirement blocked |
+| `test_priority_override_tracked` | an override and its reason reach the chatter, asserted on the message's `tracking_value_ids.field_id.name` rather than on message text: a tracked change carries no body, it carries `mail.tracking.value` rows (`mail/models/mail_tracking_value.py:15`). With the two `self.env.cr.precommit.run()` calls every tracking test here needs |
 
 ## Readme
 

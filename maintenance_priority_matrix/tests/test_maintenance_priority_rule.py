@@ -17,6 +17,14 @@ class TestPriorityRule(TransactionCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.rule_model = cls.env["maintenance.priority.rule"]
+        # The instance holds a real, configured grid, and this vocabulary is
+        # closed: there are fifteen criticality-urgency pairs and no way to make
+        # a fixture pair nobody has used, so the unique_code_prefix() trick that
+        # protects the catalog fixtures has no equivalent here. Clearing the
+        # table is safe -- a test transaction is rolled back, so the instance's
+        # own rows come back untouched -- and it makes the fixtures below the
+        # only rules in play.
+        cls.env["maintenance.priority.rule"].search([]).unlink()
         cls.company = cls.env.company
         cls.other_company = cls.env["res.company"].create({"name": "Second plant"})
         cls.critical_category = cls.env["maintenance.equipment.category"].create(
