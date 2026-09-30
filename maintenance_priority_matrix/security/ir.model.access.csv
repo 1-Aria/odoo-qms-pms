@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_maintenance_priority_rule_user,maintenance.priority.rule.user,model_maintenance_priority_rule,base.group_user,1,0,0,0
+access_maintenance_priority_rule_manager,maintenance.priority.rule.manager,model_maintenance_priority_rule,maintenance.group_equipment_manager,1,1,1,1

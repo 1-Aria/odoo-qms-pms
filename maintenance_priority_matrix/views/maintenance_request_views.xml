@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="hr_equipment_request_view_form" model="ir.ui.view">
+        <field name="name">equipment.request.form.priority.matrix</field>
+        <field name="model">maintenance.request</field>
+        <field
+            name="inherit_id"
+            ref="maintenance.hr_equipment_request_view_form"
+        />
+        <field name="arch" type="xml">
+            <!-- priority sits in the form's second group
+                 (maintenance/views/maintenance_views.xml:131). Both terms of
+                 the reason's required expression matter: without the first, a
+                 request would demand a justification whenever no suggestion
+                 exists at all, which is the state before the grid is filled. -->
+            <field name="priority" position="after">
+                <field name="urgency" />
+                <field name="priority_suggested" readonly="1" />
+                <field
+                    name="priority_reason"
+                    required="priority_suggested and priority != priority_suggested"
+                />
+            </field>
+        </field>
+    </record>
+
+    <record id="hr_equipment_request_view_tree" model="ir.ui.view">
+        <field name="name">equipment.request.list.priority.matrix</field>
+        <field name="model">maintenance.request</field>
+        <field
+            name="inherit_id"
+            ref="maintenance.hr_equipment_request_view_tree"
+        />
+        <field name="arch" type="xml">
+            <!-- The list carries no priority column to anchor to: the priority
+                 at :240 of core's file is the calendar view. Stage is the
+                 nearest column that is always there. -->
+            <field name="stage_id" position="after">
+                <field name="urgency" optional="show" />
+            </field>
+        </field>
+    </record>
+
+</odoo>

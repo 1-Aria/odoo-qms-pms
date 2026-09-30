@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="hr_equipment_view_form" model="ir.ui.view">
+        <field name="name">equipment.form.criticality</field>
+        <field name="model">maintenance.equipment</field>
+        <field name="inherit_id" ref="maintenance.hr_equipment_view_form" />
+        <field name="arch" type="xml">
+            <!-- category_id sits in the first inner group of the form
+                 (maintenance/views/maintenance_views.xml:395), which is where
+                 criticality belongs: it defaults from the category. -->
+            <field name="category_id" position="after">
+                <field name="criticality" />
+            </field>
+        </field>
+    </record>
+
+    <record id="hr_equipment_category_view_form" model="ir.ui.view">
+        <field name="name">equipment.category.form.criticality</field>
+        <field name="model">maintenance.equipment.category</field>
+        <field
+            name="inherit_id"
+            ref="maintenance.hr_equipment_category_view_form"
+        />
+        <field name="arch" type="xml">
+            <!-- A category has no category_id to anchor to; its first group
+                 holds technician_user_id and company_id
+                 (maintenance/views/maintenance_views.xml:612-614). -->
+            <field name="technician_user_id" position="after">
+                <field name="criticality" />
+            </field>
+        </field>
+    </record>
+
+</odoo>

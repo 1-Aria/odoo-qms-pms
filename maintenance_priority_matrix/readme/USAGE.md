@@ -1,0 +1,38 @@
+## Configuring
+
+1. Give each **equipment category** a criticality under *Maintenance → Configuration →
+   Equipment Categories*. New machines in that category start from it; machines that already
+   exist are not changed, so fill criticality in on them directly or by import.
+2. Fill the grid under *Maintenance → Configuration → Priority Rules*: one row per criticality
+   and urgency, saying what that combination is worth. The list is editable, so the whole grid
+   goes in without opening a form.
+
+A row with no company is the grid every company uses. A row naming a company overrides it for
+that company only.
+
+**Until the grid is filled, nothing is suggested and priority behaves exactly as it does in
+core.** That is deliberate: which priority a combination deserves is a decision for the plant,
+not a default worth guessing.
+
+## Reporting a request
+
+Set **Urgency** on the request. The **Suggested Priority** field shows what the rules make of
+it together with the machine's criticality, and **Priority** follows the suggestion.
+
+Priority is yours to override: set it to anything, and give a reason — the form asks for one as
+soon as your value differs from the suggestion. Both the priority and the reason are recorded in
+the chatter.
+
+An overridden priority stays put. Once you have moved it by hand, a later change of urgency
+updates the suggestion but leaves your value alone, until someone sets it back to match the
+suggestion. Clearing the priority counts as an override too.
+
+The suggestion is shown as soon as you change urgency, but the priority itself moves when the
+request is saved.
+
+## Two things the module does not do
+
+- **The rule grid does not restate existing requests.** Editing a row changes what is suggested
+  next; requests already raised keep the priority they carry, so history stays stable.
+- **A request's criticality is a snapshot.** Re-rating a machine does not rewrite the requests
+  already raised against it.

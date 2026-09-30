@@ -118,9 +118,15 @@ independent and can be built in any order.
 
 | Module | Role |
 |---|---|
-| `maintenance_request_sla` | Response/resolution durations, tracked priority |
+| `maintenance_priority_matrix` | Criticality, urgency and priority rules |
+| `maintenance_sla` | SLA rules, SLA records, stage-driven clocks, live state, reporting |
 | `maintenance_equipment_status_automation` | Equipment state from corrective requests |
 | `maintenance_plan_action_template` | Plan-seeded action generation |
+
+The first two replace the plan's `maintenance_request_sla`; their design lives in
+`docs/Maintenance SLA Engine — Technical Design.md`, which the plan's §7.12 points to.
+`maintenance_equipment_status_automation` comes after them, because the SLA design changes
+which stages a corrective request passes through and that module keys on the stages.
 
 ---
 

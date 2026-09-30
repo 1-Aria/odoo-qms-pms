@@ -549,28 +549,25 @@ Inspection only. A maintenance request has no structured defect source; giving i
 one would mean building a checklist model, which is a separate project. Manual
 item entry covers the PM side.
 
-### 7.12 Maintenance request SLA fields
+### 7.12 Maintenance request SLA
 
-Three fields formalise response measurement on `maintenance.request`.
+**Superseded by `docs/Maintenance SLA Engine — Technical Design.md`** (2026-09-25), which
+the implementation follows. This section's three fields and its `write()` guard are not
+built.
 
-| Field | Type | Notes |
-|---|---|---|
-| `time_to_response` | Float, computed, stored | creation → In Progress |
-| `time_to_resolution` | Float, computed, stored | creation → close stage |
-| `priority` | Selection | **override**: add `tracking=True` |
-| `can_edit_priority` | Boolean, computed, not stored | requester or maintenance manager |
+The original design measured two durations on the request and made `priority` tracked and
+write-restricted. Review of what that would actually be worth found the problem larger than
+a measurement: numbers nobody can trust are not worth collecting. The replacement is a small
+cluster built around configured commitments and immutable evidence — SLA rules matched at
+creation, one record per commitment snapshotting its target, stage changes as the only event
+source, pause stages, restore confirmation, waivers, and a live state computed on read with
+no scheduled job. Its objectives, requirements and data model live in that document; the
+modules are listed in §8.
 
-Core's `priority` is a star widget that is neither tracked nor restricted —
-effectively cosmetic. For SLA purposes it has to be an auditable commitment, so:
-
-- `tracking=True` puts every change in the chatter
-- the view sets `readonly="not can_edit_priority"`
-- a `write()` guard raises `AccessError` for anyone who is neither the requester
-  nor a maintenance manager, so the restriction holds at API level and not only
-  in the form
-
-Core's existing `duration` field is left alone. It is a manual float used for
-calendar and gantt display; repurposing it would break those views.
+Core's existing `duration` field is left alone, for the reason this section always gave: it
+is a manual float used for calendar and gantt display, and repurposing it would break those
+views. The SLA rule's own target is a separate field, labelled *Target (hours)* to keep the
+two apart in reports.
 
 ### 7.13 Equipment status automation
 
@@ -623,7 +620,9 @@ the one place in the design that would silently stop firing.
 | **`qms_quality_control`** | `defect_code_id` + related severity on `qc.test.question.value`, Populate Defect, `mgmtsystem.action.inspection_id`, NC and Action smart buttons + prefill | `qms_nonconformity`, `quality_control_oca`, `mgmtsystem_nonconformity_quality_control_oca`, `mgmtsystem_action` |
 | **`qms_maintenance`** | `mgmtsystem.nonconformity.maintenance_request_id`, NC smart button + prefill, `product_id` related field | `qms_nonconformity`, `maintenance_product`, `mgmtsystem_nonconformity_maintenance_equipment`, `maintenance_mgmtsystem_action` |
 | **`maintenance_mgmtsystem_action`** | `mgmtsystem.action.maintenance_request_id`, inverse `action_ids`, smart buttons both ways | `maintenance`, `mgmtsystem_action` |
-| **`maintenance_request_sla`** | `time_to_response`, `time_to_resolution`, tracked and restricted `priority` | `maintenance` |
+| **`maintenance_priority_matrix`** | Criticality on equipment and category, urgency, priority rules, priority override with a reason | `maintenance` |
+| **`maintenance_sla`** | SLA rules, SLA records, stage logic, live state, kanban ordering, waivers, chatter posts, and the pivot reporting over the records | `maintenance`, `mail` |
+| **`<company>_maintenance_sla_config`** (data only) | Stages and their SLA flags, SLA rules, priority rows, escalation Automated Actions | `maintenance_sla`, `maintenance_priority_matrix`, `base_automation` |
 | **`maintenance_equipment_status_automation`** | equipment state driven by corrective request progression | `maintenance`, `maintenance_equipment_status` |
 | **`maintenance_plan_action_template`** | `action_template_ids` on the plan; action generation via `create()` override | `maintenance_plan`, `mgmtsystem_action_template`, `maintenance_mgmtsystem_action` |
 
@@ -666,7 +665,8 @@ lives directly in `qms_quality_control`; the asymmetry is deliberate.
                                           →  maintenance_plan
                                              mgmtsystem_action_template
 
-  maintenance_request_sla                 →  maintenance
+  maintenance_priority_matrix             →  maintenance
+  maintenance_sla                         →  maintenance, mail
   maintenance_equipment_status_automation →  maintenance
                                              maintenance_equipment_status
 ```
@@ -698,7 +698,7 @@ Recorded so future work does not relitigate them.
 | D17 | The nonconformity holds **response lines** referencing rules, not flattened suggestion fields | Reuses an existing structure; shows *why* a response was indicated rather than only *what*; lines can be added by hand, so the determination engine is an accelerator rather than a dependency | `suggested_action_template_ids` / `suggested_procedure_ids` on the header |
 | D18 | The existing Procedures tab is left untouched | It holds human-attached documents; rule-derived documents have different provenance. Merging them destroys the ability to distinguish the two, and separating them costs nothing | Repurposing `procedure_ids` as the suggestion holder |
 | D19 | Maintenance SLA and equipment-status automation are separate modules depending only on core and OCA | Neither needs the QMS chain. Separating them lets a site adopt SLA measurement without the quality system, and makes both contributable upstream | Folding both into `qms_maintenance` |
-| D20 | `priority` is made tracked and write-restricted rather than replaced | Core's star widget is untracked and unrestricted, so it cannot carry an SLA commitment. Overriding the existing field keeps every view and filter that already references it | A separate SLA priority field |
+| D20 | **Superseded 2026-09-30.** `priority` is *derived* — from equipment criticality and reported urgency through a rule table — rather than tracked-and-locked. It stays the native field, tracked, with an override that requires a reason | A write restriction makes priority auditable but not consistent, and inconsistent priority makes every target meaningless: the reason the original decision existed is better served by deriving the value than by guarding it. The derivation is set at write time rather than by turning a core field into a stored compute, which would recompute every existing request on install and contest every other writer. See `docs/Maintenance SLA Engine — Technical Design.md` and `maintenance_priority_matrix` | A separate SLA priority field; a `write()` guard raising `AccessError`; `priority` as a stored compute |
 | D21 | Links are concrete Many2one fields, not a generic `res_model`/`res_id` pair | `mgmtsystem.action` has no generic pair to reuse, so the polymorphic route would mean *building* one. Concrete fields are indexed, give free inverse One2many for smart-button counts, and match how the OCA bridge modules already work | A generic reference pair on `mgmtsystem.action` |
 | D22 | Action ↔ Maintenance Request lives in its own small bridge module | Two consumers need it — `qms_maintenance` and `maintenance_plan_action_template`. Putting it in the former would force a Phase 2 module to depend on the whole QMS chain, breaking D19 | Declaring it in `qms_maintenance` |
 | D23 | Plan-seeded actions are generated by a `create()` override on `maintenance.request`, not by modifying `maintenance_plan` | Generation already routes through `maintenance.request.create()` with `maintenance_plan_id` in the values, so no OCA method is touched at all. It also catches requests given a plan by hand | Overriding `_create_new_request` or `_prepare_requests_from_plan` |
@@ -727,9 +727,14 @@ After Phase 1 the pipeline is complete and usable end to end.
 
 ### Phase 2 — quality-of-life
 
-6. `maintenance_request_sla`
-7. `maintenance_equipment_status_automation`
-8. `maintenance_plan_action_template`
+6. `maintenance_priority_matrix`, then `maintenance_sla` — the SLA cluster of
+   `docs/Maintenance SLA Engine — Technical Design.md`, taken in that order because the
+   priority matrix stands alone and the SLA core reads only the native `priority` field.
+   The company configuration module follows once the engine runs.
+7. `maintenance_equipment_status_automation` — **after** the cluster, since the stage flow
+   the SLA design introduces (§5.4 there) changes which stages a corrective request passes
+   through, and this module keys on exactly that.
+8. `maintenance_plan_action_template` — unaffected by the cluster, and independent of it.
 
 None of these depend on the QMS chain, so Phase 2 can run in parallel with
 Phase 1 or be skipped entirely.
