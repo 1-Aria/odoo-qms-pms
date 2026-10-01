@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Read-only everywhere: the engine is the only writer. No action and no
+         menu yet: the records are reached from their request, and the report
+         of step 6 reuses this list. -->
+    <record id="maintenance_request_sla_view_list" model="ir.ui.view">
+        <field name="name">maintenance.request.sla.list</field>
+        <field name="model">maintenance.request.sla</field>
+        <field name="arch" type="xml">
+            <list string="SLA Records" create="0" edit="0" delete="0">
+                <field name="sla_id" />
+                <field name="target_stage_id" />
+                <field name="cycle" />
+                <field
+                    name="state"
+                    widget="badge"
+                    decoration-info="state == 'running'"
+                    decoration-warning="state == 'paused'"
+                    decoration-success="state == 'achieved'"
+                    decoration-danger="state == 'achieved_late'"
+                    decoration-muted="state == 'cancelled'"
+                />
+                <field name="start_at" />
+                <field name="deadline" />
+                <field name="reached_at" />
+                <field name="elapsed" widget="float_time" />
+                <field name="paused_time" widget="float_time" />
+            </list>
+        </field>
+    </record>
+
+    <record id="maintenance_request_sla_view_form" model="ir.ui.view">
+        <field name="name">maintenance.request.sla.form</field>
+        <field name="model">maintenance.request.sla</field>
+        <field name="arch" type="xml">
+            <form string="SLA Record" create="0" edit="0" delete="0">
+                <sheet>
+                    <group>
+                        <group name="commitment" string="Commitment">
+                            <field name="request_id" />
+                            <field name="sla_id" />
+                            <field name="target_stage_id" />
+                            <field name="cycle" />
+                            <field name="duration" widget="float_time" />
+                            <field name="at_risk_pct" />
+                        </group>
+                        <group name="clock" string="Clock">
+                            <field name="state" />
+                            <field name="start_at" />
+                            <field name="deadline" />
+                            <field name="risk_at" />
+                            <field name="reached_at" />
+                            <field name="consumed" widget="float_time" />
+                            <field name="paused_time" widget="float_time" />
+                            <field name="elapsed" widget="float_time" />
+                        </group>
+                    </group>
+                    <group name="dimensions" string="Recorded against">
+                        <field name="team_id" />
+                        <field name="equipment_id" />
+                        <field name="category_id" />
+                        <field name="priority" />
+                        <field name="maintenance_type" />
+                        <field
+                            name="company_id"
+                            groups="base.group_multi_company"
+                        />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+</odoo>

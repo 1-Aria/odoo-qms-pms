@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="hr_equipment_request_view_form" model="ir.ui.view">
+        <field name="name">equipment.request.form.sla</field>
+        <field name="model">maintenance.request</field>
+        <field
+            name="inherit_id"
+            ref="maintenance.hr_equipment_request_view_form"
+        />
+        <field name="arch" type="xml">
+            <!-- request_date sits in the form's first group
+                 (maintenance/views/maintenance_views.xml:104), where the report
+                 time belongs. Editable only before the first save, so a late
+                 entry can be backdated when it is raised; correcting it later,
+                 and moving the running clocks with it, comes with re-matching. -->
+            <field name="request_date" position="after">
+                <field name="reported_at" readonly="id" />
+            </field>
+            <xpath expr="//notebook" position="inside">
+                <page string="SLA" name="sla">
+                    <field name="sla_ids" readonly="1" nolabel="1" />
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

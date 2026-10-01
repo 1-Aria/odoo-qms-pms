@@ -16,6 +16,8 @@
         "security/ir.model.access.csv",
         "views/maintenance_sla_views.xml",
         "views/maintenance_stage_views.xml",
+        "views/maintenance_request_sla_views.xml",
+        "views/maintenance_request_views.xml",
     ],
     "installable": True,
 }

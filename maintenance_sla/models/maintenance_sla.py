@@ -137,3 +137,29 @@ class MaintenanceSla(models.Model):
         """The domain as a list, or [] when unset. The single reader."""
         self.ensure_one()
         return ast.literal_eval(self.domain) if self.domain else []
+
+    def _matches(self, request):
+        """Whether this rule applies to the request.
+
+        An empty condition on the rule matches anything; an empty value on the
+        request fails every non-empty condition. So a request with no team
+        matches only rules with no teams, and a request with no priority only
+        rules with no priority. Called on sudo() records: a Many2many read
+        applies the comodel's record rules, and a team list filtered empty by
+        them would read as "any team".
+        """
+        self.ensure_one()
+        return (
+            self.maintenance_type == request.maintenance_type
+            and (not self.priority or self.priority == request.priority)
+            and (not self.team_ids or request.maintenance_team_id in self.team_ids)
+            and (
+                not self.equipment_category_ids
+                or request.category_id in self.equipment_category_ids
+            )
+            and (not self.company_id or self.company_id == request.company_id)
+            and (
+                not self.domain
+                or bool(request.filtered_domain(self._parsed_domain()))
+            )
+        )
