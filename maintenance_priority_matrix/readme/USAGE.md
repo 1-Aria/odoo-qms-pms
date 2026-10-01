@@ -36,9 +36,6 @@ An overridden priority stays put. Once you have moved it by hand, a later change
 updates the suggestion and leaves your value alone, until someone sets it back to match the
 suggestion. Clearing the priority counts as an override too, so it stays cleared.
 
-The suggestion is shown as soon as you change urgency, but the priority itself moves when the
-request is saved.
-
 ## Two things the module does not do
 
 - **The rule grid does not restate existing requests.** Editing a row changes what is suggested

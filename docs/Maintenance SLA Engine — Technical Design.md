@@ -112,13 +112,13 @@ Arrows point from a module to what it depends on. Waivers, pause handling and pr
 
 ### 3.2 Fit with this instance
 
-Checked against the running code and database on 2026-09-29. These are the facts the implementation may rely on; re-check them after any OCA pull.
+Checked against the running code and database on 2026-09-29; the two override rows refreshed on 2026-10-01, after `maintenance_priority_matrix` was installed. These are the facts the implementation may rely on; re-check them after any OCA pull.
 
 | Fact | Consequence for the code |
 |---|---|
-| None of this design's field names exists yet on `maintenance.request`, `.equipment`, `.equipment.category`, `.stage` or `.team`, and no installed model has `sla` in its name | Nothing to rename or defend against |
-| **No installed module overrides `write()` on `maintenance.request`** | The stage hook is the only one; it calls `super()` first, then reads `stage_id` from the records |
-| Only `maintenance_request_sequence` overrides `create()`, to stamp `code` from a sequence | Matching runs after `super().create()`, so the record already has its code and stage |
+| No installed model has `sla` in its name, and none of `maintenance_sla`'s field names exists on `maintenance.request`, `.equipment`, `.equipment.category`, `.stage` or `.team`. `maintenance_priority_matrix` now owns `criticality`, `urgency`, `priority_suggested` and `priority_reason` (section 4.4's priority rows) | Nothing to rename or defend against |
+| **One installed module overrides `write()` on `maintenance.request`: `maintenance_priority_matrix`**, which reads `priority` and `priority_suggested` before `super()` and afterwards writes `priority` when the suggestion moved | The SLA hook calls `super()` first, then reads `stage_id` and the matching inputs from the records. A priority set by the matrix arrives as a nested `write()` and re-enters the hook, so re-matching must be safe to run twice |
+| Two override `create()`: `maintenance_request_sequence`, to stamp `code` from a sequence, and `maintenance_priority_matrix`, which fills `priority` from the suggestion **after** `super().create()`, through a `write()` | Matching runs after `super().create()`, so the record already has its code and stage. Depending on load order, the matrix's `write()` reaches the SLA hook either inside `super().create()` — before the SLA's own matching — or after it; matching has to produce the same records either way |
 | Nothing in the installed stack writes `stage_id` behind the engine's back | Stage transitions are observable in one place |
 | `maintenance.request` inherits `mail.thread.cc` and `mail.activity.mixin` | Chatter posts and future activities need no mixin of ours |
 | `_check_access(self, operation) -> tuple \| None` exists in this core (`odoo/models.py:4464`) | The delegation in section 4.3 is valid here, not only in the helpdesk module it comes from |
@@ -247,23 +247,26 @@ compliance figure, once published, never revises.
 def _sla_on_stage_change(self, now):
     stage = self.stage_id
     position = (stage.sequence, stage.id)
-    for rec in self.sla_ids.filtered(lambda r: r.state != 'cancelled'):
+    for rec in self.sla_ids.filtered(lambda r: r.state in ('running', 'paused')):
         target = rec.target_stage_id
         if stage.sla_cancel:
             rec._close_running(now); rec.state = 'cancelled'
         elif position >= (target.sequence, target.id):
-            if rec.state in ('running', 'paused'):
-                rec._close_running(now)
-                rec.reached_at, rec.elapsed = now, rec.consumed
-                rec.state = 'achieved' if rec.consumed <= rec.duration else 'achieved_late'
-        elif rec.state in ('achieved', 'achieved_late'):
-            rec._open_next_cycle(now)
+            rec._close_running(now)
+            rec.reached_at, rec.elapsed = now, rec.consumed
+            rec.state = 'achieved' if rec.consumed <= rec.duration else 'achieved_late'
         else:
             rec._close_running(now)
             rec._set_running_or_paused(stage, now)
+    if not stage.sla_cancel:
+        self._open_next_cycles(position, now)
 ```
 
-`_close_running` adds running time since `max(last_change_at, start_at)` to `consumed` when the state was `running`, and time since `last_change_at` to `paused_time` when it was `paused`. `_set_running_or_paused` sets the state from the rule's pause stages and recomputes `deadline` and `risk_at`. `_open_next_cycle` leaves the finished record untouched and creates a fresh one from the same rule with `cycle + 1` and `start_at = now`.
+`_close_running` adds running time since `max(last_change_at, start_at)` to `consumed` when the state was `running`, and time since `last_change_at` to `paused_time` when it was `paused`. `_set_running_or_paused` sets the state from the rule's pause stages and recomputes `deadline` and `risk_at`.
+
+`_open_next_cycles` works per target stage, on the **latest** record only: when that stage has no open record, its latest record is finished, and the request now sits below it, it leaves the finished record untouched and creates a fresh one from the same rule with `cycle + 1` and `start_at = now`. Both conditions are needed. Without "latest", every finished record of earlier cycles would open another cycle; without "no open record", every stage change below the target would open one more.
+
+**Only open records are touched.** The loop reads running and paused records alone, so a cancel stage cancels what is still open (R9) and leaves finished records as the evidence they are (R10). An earlier version of this code looped over every record not yet cancelled, which cancelled finished records on reaching *Scrap* and opened a new cycle from every finished record at each stage change below its target.
 
 **Positions are compared as `(sequence, id)` pairs**, which is the order the board itself uses (`maintenance.stage._order = 'sequence, id'`). Core defaults every new stage to `sequence = 20`, so comparing sequences alone would be ambiguous the first time someone adds a stage without renumbering.
 
@@ -353,7 +356,7 @@ Most later additions are configuration on top of v1; only two need code.
 - [x] Shift calendars or 24/7 per metric — settled: a 24/7 clock, because coverage is 24/7. A night breach is a real breach; a request created by mistake is waived. Pause stages exist for waiting on parts and production windows, not for absent technicians — entering a pause stage takes a person, and nobody is there to do it.
 - [ ] Restores left unconfirmed: auto-confirm after a set number of hours, or always wait for the requester.
 - [ ] Target durations per rule: run a few weeks with placeholder targets first, then agree real ones with production.
-- [ ] Overlapping rules: one record per target stage with the lowest sequence winning, or allow several clocks on the same stage.
+- [x] Overlapping rules — settled: one open record per target stage, the matching rule with the lowest sequence winning (R3).
 - [ ] Backdating limit for `reported_at`.
 - [ ] Requester accounts: individual line leaders or one shared account per line, now that requesters confirm restores.
 - [ ] Who may change priority: the maintenance manager only, or line supervisors too.

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="maintenance_sla_view_list" model="ir.ui.view">
+        <field name="name">maintenance.sla.list</field>
+        <field name="model">maintenance.sla</field>
+        <field name="arch" type="xml">
+            <list string="SLA Rules">
+                <field name="sequence" widget="handle" />
+                <field name="name" />
+                <field name="maintenance_type" />
+                <field name="priority" />
+                <field name="target_stage_id" />
+                <field name="duration" widget="float_time" />
+                <field name="at_risk_pct" />
+                <field name="company_id" groups="base.group_multi_company" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="maintenance_sla_view_form" model="ir.ui.view">
+        <field name="name">maintenance.sla.form</field>
+        <field name="model">maintenance.sla</field>
+        <field name="arch" type="xml">
+            <form string="SLA Rule">
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="Archived"
+                        bg_color="text-bg-danger"
+                        invisible="active"
+                    />
+                    <field name="active" invisible="1" />
+                    <field name="sequence" invisible="1" />
+                    <group>
+                        <field name="name" />
+                    </group>
+                    <!-- When and Then, as qms.determination.rule's form reads:
+                         conditions, then what is promised. -->
+                    <group name="conditions" string="When">
+                        <field name="maintenance_type" />
+                        <field name="priority" />
+                        <field name="team_ids" widget="many2many_tags" />
+                        <field
+                            name="equipment_category_ids"
+                            widget="many2many_tags"
+                        />
+                        <field
+                            name="company_id"
+                            groups="base.group_multi_company"
+                        />
+                        <field
+                            name="domain"
+                            widget="domain"
+                            options="{'model': 'maintenance.request'}"
+                        />
+                    </group>
+                    <group name="commitment" string="Then">
+                        <field name="target_stage_id" />
+                        <field name="pause_stage_ids" widget="many2many_tags" />
+                        <field name="duration" widget="float_time" />
+                        <field name="at_risk_pct" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="maintenance_sla_view_search" model="ir.ui.view">
+        <field name="name">maintenance.sla.search</field>
+        <field name="model">maintenance.sla</field>
+        <field name="arch" type="xml">
+            <search string="SLA Rules">
+                <field name="name" />
+                <field name="target_stage_id" />
+                <field name="priority" />
+                <filter
+                    name="archived"
+                    string="Archived"
+                    domain="[('active', '=', False)]"
+                />
+                <group name="group_by">
+                    <filter
+                        name="group_by_maintenance_type"
+                        string="Maintenance Type"
+                        context="{'group_by': 'maintenance_type'}"
+                    />
+                    <filter
+                        name="group_by_target_stage"
+                        string="Target Stage"
+                        context="{'group_by': 'target_stage_id'}"
+                    />
+                    <filter
+                        name="group_by_priority"
+                        string="Priority"
+                        context="{'group_by': 'priority'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="maintenance_sla_action" model="ir.actions.act_window">
+        <field name="name">SLA Rules</field>
+        <field name="res_model">maintenance.sla</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="maintenance_sla_view_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Define an SLA rule</p>
+            <p>
+                One rule is one commitment: which requests it applies to, the
+                stage that meets it, and the time allowed. With no rules
+                configured, no commitments are created.
+            </p>
+        </field>
+    </record>
+
+    <!-- Groups inherited: core's Configuration menu is equipment managers,
+         to which base_maintenance_group adds its Full Access group. -->
+    <menuitem
+        id="menu_maintenance_sla"
+        name="SLA Rules"
+        parent="maintenance.menu_maintenance_configuration"
+        action="maintenance_sla_action"
+        sequence="30"
+    />
+
+</odoo>

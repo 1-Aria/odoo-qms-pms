@@ -14,7 +14,9 @@ class MaintenanceRequest(models.Model):
 
     # A snapshot, not a live read of the machine: what the request was worth is
     # part of its history, and re-rating a machine must not rewrite past
-    # requests. Editable, so a one-off can be rated differently.
+    # requests. The form shows it read-only: the machine's criticality is where
+    # it is decided, and priority with its reason is where a request disagrees.
+    # readonly=False keeps it writable by import or code.
     criticality = fields.Selection(
         selection=CRITICALITY,
         string="Criticality",

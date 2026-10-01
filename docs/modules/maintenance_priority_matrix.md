@@ -264,10 +264,6 @@ Three properties of that rule, stated because each is a decision:
   wants the opposite, it is the on-demand re-evaluate button the SLA design lists in its §7, not
   a dependency on the rules.
 
-**No onchange.** The form shows a new suggestion as soon as urgency changes, but `priority` moves
-only on save. Smoothing that with an onchange would be a second implementation of the same rule,
-and two copies drift — the reason this module has one derivation, in `write()`.
-
 `priority_reason` is required in the form by
 `required="priority_suggested and priority != priority_suggested"` — **both terms matter**. With
 only the inequality, every request would demand a justification while no suggestion exists: no
@@ -330,10 +326,14 @@ file — the form at `:131`, the kanban at `:175` and the calendar at `:240` —
 (`hr_equipment_request_view_tree`, `:192-208`) carries none of them, so `stage_id` is the anchor
 there. Each view record is inherited separately, so the form's `position="after"` is unambiguous.
 
-**`criticality` is on the form**, and editable, as it is on the model. It was left off at first on
-the grounds that it is a snapshot the matching reads — which turned out to make an empty
-suggestion unreadable: with only urgency visible there is no way to tell that the pair has no
-rule from the lookup being broken. Both inputs beside the suggestion make it explain itself.
+**`criticality` is on the form, read-only.** It was left off at first on the grounds that it is
+a snapshot the matching reads — which turned out to make an empty suggestion unreadable: with only
+urgency visible there is no way to tell that the pair has no rule from the lookup being broken.
+Both inputs beside the suggestion make it explain itself. It is read-only because an editable
+criticality on the request would give one decision two override points: the machine's
+criticality is where it is decided, and `priority` with its reason is where a request disagrees.
+The model keeps `readonly=False`, so the value is still writable by import or code; the form
+does not offer it.
 
 **`urgency` is required for corrective requests only**, and in the view rather than on the model.
 `maintenance_plan` generates preventive requests without it
@@ -411,6 +411,7 @@ create equipment, and a later module could extend it.
 | `test_rule_uniqueness_ignores_archived` | an archived row still occupies its pair |
 | `test_duplicate_by_write_refused` | editing a row into a duplicate raises `IntegrityError` too — the write path is refused by the index, not by a Python check |
 | `test_rule_per_company_allowed` | the same pair in another company is accepted |
+| `test_rule_priority_selection_is_the_requests` | the rule's priority values equal `maintenance.request.priority`'s |
 | `test_priority_for_match` | `_priority_for` returns the configured priority for a pair |
 | `test_priority_for_no_match` | it returns `False` for an unconfigured pair, and for empty inputs — the unconfigured state divergence 2 defines |
 | `test_priority_for_prefers_company_row` | with both a company row and a company-less row, the company's wins |
