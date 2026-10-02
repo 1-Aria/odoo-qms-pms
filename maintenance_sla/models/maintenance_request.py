@@ -5,7 +5,7 @@ from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from .maintenance_request_sla import FINISHED_STATES
+from .maintenance_request_sla import FINISHED_STATES, OPEN_STATES
 
 
 class MaintenanceRequest(models.Model):
@@ -32,6 +32,26 @@ class MaintenanceRequest(models.Model):
         string="SLA Records",
         copy=False,
     )
+    reported_at_locked = fields.Boolean(
+        compute="_compute_reported_at_locked",
+        help="Reported At can no longer be corrected: an SLA record of this "
+        "request has paused, finished or been cancelled.",
+    )
+
+    @api.depends("sla_ids.state", "sla_ids.start_at", "sla_ids.last_change_at")
+    def _compute_reported_at_locked(self):
+        """Locked once any record has changed state.
+
+        A correction moves a record's start. Once a record has paused or
+        resumed, its counters were booked against the old start; a record that
+        has not changed state has booked nothing yet.
+        """
+        for request in self:
+            request.reported_at_locked = any(
+                record.state not in OPEN_STATES
+                or record.last_change_at != record.start_at
+                for record in request.sla_ids
+            )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -40,38 +60,89 @@ class MaintenanceRequest(models.Model):
         return requests
 
     def write(self, vals):
-        """Drive the clocks from the stage, and make cancellation final.
+        """Drive the clocks from the stage, re-match on changed inputs.
 
-        The stage is compared before and after rather than tested by key, so a
-        write setting the stage a request already has does nothing. Core's own
-        nested writes after a stage change (close_date, kanban_state) carry no
-        stage_id and pass through.
+        Every input is compared before and after rather than read from vals:
+        category_id is a stored related on equipment_id, and
+        maintenance_priority_matrix writes priority from inside its own write()
+        and create(). Its nested write re-enters this one, which is what makes
+        load order irrelevant: whichever runs first, the second _sla_apply()
+        finds the winner already holding each stage. A write setting the stage a
+        request already has does nothing; core's own nested writes after a
+        stage change carry no stage_id and pass through.
         """
         self._sla_check_reopen(vals)
+        inputs_before = {request.id: request._sla_inputs() for request in self}
         stages_before = (
             {request.id: request.stage_id for request in self}
             if "stage_id" in vals
             else {}
         )
+        starts_before = (
+            {request.id: request._sla_start() for request in self}
+            if "reported_at" in vals
+            else {}
+        )
         result = super().write(vals)
-        if not stages_before and not vals.get("archive"):
-            return result
-        now = fields.Datetime.now()
-        requests = self.sudo()
-        changed = self.env["maintenance.request.sla"].sudo()
-        if vals.get("archive"):
-            # Archiving hides a request without changing its stage, so nothing
-            # else would ever stop its clocks.
-            changed |= requests.sla_ids._sla_cancel(now)
-        moved = requests.filtered(
+        rematched = self.filtered(
+            lambda request: request._sla_inputs() != inputs_before[request.id]
+        )
+        moved = self.filtered(
             lambda request: request.id in stages_before
             and request.stage_id != stages_before[request.id]
         )
+        shifted = self.filtered(
+            lambda request: request.id in starts_before
+            and request._sla_start() != starts_before[request.id]
+        )
+        archiving = bool(vals.get("archive"))
+        if not (rematched or moved or shifted or archiving):
+            return result
+        now = fields.Datetime.now()
+        changed = self.env["maintenance.request.sla"].sudo()
+        if archiving:
+            # Archiving hides a request without changing its stage, so nothing
+            # else would ever stop its clocks.
+            changed |= self.sudo().sla_ids._sla_cancel(now)
+        if shifted:
+            shifted.sudo()._sla_shift_start(starts_before)
         if moved:
-            changed |= moved.sla_ids._sla_evaluate(now)
-            changed |= moved._sla_apply(next_cycles_only=True, now=now)
-        requests._sla_post(changed)
+            changed |= moved.sudo().sla_ids._sla_evaluate(now)
+        if rematched:
+            changed |= rematched.sudo()._sla_apply(now=now)
+        if moved - rematched:
+            changed |= (moved - rematched).sudo()._sla_apply(
+                next_cycles_only=True, now=now
+            )
+        self.sudo()._sla_post(changed)
         return result
+
+    def _sla_inputs(self):
+        """What re-matching depends on: the five match inputs, and the machine.
+
+        equipment_id is a reporting dimension that can change while the
+        category does not, so it is captured too.
+        """
+        self.ensure_one()
+        return (
+            self.priority,
+            self.maintenance_team_id.id,
+            self.category_id.id,
+            self.maintenance_type,
+            self.company_id.id,
+            self.equipment_id.id,
+        )
+
+    def _sla_dimensions(self):
+        """The grouping dimensions a record copies from its request."""
+        self.ensure_one()
+        return {
+            "team_id": self.maintenance_team_id.id,
+            "equipment_id": self.equipment_id.id,
+            "category_id": self.category_id.id,
+            "priority": self.priority,
+            "maintenance_type": self.maintenance_type,
+        }
 
     def _sla_check_reopen(self, vals):
         """Refuse the way back from a cancellation, for a request under SLA.
@@ -115,34 +186,60 @@ class MaintenanceRequest(models.Model):
             return self.schedule_date or self.reported_at or self.create_date
         return self.reported_at or self.create_date
 
+    def _sla_shift_start(self, old_starts):
+        """Move the clocks that still start at the old start to the new one.
+
+        Only open cycle-1 records that started there and have not changed state
+        since: every other record has booked time against its start, or starts
+        elsewhere (a next cycle at its move, a preventive record at its
+        scheduled date).
+        """
+        for request in self:
+            old_start, new_start = old_starts[request.id], request._sla_start()
+            records = request.sla_ids.filtered(
+                lambda record, old_start=old_start: record.cycle == 1
+                and record.state in OPEN_STATES
+                and record.start_at == old_start
+                and record.last_change_at == record.start_at
+            )
+            records.write({"start_at": new_start, "last_change_at": new_start})
+            records._set_deadline()
+
     def _sla_apply(self, next_cycles_only=False, now=None):
         """Bring the requests' SLA records in line with the rules.
 
-        The one matching function. Per target stage, the first matching rule in
-        (sequence, id) order wins, and the request's latest record on that
-        stage decides what happens:
+        The one matching function. Per target stage that has a winner (the
+        first matching rule in (sequence, id) order) or an open record, the
+        request's latest record on that stage decides:
 
-            none                          a first record, unless
-                                          next_cycles_only (a stage change
-                                          never backfills a rule added later)
-            open                          nothing
-            cancelled                     nothing
-            finished, at or past target   nothing
-            finished, below target        the next cycle, starting now
+            none                        a first record, from a winner created no
+                                        later than the request
+            open, its own rule wins     kept, dimensions refreshed
+            open, another rule wins     cancelled and replaced, the clock carried
+            open, no winner             cancelled
+            cancelled, below target     resumed: a replacement carrying its clock
+            cancelled, at or past       nothing
+            finished, at or past        nothing
+            finished, below target      the next cycle, starting now
 
-        Every row but the first and the last leaves a target stage alone, which
-        makes a second run change nothing. New records are then evaluated
-        against the current stage, so a request created at or past a target has
-        that record finished at once.
+        With next_cycles_only (a stage change) only the last row applies: a
+        stage change never backfills a rule added later. An open record is
+        always below its target here, since stage changes are evaluated first.
+        A first record and a replacement are then evaluated against the current
+        stage, so a request created at or past a target has that record finished
+        at once.
 
         Runs as sudo(): the requester has no create right on the evidence, and a
         Many2many read applies the comodel's record rules, so a team list
         filtered empty would read as "any team".
 
-        Returns the records it created, in their evaluated state.
+        Returns the records it created, in their evaluated state, and those it
+        cancelled.
         """
         now = now or fields.Datetime.now()
         rules = self.env["maintenance.sla"].sudo().search([])
+        records = self.env["maintenance.request.sla"].sudo()
+        cancelled = records
         vals_list = []
         for request in self.sudo():
             # Nothing is promised on a request that is already cancelled.
@@ -154,21 +251,63 @@ class MaintenanceRequest(models.Model):
                 target = rule.target_stage_id
                 if target not in winners and rule._matches(request):
                     winners[target] = rule
-            for target, rule in winners.items():
+            open_records = request.sla_ids.filtered(
+                lambda record: record.state in OPEN_STATES
+            )
+            targets = (
+                open_records.target_stage_id
+                | self.env["maintenance.stage"].concat(*winners)
+            ).sorted(lambda stage: (stage.sequence, stage.id))
+            for target in targets:
+                rule = winners.get(target)
+                below = position < (target.sequence, target.id)
                 latest = request.sla_ids.filtered(
                     lambda record, target=target: record.target_stage_id == target
                 ).sorted("id")[-1:]
                 if not latest:
+                    if (
+                        next_cycles_only
+                        or not rule
+                        or rule.create_date > request.create_date
+                    ):
+                        continue
+                    start_at = request._sla_start()
+                    clock = {
+                        "start_at": start_at,
+                        "last_change_at": start_at,
+                        "cycle": 1,
+                        "consumed": 0.0,
+                        "paused_time": 0.0,
+                    }
+                elif latest.state in OPEN_STATES:
                     if next_cycles_only:
                         continue
-                    start_at, cycle = request._sla_start(), 1
-                elif latest.state in FINISHED_STATES and position < (
-                    target.sequence,
-                    target.id,
-                ):
-                    start_at, cycle = now, latest.cycle + 1
+                    if rule == latest.sla_id:
+                        # Refreshed while open, fixed once finished: the
+                        # dimensions describe the request as it stood when the
+                        # commitment was met.
+                        dimensions = request._sla_dimensions()
+                        if latest._sla_dimensions() != dimensions:
+                            latest.write(dimensions)
+                        continue
+                    cancelled |= latest._sla_cancel(now)
+                    if not rule:
+                        continue
+                    clock = self._sla_carried_clock(latest, now)
+                elif latest.state == "cancelled":
+                    if next_cycles_only or not rule or not below:
+                        continue
+                    clock = self._sla_carried_clock(latest, now)
                 else:
-                    continue
+                    if not rule or not below:
+                        continue
+                    clock = {
+                        "start_at": now,
+                        "last_change_at": now,
+                        "cycle": latest.cycle + 1,
+                        "consumed": 0.0,
+                        "paused_time": 0.0,
+                    }
                 vals_list.append(
                     {
                         "request_id": request.id,
@@ -177,35 +316,48 @@ class MaintenanceRequest(models.Model):
                         "target_sequence": target.sequence,
                         "duration": rule.duration,
                         "at_risk_pct": rule.at_risk_pct,
-                        "start_at": start_at,
                         "state": (
                             "paused"
                             if request.stage_id in rule.pause_stage_ids
                             else "running"
                         ),
-                        "consumed": 0.0,
-                        "paused_time": 0.0,
-                        # From the start, not from the save: a backdated report
-                        # counts from the report, and a clock starting in the
-                        # future stays at rest until then.
-                        "last_change_at": start_at,
-                        "cycle": cycle,
-                        "team_id": request.maintenance_team_id.id,
-                        "equipment_id": request.equipment_id.id,
-                        "category_id": request.category_id.id,
-                        "priority": request.priority,
-                        "maintenance_type": request.maintenance_type,
+                        **clock,
+                        **request._sla_dimensions(),
                     }
                 )
-        records = self.env["maintenance.request.sla"].sudo().create(vals_list)
+        records = records.create(vals_list)
         records._set_deadline()
         records._sla_evaluate(now)
-        return records
+        return records | cancelled
+
+    @api.model
+    def _sla_carried_clock(self, latest, now):
+        """The clock a replacement or a resumed record takes over.
+
+        Same start, the time counted and paused so far, the same cycle; it runs
+        from now. The time between a cancellation and a resumption counts
+        nowhere: no rule applied, so nothing was promised.
+        """
+        return {
+            "start_at": latest.start_at,
+            "last_change_at": now,
+            "cycle": latest.cycle,
+            "consumed": latest.consumed,
+            "paused_time": latest.paused_time,
+            "replaced_id": latest.id,
+        }
 
     def _sla_post(self, records):
-        """One internal note per request, one line per outcome among records."""
+        """One internal note per request, one line per outcome among records.
+
+        A cancelled record whose replacement is among the same records gets no
+        line of its own: the replacement's line says it.
+        """
+        replaced = records.replaced_id
         lines_by_request = {}
         for record in records.sorted("id"):
+            if record in replaced:
+                continue
             line = record._sla_note_line()
             if line:
                 lines_by_request.setdefault(record.request_id, []).append(line)

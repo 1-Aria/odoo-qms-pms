@@ -98,6 +98,33 @@ class MaintenanceRequestSla(models.Model):
     # which AVG skips.
     on_time = fields.Float(string="On Time (%)", aggregator="avg")
     cycle = fields.Integer(default=1)
+    # The cancelled record this one took over from: a replacement when another
+    # rule started to win, a resumption when a rule matched again. Without it a
+    # record cancelled by re-matching would look like one cancelled with its
+    # request.
+    replaced_id = fields.Many2one(
+        comodel_name="maintenance.request.sla",
+        string="Replaces",
+        ondelete="set null",
+    )
+
+    # The waiver: a manager's judgement on a finished outcome, set once through
+    # the waiver wizard and never undone, since undoing it would be rewriting
+    # evidence.
+    waived = fields.Boolean(readonly=True, index=True)
+    # restrict: a reason that has been used is evidence, so it is archived,
+    # never deleted.
+    waive_reason_id = fields.Many2one(
+        comodel_name="maintenance.sla.waive.reason",
+        string="Waiver Reason",
+        readonly=True,
+        ondelete="restrict",
+    )
+    waive_note = fields.Char(string="Waiver Note", readonly=True)
+    waived_by_id = fields.Many2one(
+        comodel_name="res.users", string="Waived By", readonly=True
+    )
+    waived_at = fields.Datetime(string="Waived At", readonly=True)
 
     # Grouping dimensions: plain fields, copied from the request. A related
     # stored field would rewrite finished evidence whenever the request changed.
@@ -133,6 +160,17 @@ class MaintenanceRequestSla(models.Model):
             record.display_name = (
                 f"{record.sla_id.name} · {record.request_id.sudo().display_name}"
             )
+
+    def _sla_dimensions(self):
+        """The grouping dimensions as written, shaped like the request's."""
+        self.ensure_one()
+        return {
+            "team_id": self.team_id.id,
+            "equipment_id": self.equipment_id.id,
+            "category_id": self.category_id.id,
+            "priority": self.priority,
+            "maintenance_type": self.maintenance_type,
+        }
 
     def _set_deadline(self):
         """Deadline and at-risk time from the clock, or empty when not running.
@@ -224,16 +262,30 @@ class MaintenanceRequestSla(models.Model):
                 record._set_deadline()
         return changed
 
+    def action_waive(self):
+        """Open the waiver wizard on this record.
+
+        The wizard's access row, managers only, is what guards the waiver; the
+        button's groups only hide it.
+        """
+        self.ensure_one()
+        action = self.env["ir.actions.act_window"]._for_xml_id(
+            "maintenance_sla.maintenance_request_sla_waive_action"
+        )
+        action["context"] = {"default_sla_record_id": self.id}
+        return action
+
     def _sla_note_line(self):
         """The chatter line for this record's outcome, or None.
 
-        Outcomes only: met on time or late, cancelled, or a next cycle opened.
-        A first record and a pause or resume post nothing; the stage tracking
-        already records the move.
+        Outcomes only: met on time or late, cancelled, a replacement or
+        resumption, or a next cycle opened. A first record and a pause or resume
+        post nothing; the stage tracking already records the move.
         """
         self.ensure_one()
         values = {
             "rule": self.sla_id.name,
+            "old": self.replaced_id.sla_id.name,
             "elapsed": _format_hours(self.elapsed),
             "target": _format_hours(self.duration),
             "cycle": self.cycle,
@@ -246,6 +298,10 @@ class MaintenanceRequestSla(models.Model):
             return self.env._("%(rule)s met late: %(elapsed)s of %(target)s", **values)
         if self.state == "cancelled":
             return self.env._("%(rule)s cancelled", **values)
+        if self.replaced_id:
+            if self.replaced_id.sla_id == self.sla_id:
+                return self.env._("%(rule)s resumed", **values)
+            return self.env._("%(old)s replaced by %(rule)s", **values)
         if self.cycle > 1:
             return self.env._("%(rule)s: cycle %(cycle)s started", **values)
         return None

@@ -19,6 +19,8 @@
         "views/maintenance_stage_views.xml",
         "views/maintenance_request_sla_views.xml",
         "views/maintenance_request_views.xml",
+        "views/maintenance_sla_waive_reason_views.xml",
+        "wizards/maintenance_request_sla_waive_views.xml",
     ],
     "installable": True,
 }

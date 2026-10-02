@@ -2,3 +2,6 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_maintenance_sla_user,maintenance.sla.user,model_maintenance_sla,base.group_user,1,0,0,0
 access_maintenance_sla_manager,maintenance.sla.manager,model_maintenance_sla,maintenance.group_equipment_manager,1,1,1,1
 access_maintenance_request_sla_user,maintenance.request.sla.user,model_maintenance_request_sla,base.group_user,1,0,0,0
+access_maintenance_request_sla_waive_manager,maintenance.request.sla.waive.manager,model_maintenance_request_sla_waive,maintenance.group_equipment_manager,1,1,1,0
+access_maintenance_sla_waive_reason_user,maintenance.sla.waive.reason.user,model_maintenance_sla_waive_reason,base.group_user,1,0,0,0
+access_maintenance_sla_waive_reason_manager,maintenance.sla.waive.reason.manager,model_maintenance_sla_waive_reason,maintenance.group_equipment_manager,1,1,1,1

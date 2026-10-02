@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 from odoo import Command, fields
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase, new_test_user, tagged
 
 
@@ -404,3 +404,27 @@ class TestRequestSlaAccess(RequestSlaCase):
             .search([("request_id", "in", (request_main | request_other).ids)])
         )
         self.assertEqual(records, self._records(request_main))
+
+    def test_cancel_flag_sees_other_company_rules(self):
+        """_check_not_a_target searches as sudo(): stages carry no company.
+
+        Without it, the multi-company rule would hide another company's rule
+        from a manager of this one, who could then flag its target as a cancel
+        stage.
+        """
+        main = self.env.company
+        other = self.env["res.company"].create({"name": "SLA test other plant"})
+        self._make_rule(
+            name="SLA test other company rule",
+            target_stage_id=self.stage_waiting.id,
+            company_id=other.id,
+        )
+        manager = new_test_user(
+            self.env,
+            login="sla_test_main_manager",
+            groups="base.group_user,maintenance.group_equipment_manager",
+            company_id=main.id,
+            company_ids=[Command.set(main.ids)],
+        )
+        with self.assertRaises(ValidationError):
+            self.stage_waiting.with_user(manager).sla_cancel = True

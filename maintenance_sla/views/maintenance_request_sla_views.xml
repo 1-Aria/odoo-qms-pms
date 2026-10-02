@@ -2,7 +2,8 @@
 <!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
 <odoo>
 
-    <!-- Read-only everywhere: the engine is the only writer. No action and no
+    <!-- Read-only everywhere: the engine is the only writer, and the one
+         manager write, the waiver, goes through its wizard. No action and no
          menu yet: the records are reached from their request, and the report
          of step 6 reuses this list. -->
     <record id="maintenance_request_sla_view_list" model="ir.ui.view">
@@ -27,6 +28,17 @@
                 <field name="reached_at" />
                 <field name="elapsed" widget="float_time" />
                 <field name="paused_time" widget="float_time" />
+                <field name="waived" optional="show" />
+                <!-- Hidden from non-managers by groups; guarded by the waiver
+                     wizard's access row, managers only. -->
+                <button
+                    name="action_waive"
+                    type="object"
+                    string="Waive"
+                    icon="fa-gavel"
+                    groups="maintenance.group_equipment_manager"
+                    invisible="waived or state not in ('achieved', 'achieved_late')"
+                />
             </list>
         </field>
     </record>
@@ -36,6 +48,15 @@
         <field name="model">maintenance.request.sla</field>
         <field name="arch" type="xml">
             <form string="SLA Record" create="0" edit="0" delete="0">
+                <header>
+                    <button
+                        name="action_waive"
+                        type="object"
+                        string="Waive"
+                        groups="maintenance.group_equipment_manager"
+                        invisible="waived or state not in ('achieved', 'achieved_late')"
+                    />
+                </header>
                 <sheet>
                     <group>
                         <group name="commitment" string="Commitment">
@@ -55,7 +76,15 @@
                             <field name="consumed" widget="float_time" />
                             <field name="paused_time" widget="float_time" />
                             <field name="elapsed" widget="float_time" />
+                            <field name="replaced_id" invisible="not replaced_id" />
                         </group>
+                    </group>
+                    <group name="waiver" string="Waiver" invisible="not waived">
+                        <field name="waived" invisible="1" />
+                        <field name="waive_reason_id" />
+                        <field name="waive_note" />
+                        <field name="waived_by_id" />
+                        <field name="waived_at" />
                     </group>
                     <group name="dimensions" string="Recorded against">
                         <field name="team_id" />

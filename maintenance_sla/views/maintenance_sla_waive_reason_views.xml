@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="maintenance_sla_waive_reason_view_list" model="ir.ui.view">
+        <field name="name">maintenance.sla.waive.reason.list</field>
+        <field name="model">maintenance.sla.waive.reason</field>
+        <field name="arch" type="xml">
+            <!-- Editable: a short vocabulary filled in one sitting. -->
+            <list string="Waive Reasons" editable="bottom">
+                <field name="sequence" widget="handle" />
+                <field name="name" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="maintenance_sla_waive_reason_view_search" model="ir.ui.view">
+        <field name="name">maintenance.sla.waive.reason.search</field>
+        <field name="model">maintenance.sla.waive.reason</field>
+        <field name="arch" type="xml">
+            <search string="Waive Reasons">
+                <field name="name" />
+                <filter
+                    name="archived"
+                    string="Archived"
+                    domain="[('active', '=', False)]"
+                />
+            </search>
+        </field>
+    </record>
+
+    <record id="maintenance_sla_waive_reason_action" model="ir.actions.act_window">
+        <field name="name">Waive Reasons</field>
+        <field name="res_model">maintenance.sla.waive.reason</field>
+        <field name="view_mode">list</field>
+        <field
+            name="search_view_id"
+            ref="maintenance_sla_waive_reason_view_search"
+        />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Define a waive reason</p>
+            <p>
+                Why an SLA outcome may be excluded from compliance. A finished
+                SLA record can be waived only once at least one reason exists.
+            </p>
+        </field>
+    </record>
+
+    <menuitem
+        id="menu_maintenance_sla_waive_reason"
+        name="Waive Reasons"
+        parent="maintenance.menu_maintenance_configuration"
+        action="maintenance_sla_waive_reason_action"
+        sequence="40"
+    />
+
+</odoo>
