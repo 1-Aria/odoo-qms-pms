@@ -16,7 +16,7 @@ The engine of the SLA cluster. It reads the native `priority` field and nothing 
 | 2 | Evidence: `maintenance.request.sla` and its snapshots, `reported_at`, `_sla_apply()` at creation | done | 2026-10-01, two passes. The first failed `test_requester_creates_records` with an `AccessError` on create: `hr_maintenance` computes `owner_user_id` from an employee (`hr_maintenance/models/equipment.py:87-97`), and `create()` checks record rules (`odoo/models.py:5298`) before mail subscribes the creator (`mail/models/mail_thread.py:294-299`), so a plain internal user failed the own-requests rule before this module ran. The test now makes the requester the request's responsible. Second run `exit=0`, 27 tests, 0 failures; UI checked: *Reported At* editable before the first save, one running record per matching rule with its deadline, a backdated report giving an overdue deadline, records read-only, existing requests without records |
 | 3 | The clock: stage transitions, pause and resume, reached on time and late, cancel stages and archiving, final cancellation, next cycles, chatter notes, multi-company rules | done | 2026-10-02, one pass. `exit=0`, 47 tests, 0 failures; UI checked: a commitment met on time with its note, *Scrap* cancelling with its note and refusing the way back, archiving cancelling with *Reopen Request* hidden. The UI check also showed that an archived request can still be dragged between stages in the kanban — core's behaviour, harmless to the evidence, left as it is (D13) |
 | 4 | Re-matching on request changes: replacing, resuming, refreshing; waivers; `reported_at` correction | done | 2026-10-02, three runs. First `exit=0`, 66 tests; UI checked: `reported_at` corrected and then locked, a waiver from the record list, a replacement on a priority change. Reviewed afterwards: the free-text waiver reason became a configured list with an optional note (divergence 13). The next run failed `test_waiver_requires_a_reason`: a wizard row left by the UI check kept `reason_id` nullable, since `-u` cannot add `NOT NULL` over existing NULLs and only logs it at INFO. Rows deleted, upgraded again: `exit=0`, 68 tests, 0 failures, the column `NOT NULL`; UI checked: the reasons list, the wizard with a reason and a note, an archived reason not offered |
-| 5 | Live state, the request's `next_deadline` and `sla_live_state`, kanban ordering and filters | — | |
+| 5 | Live state on records and requests, with search; the request's `next_deadline`; kanban ordering, card, filters; `readme/USAGE.md` | done | 2026-10-02, one pass. `exit=0`, 77 tests, 0 failures; UI checked: the badge and deadline under *Priority*, the kanban card and its order by deadline, the *SLA Overdue* and *SLA At Risk* filters each listing one request, a request whose commitment was met losing its badge |
 | 6 | Reporting: the pivot and graph actions and their menu | — | |
 
 Reporting is a step here rather than a module of its own: with the grouping dimensions living on
@@ -51,6 +51,7 @@ tests without it, because the tests build their own stages and rules.
 | 11 | §4.3 has no link between a record and the one it replaces | `replaced_id` on the record that takes over | Without it, a record cancelled by re-matching is indistinguishable from one cancelled with its request, and the chatter can only say "cancelled" where the truth is "replaced". One Many2one makes both explain themselves |
 | 12 | §2: `reported_at` "may be corrected for late entry until the first clock of the request stops" | correctable until any record of the request **changes state** — pauses, finishes or is cancelled — and the correction moves only records that have not | A correction moves a record's start. Once a record has paused or resumed, its counters were booked against the old start, and moving the start under them would make the books disagree; a record that has not changed state has booked nothing yet. The lock is in the view only: a value written past it by import or code moves nothing that has changed state, so the evidence cannot be bent through it |
 | 13 | R10: waive "with a reason" | the reason is picked from a configured list, `maintenance.sla.waive.reason`, with an optional free-text note beside it — the shape of core's `crm.lost.reason` and its lost wizard (`crm/models/crm_lost_reason.py`, `crm/wizard/crm_lead_lost.py:14-15`) | A list makes waivers a policy rather than a sentence each manager phrases differently, and makes them reportable: compliance can be read by waiver reason. The note keeps the specifics. Unlike CRM's, the reason is required — a waiver without a classified reason defeats the point. The module ships no reasons (the project's no-guessed-seeds rule), so nobody can waive until a manager has configured one |
+| 14 | §4.3: `live_state` is `on_track`, `at_risk`, `overdue`, "or empty when not running" | a fourth value, `paused`, for a record waiting in a pause stage | A request whose only open commitments are paused would otherwise show no badge and no deadline — indistinguishable from a request with no SLA at all. *Paused* says it is waiting. It comes last in severity, so a request shows it only when nothing of it runs |
 
 ## Decisions for later steps
 
@@ -76,6 +77,8 @@ Settled before the code exists, so that the later steps are specced against them
 | D16 | **Waivers.** A manager waives a finished record through a wizard asking for a configured reason and an optional note (divergences 10, 13): `waived`, `waive_reason_id`, `waive_note`, `waived_by_id`, `waived_at` are set as `sudo()`, and the request gets a note. No unwaive | 4 |
 | D17 | **Correcting `reported_at`.** When a write changes the request's clock start (`_sla_start()` before and after differ), its open cycle-1 records that started there and have not changed state since — `last_change_at == start_at` — move to the new start, and their deadline follows. Every other record keeps its start. The form locks `reported_at` once any record has changed state (divergence 12). Only `reported_at` triggers a correction: changing `schedule_date` moves no preventive clock, which also keeps a late preventive job from being rescheduled out of its breach. To be revisited when preventive rules are configured | 4 |
 | D18 | **Reporting.** Compliance % and average time count finished records with `waived = False` (design §6). Open commitments are counted through the Overdue and At-risk filters: `live_state` is not stored, and `_read_group_groupby` refuses a field that is not (`odoo/models.py:2096-2099`), so it cannot be a pivot row — the reason OCA `helpdesk_mgmt_sla` builds a SQL-view report, which this module does not need | 6 |
+| D19 | **Live state is computed on read, and searched through stored fields** (design §5.3). A record's `live_state` is *on track*, *at risk* or *overdue* while running, *paused* while paused (divergence 14), and empty once finished or cancelled; its search method turns each value into a domain on `state`, `deadline` and `risk_at` against now, so filters need no scheduled job. A request's `sla_live_state` is the **worst** of its records' in the order overdue, at risk, on track, paused, and its search follows the same rule — `at_risk` means at least one record at risk and none overdue, `paused` at least one paused and none running — so a request answers exactly one of the filters, the one its badge shows. Both search methods accept `=`, `in`, `!=` and `not in`, values included `False`; the negated two are `[('id', 'not in', self._search(positive))]`, which stays right when `False` is among the values. Any other operator raises `UserError`, as OCA `helpdesk_mgmt_sla`'s `_search_expired` does — the custom filter editor offers "is not in" on a selection, so the negations are reachable from the UI | 5 |
+| D20 | **The deadline is shown as a date and time beside a coloured live-state badge**, not as a countdown. Core's `remaining_days` widget counts whole days (`web/static/src/views/fields/remaining_days/remaining_days_field.js:38-40`), so a 15-minute target would read *Today* until it was a day late; a computed "time left" would be frozen at the moment the page loaded. The badge carries the urgency, the timestamp the precision | 5 |
 
 ## Folder structure
 
@@ -102,6 +105,7 @@ maintenance_sla/
 │         test_maintenance_request_sla.py                 # 2
 │         test_maintenance_sla_clock.py                   # 3
 │         test_maintenance_sla_rematch.py                 # 4
+│         test_maintenance_sla_live.py                    # 5
 ├── wizards/
 │   ├── __init__.py                                       # 4
 │   ├── maintenance_request_sla_waive.py                  # 4
@@ -135,7 +139,7 @@ accident.
 | `__init__.py` | `from . import models`, `from . import wizards` (step 4) |
 | `wizards/__init__.py` (step 4) | `from . import maintenance_request_sla_waive` |
 | `models/__init__.py` | `from . import maintenance_sla`, `from . import maintenance_stage`, `from . import maintenance_sla_waive_reason` (step 4), `from . import maintenance_request_sla` (step 2), `from . import maintenance_request` (step 2) |
-| `tests/__init__.py` | `from . import test_maintenance_sla_rule`, `from . import test_maintenance_request_sla` (step 2), `from . import test_maintenance_sla_clock` (step 3), `from . import test_maintenance_sla_rematch` (step 4) |
+| `tests/__init__.py` | `from . import test_maintenance_sla_rule`, `from . import test_maintenance_request_sla` (step 2), `from . import test_maintenance_sla_clock` (step 3), `from . import test_maintenance_sla_rematch` (step 4), `from . import test_maintenance_sla_live` (step 5) |
 
 ## Models
 
@@ -263,7 +267,7 @@ No company: a reason is vocabulary, as `crm.lost.reason` is. A reason that has b
 be deleted (`waive_reason_id` is `restrict`), so retiring one is archiving it, which also takes it
 out of the wizard's dropdown.
 
-### `maintenance.request.sla` — `models/maintenance_request_sla.py` (steps 2, 3, 4)
+### `maintenance.request.sla` — `models/maintenance_request_sla.py` (steps 2, 3, 4, 5)
 
 `models.Model` · `_name = "maintenance.request.sla"` · `_description = "Maintenance Request SLA"` · `_order = "id"`
 
@@ -290,6 +294,62 @@ def _format_hours(hours):
 ```
 
 `FINISHED_STATES` is imported by `models/maintenance_request.py` for `_sla_apply()`'s guard.
+
+Step 5 adds, beside them:
+
+```python
+LIVE_STATES = [
+    ("on_track", "On track"),
+    ("at_risk", "At risk"),
+    ("overdue", "Overdue"),
+    ("paused", "Paused"),
+]
+# Worst first: the request shows the first of these any of its records holds.
+# Paused is last, so it shows only when nothing runs.
+LIVE_SEVERITY = ("overdue", "at_risk", "on_track", "paused")
+
+
+def _live_state_domain(state, now):
+    """The records in this live state at now, as a domain on stored fields."""
+    if not state:
+        return [("state", "not in", OPEN_STATES)]
+    if state == "paused":
+        return [("state", "=", "paused")]
+    running = [("state", "=", "running")]
+    if state == "overdue":
+        return running + [("deadline", "<=", now)]
+    if state == "at_risk":
+        return running + [("risk_at", "<=", now), ("deadline", ">", now)]
+    return running + [("risk_at", ">", now), ("deadline", ">", now)]
+```
+
+The three running domains are disjoint however `at_risk_pct` is set: *on track* also requires the
+deadline ahead, so a share above 100 — `risk_at` after the deadline, which step 1 leaves
+unconstrained — reads as *overdue* once the deadline passes, never as both.
+
+Both search methods share two module helpers and a constant:
+
+```python
+SEARCH_OPERATORS = ("=", "in", "!=", "not in")
+
+
+def _search_values(env, operator, value):
+    """The values a live-state search asks for, or UserError."""
+    if operator not in SEARCH_OPERATORS:
+        raise UserError(
+            env._("Operator %(operator)s is not supported here.", operator=operator)
+        )
+    return list(value) if operator in ("in", "not in") else [value]
+
+
+def _search_result(model, operator, positive):
+    """The positive domain, or its complement for the negated operators."""
+    if operator in ("=", "in"):
+        return positive
+    return [("id", "not in", model._search(positive))]
+```
+
+`models/maintenance_request.py` imports both, with `LIVE_STATES` and `LIVE_SEVERITY`.
 
 | Field | Type | Attributes |
 |---|---|---|
@@ -322,6 +382,7 @@ def _format_hours(hours):
 | `priority` | Selection | `_request_selection(self, "priority")`; dimension |
 | `maintenance_type` | Selection | `_request_selection(self, "maintenance_type")`; dimension |
 | `company_id` | Many2one → `res.company` | `related="request_id.company_id"`, `store=True` (design §4.3) |
+| `live_state` (step 5) | Selection `LIVE_STATES` | `string="Live State"`, non-stored compute with `search="_search_live_state"`, `@api.depends("state", "deadline", "risk_at")` (D19) |
 
 `_request_selection` is imported from `models/maintenance_sla.py`.
 
@@ -346,6 +407,8 @@ work in: one multi-company record rule (step 3, *Security*), and no delegation t
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_compute_display_name` | `@api.depends("sla_id", "request_id")` | `"<rule name> · <request display name>"`, the request's name read through `sudo()` — a reader of the evidence may not be able to read the request itself |
+| `_compute_live_state` (step 5) | `@api.depends("state", "deadline", "risk_at")` | `paused` when `paused`; `False` unless `running`; otherwise `overdue` from the deadline, `at_risk` from `risk_at`, `on_track` before — the same comparisons as `_live_state_domain`, against `fields.Datetime.now()` |
+| `_search_live_state` (step 5) | — | `(operator, value)`: each value from `_search_values` through `_live_state_domain`, OR-ed, then `_search_result` (D19) |
 | `_sla_dimensions` (step 4) | — | `ensure_one`; the dimensions as written, the same dict shape as the request's `_sla_dimensions()`, so `_sla_apply()` writes them only when something differs |
 | `_set_deadline` | — | for each record: while `running`, `deadline = max(last_change_at, start_at) + (duration − consumed)` hours and `risk_at = deadline − (1 − at_risk_pct / 100) × duration` hours; otherwise both `False` |
 | `_sla_close` (step 3) | — | `(now)`: for each record, adds `max(0, now − max(last_change_at, start_at))` hours to `consumed` when `running`, to `paused_time` when `paused`; then `last_change_at = now`. The clamp and the shared base are what keep a clock that starts in the future at rest: neither running nor paused time counts before `start_at` |
@@ -375,12 +438,14 @@ cannot differ. It is also why a record created in step 2's initial state passes 
 the at-risk share (design R5, §4.3); a rule's pause stages are not among them, so editing them
 changes how open records treat their next stage change. Finished records are unaffected.
 
-### `maintenance.request` — `models/maintenance_request.py` (steps 2, 3, 4)
+### `maintenance.request` — `models/maintenance_request.py` (steps 2, 3, 4, 5)
 
 | Field | Type | Attributes |
 |---|---|---|
 | `reported_at` | Datetime | `string="Reported At"`, `default=fields.Datetime.now`, `tracking=True`, `copy=False`, help saying the corrective clocks start here |
 | `sla_ids` | One2many → `maintenance.request.sla`, `request_id` | `string="SLA Records"`, `copy=False` (design §4.4) |
+| `next_deadline` (step 5) | Datetime | `string="Next SLA Deadline"`, stored compute, `@api.depends("sla_ids.state", "sla_ids.deadline")`: the earliest `deadline` among the running records, or empty (design §4.4). Stored because the kanban orders by it. Installing computes it for every existing request — empty for all of them, since they have no records (D5) |
+| `sla_live_state` (step 5) | Selection `LIVE_STATES` | `string="SLA State"`, non-stored compute with `search="_search_sla_live_state"`, `@api.depends("sla_ids.state", "sla_ids.deadline", "sla_ids.risk_at")`: the worst of the records' `live_state` (D19) |
 | `reported_at_locked` (step 4) | Boolean | non-stored compute, `@api.depends("sla_ids.state", "sla_ids.start_at", "sla_ids.last_change_at")`: true when any record has changed state — not open, or `last_change_at != start_at` (D17) |
 
 **Installing fills `reported_at` on existing requests with the install time.** Odoo initialises
@@ -394,6 +459,9 @@ time. On this instance that is the four test requests.
 | `write` (step 3) | — | below |
 | `_sla_start` | — | `ensure_one`; the clock start: `schedule_date or reported_at or create_date` for a preventive request, `reported_at or create_date` otherwise (divergence 4). `reported_at` is not required, and a caller may pass `False`; `start_at` is required, so without the last fallback the record's INSERT would fail and block the request's creation |
 | `_sla_apply` | — | `(next_cycles_only=False, now=None)`: the one matching function (D1), below. `now` defaults to the current time; `write()` passes its own, so a stage change and the next cycle it opens share one timestamp. Returns the records it created, in their evaluated state — those finished at creation included — and those it cancelled, so `_sla_post()` sees both |
+| `_compute_next_deadline` (step 5) | `@api.depends("sla_ids.state", "sla_ids.deadline")` | `min` of the running records' deadlines, `default=False` |
+| `_compute_sla_live_state` (step 5) | `@api.depends("sla_ids.state", "sla_ids.deadline", "sla_ids.risk_at")` | the first of `LIVE_SEVERITY` that any record's `live_state` holds, else `False` |
+| `_search_sla_live_state` (step 5) | — | `(operator, value)`: `=` or `in`, OR-ing per value — `overdue`: `[('sla_ids', 'any', overdue)]`; `at_risk`: `any` at risk and `not any` overdue; `on_track`: `any` on track and `not any` at risk or overdue; `paused`: `any` paused and `not any` running; `False`: `[('sla_ids', 'not any', [('state', 'in', OPEN_STATES)])]`. The inner domains are on `live_state` and `state`, so `_search_live_state` builds most of them. Values come from `_search_values`, the result from `_search_result`; a value outside these maps to `FALSE_DOMAIN`, an empty result |
 | `_sla_inputs` (step 4) | — | `ensure_one`; the re-matching inputs as a tuple: `priority`, `maintenance_type`, and the ids of `maintenance_team_id`, `category_id`, `company_id`, `equipment_id` |
 | `_sla_dimensions` (step 4) | — | `ensure_one`; the dimensions a record copies, as a dict keyed by the record's field names |
 | `_sla_carried_clock` (step 4) | `@api.model` | `(latest, now)`: the clock values of a replacement or a resumed record — the latest's `start_at`, `cycle`, `consumed`, `paused_time`; `last_change_at = now`; `replaced_id` the latest |
@@ -605,7 +673,7 @@ setup-time job.
 No `optional="show"`: an optional column can be hidden, and a stage list of a handful of rows
 has no crowding to relieve. A flag that silently cancels commitments should not be hideable.
 
-## Views — `views/maintenance_request_sla_views.xml` (steps 2, 4)
+## Views — `views/maintenance_request_sla_views.xml` (steps 2, 4, 5)
 
 | XML id | Type | Content |
 |---|---|---|
@@ -616,24 +684,38 @@ Step 4 adds:
 
 | View | Change |
 |---|---|
+| list (step 5) | `live_state` after `state`: `widget="badge"`, `decoration-success="live_state == 'on_track'"`, `decoration-warning="live_state == 'at_risk'"`, `decoration-danger="live_state == 'overdue'"`, `decoration-muted="live_state == 'paused'"` |
 | list | `waived` (`optional="show"`); a `action_waive` button (`type="object"`, `string="Waive"`, `icon="fa-gavel"`, `groups="maintenance.group_equipment_manager"`, `invisible="waived or state not in ('achieved', 'achieved_late')"`) |
 | form | a header with the same button; `replaced_id` in the *Clock* group (`invisible="not replaced_id"`); a *Waiver* group (`name="waiver"`, `invisible="not waived"`) holding `waive_reason_id`, `waive_note`, `waived_by_id`, `waived_at` |
 
 No action and no menu in step 2: the records are reached from their request. Step 6 adds the
 report action over the same list.
 
-## Views — `views/maintenance_request_views.xml` (steps 2, 3, 4)
+## Views — `views/maintenance_request_views.xml` (steps 2, 3, 4, 5)
 
 | XML id | Inherits | Position | Content |
 |---|---|---|---|
 | `hr_equipment_request_view_form` | `maintenance.hr_equipment_request_view_form` | field `request_date` after | `reported_at`, `readonly="reported_at_locked"` (step 4; `readonly="id"` in step 2); `reported_at_locked`, `invisible="1"` |
 | | | `//notebook` inside | page `SLA` (`name="sla"`) holding `sla_ids` (`readonly="1"`, `nolabel="1"`), shown through `maintenance_request_sla_view_list` |
 | | | button `reset_equipment_request`, `position="attributes"` (step 3) | `invisible` becomes `not archive or sla_ids` — core has `not archive` (`maintenance/views/maintenance_views.xml:85`); D13 |
+| | | field `priority` after (step 5) | `sla_live_state` (badge, decorated as in the record list, `invisible="not sla_live_state"`) and `next_deadline` (`invisible="not next_deadline"`) — on the main sheet, where a technician looks first; the SLA page stays the list. `maintenance_priority_matrix` also inserts after `priority`, and was installed first, so these two land directly under *Priority*, above its *Criticality* |
+| `hr_equipment_request_view_kanban` (step 5) | `maintenance.hr_equipment_request_view_kanban` | `//kanban`, `position="attributes"` | `default_order` becomes `next_deadline asc, id desc` |
+| | | field `schedule_date` after, in the card | a `div` (`name="sla"`, `t-if="record.sla_live_state.raw_value"`) holding `sla_live_state` (badge, decorated) and, inside a `span` with `t-if="record.next_deadline.raw_value"`, `next_deadline` — a paused request shows its badge alone |
+| `hr_equipment_request_view_tree` (step 5) | `maintenance.hr_equipment_request_view_tree` | field `stage_id` after | `next_deadline` (`optional="show"`), `sla_live_state` (badge, decorated, `optional="show"`) |
+| `hr_equipment_request_view_search` (step 5) | `maintenance.hr_equipment_request_view_search` | filter `inactive` after | a `separator`; filters `sla_overdue` "SLA Overdue" `[('sla_live_state', '=', 'overdue')]` and `sla_at_risk` "SLA At Risk" `[('sla_live_state', '=', 'at_risk')]` |
 
 `request_date` sits in the form's first group (`maintenance/views/maintenance_views.xml:104`),
 which is where the report time belongs. **`reported_at` is editable only before the first
 save** in step 2; from step 4 it stays editable until a record of the request changes state
 (D17, divergence 12), and a correction moves the records that have not.
+
+**The kanban's order is a view attribute, not the model's `_order`** (design §4.4): core sets
+`maintenance.request._order = "id desc"` (`maintenance/models/maintenance.py:220`), and changing
+it would reorder every list and dropdown in the app. PostgreSQL sorts NULLs last on an ascending
+order, so cards with no running commitment follow the ones that have, newest first — core's
+order among them. Core's kanban sets no `default_order` of its own, and neither installed
+module that inherits it (`maintenance_location`, `maintenance_request_sequence`) touches the
+order or the `schedule_date` anchor.
 
 ## Views — `wizards/maintenance_request_sla_waive_views.xml` (step 4)
 
@@ -784,8 +866,30 @@ tests, and time is fixed by `freeze_time` as there (requests created at `T0`).
 | `test_waiver_refused_for_a_non_manager` | the requester creating the wizard raises `AccessError` — the access row is the guard |
 | `test_waive_hidden_from_non_managers` | in the record list's arch from `get_view`, as each user sees it: the `action_waive` button is present for the manager and absent for the requester. View processing strips `groups` attributes, so the attribute itself cannot be asserted |
 
+## Tests — `tests/test_maintenance_sla_live.py` (step 5)
+
+`TestSlaLive(RematchCase)`, `@tagged("post_install", "-at_install")`, on the step 4 helpers and
+fixed time. With the fixtures, *Response* is at risk from `T0` + 0:45 and overdue from `T0` + 1.
+`live_state` and `sla_live_state` are computed on read, so the helpers `_live`, `_request_state`,
+`_search_records` and `_search_requests` read or search at a frozen time and invalidate first.
+`test_request_paused_when_nothing_runs` creates an extra stage, *SLA test: done* (sequence 906),
+and a 24-hour rule targeting it, to have a running record beside a paused one.
+
+| Test | Asserts |
+|---|---|
+| `test_live_state_follows_the_clock` | *Response* reads `on_track` at +0:30, `at_risk` at +0:50, `overdue` at +1:10 |
+| `test_live_state_paused_and_finished` | a paused *Restore* reads `paused`, a finished *Response* reads `False` |
+| `test_live_state_search` | at +0:50, searching `live_state = 'at_risk'` finds the *Response* record and `= 'overdue'` does not; `in ['at_risk', 'overdue']` finds it; `= False` finds a finished record; `like` raises `UserError` |
+| `test_request_shows_the_worst_state` | at +1:10, with *Response* overdue and *Restore* on track, the request reads `overdue`; searching `sla_live_state = 'overdue'` finds it and `= 'at_risk'` does not |
+| `test_request_without_open_records` | a request whose records are all finished reads `False`, and `sla_live_state = False` finds it |
+| `test_request_paused_when_nothing_runs` | with *Response* finished and *Restore* paused, the request reads `paused` and `sla_live_state = 'paused'` finds it; with a running record beside a paused one, the running record's state wins |
+| `test_negated_search` | `!=` and `not in` on `live_state` and on `sla_live_state` return the complement of the positive search, `False` included among the values |
+| `test_next_deadline_is_the_earliest_running` | `T0` + 1 while *Response* runs; `T0` + 8 once it is reached; empty while *Restore* is paused; back once it resumes; empty once both are finished |
+| `test_kanban_ordered_by_next_deadline` | the kanban arch from `get_view` carries `default_order="next_deadline asc, id desc"` |
+
 ## Readme
 
 | File | Content |
 |---|---|
+| `readme/USAGE.md` (step 5) | Four sections. *Configuring*: flag the cancel stage, define rules (what a rule matches, its target and pause stages, its target in hours and at-risk share, the lowest sequence winning on a shared target), and add waive reasons; with no rules nothing happens. *Day to day*: the request's SLA page and the state and deadline under *Priority*; the board ordered by next deadline with its badges, *Paused* included; the two filters; correcting *Reported At* until a commitment changes state. *What happens on its own*: met on time or late, paused, cancelled with its request and final, a new cycle when sent back, re-matching on priority, team, machine or type keeping the time counted; outcomes noted in the chatter. *Waivers*: a manager waives a finished commitment with a reason and an optional note; it stays visible, leaves compliance, and cannot be undone |
 | `readme/DESCRIPTION.md` | Gives maintenance requests configured response and restore commitments, measured on the stages technicians already use, and records each commitment as its own evidence: what was promised, when it was met, and whether it was on time |

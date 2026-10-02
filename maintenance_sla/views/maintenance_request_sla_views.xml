@@ -23,6 +23,14 @@
                     decoration-danger="state == 'achieved_late'"
                     decoration-muted="state == 'cancelled'"
                 />
+                <field
+                    name="live_state"
+                    widget="badge"
+                    decoration-success="live_state == 'on_track'"
+                    decoration-warning="live_state == 'at_risk'"
+                    decoration-danger="live_state == 'overdue'"
+                    decoration-muted="live_state == 'paused'"
+                />
                 <field name="start_at" />
                 <field name="deadline" />
                 <field name="reached_at" />

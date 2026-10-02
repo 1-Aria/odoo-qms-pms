@@ -4,8 +4,16 @@ from markupsafe import Markup
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+from odoo.osv import expression
 
-from .maintenance_request_sla import FINISHED_STATES, OPEN_STATES
+from .maintenance_request_sla import (
+    FINISHED_STATES,
+    LIVE_SEVERITY,
+    LIVE_STATES,
+    OPEN_STATES,
+    _search_result,
+    _search_values,
+)
 
 
 class MaintenanceRequest(models.Model):
@@ -32,6 +40,21 @@ class MaintenanceRequest(models.Model):
         string="SLA Records",
         copy=False,
     )
+    # Stored because the kanban orders by it. The order is the kanban's
+    # default_order, not the model's _order: core sets "id desc", and changing
+    # it would reorder every list and dropdown in the app.
+    next_deadline = fields.Datetime(
+        string="Next SLA Deadline",
+        compute="_compute_next_deadline",
+        store=True,
+    )
+    sla_live_state = fields.Selection(
+        selection=LIVE_STATES,
+        string="SLA State",
+        compute="_compute_sla_live_state",
+        search="_search_sla_live_state",
+        help="The worst live state among this request's SLA records.",
+    )
     reported_at_locked = fields.Boolean(
         compute="_compute_reported_at_locked",
         help="Reported At can no longer be corrected: an SLA record of this "
@@ -52,6 +75,56 @@ class MaintenanceRequest(models.Model):
                 or record.last_change_at != record.start_at
                 for record in request.sla_ids
             )
+
+    @api.depends("sla_ids.state", "sla_ids.deadline")
+    def _compute_next_deadline(self):
+        for request in self:
+            request.next_deadline = min(
+                (
+                    record.deadline
+                    for record in request.sla_ids
+                    if record.state == "running" and record.deadline
+                ),
+                default=False,
+            )
+
+    @api.depends("sla_ids.state", "sla_ids.deadline", "sla_ids.risk_at")
+    def _compute_sla_live_state(self):
+        for request in self:
+            states = set(request.sla_ids.mapped("live_state"))
+            request.sla_live_state = next(
+                (state for state in LIVE_SEVERITY if state in states), False
+            )
+
+    def _search_sla_live_state(self, operator, value):
+        """Search by the worst state, as the badge shows it.
+
+        at_risk means at least one record at risk and none overdue, paused at
+        least one paused and none running: a request answers exactly one of
+        the filters, the one its badge shows.
+        """
+
+        def having(*states):
+            return [("sla_ids", "any", [("live_state", "in", list(states))])]
+
+        def without(*states):
+            return [("sla_ids", "not any", [("live_state", "in", list(states))])]
+
+        by_state = {
+            "overdue": having("overdue"),
+            "at_risk": having("at_risk") + without("overdue"),
+            "on_track": having("on_track") + without("overdue", "at_risk"),
+            "paused": having("paused")
+            + [("sla_ids", "not any", [("state", "=", "running")])],
+            False: [("sla_ids", "not any", [("state", "in", list(OPEN_STATES))])],
+        }
+        positive = expression.OR(
+            [
+                by_state.get(state, expression.FALSE_DOMAIN)
+                for state in _search_values(self.env, operator, value)
+            ]
+        )
+        return _search_result(self, operator, positive)
 
     @api.model_create_multi
     def create(self, vals_list):

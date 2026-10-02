@@ -14,6 +14,21 @@
                  (maintenance/views/maintenance_views.xml:104), where the report
                  time belongs. Correctable until an SLA record of the request
                  changes state; a correction moves the records that have not. -->
+            <!-- The live state on the main sheet, where a technician looks
+                 first. maintenance_priority_matrix also inserts after priority
+                 and was installed first, so these land directly under it. -->
+            <field name="priority" position="after">
+                <field
+                    name="sla_live_state"
+                    widget="badge"
+                    decoration-success="sla_live_state == 'on_track'"
+                    decoration-warning="sla_live_state == 'at_risk'"
+                    decoration-danger="sla_live_state == 'overdue'"
+                    decoration-muted="sla_live_state == 'paused'"
+                    invisible="not sla_live_state"
+                />
+                <field name="next_deadline" invisible="not next_deadline" />
+            </field>
             <field name="request_date" position="after">
                 <field name="reported_at" readonly="reported_at_locked" />
                 <field name="reported_at_locked" invisible="1" />
@@ -29,6 +44,88 @@
                     <field name="sla_ids" readonly="1" nolabel="1" />
                 </page>
             </xpath>
+        </field>
+    </record>
+
+    <record id="hr_equipment_request_view_kanban" model="ir.ui.view">
+        <field name="name">equipment.request.kanban.sla</field>
+        <field name="model">maintenance.request</field>
+        <field
+            name="inherit_id"
+            ref="maintenance.hr_equipment_request_view_kanban"
+        />
+        <field name="arch" type="xml">
+            <!-- The order is the view's, not the model's: core's _order is
+                 "id desc" for every list and dropdown. PostgreSQL sorts NULLs
+                 last on an ascending order, so cards without a running
+                 commitment follow, newest first. -->
+            <kanban position="attributes">
+                <attribute name="default_order">next_deadline asc, id desc</attribute>
+            </kanban>
+            <!-- A date and time beside the badge, not a countdown: core's
+                 remaining_days counts whole days. A paused request shows the
+                 badge alone. -->
+            <field name="schedule_date" position="after">
+                <div name="sla" t-if="record.sla_live_state.raw_value">
+                    <field
+                        name="sla_live_state"
+                        widget="badge"
+                        decoration-success="sla_live_state == 'on_track'"
+                        decoration-warning="sla_live_state == 'at_risk'"
+                        decoration-danger="sla_live_state == 'overdue'"
+                        decoration-muted="sla_live_state == 'paused'"
+                    />
+                    <span t-if="record.next_deadline.raw_value" class="ms-1">
+                        <field name="next_deadline" />
+                    </span>
+                </div>
+            </field>
+        </field>
+    </record>
+
+    <record id="hr_equipment_request_view_tree" model="ir.ui.view">
+        <field name="name">equipment.request.list.sla</field>
+        <field name="model">maintenance.request</field>
+        <field name="inherit_id" ref="maintenance.hr_equipment_request_view_tree" />
+        <field name="arch" type="xml">
+            <field name="stage_id" position="after">
+                <field name="next_deadline" optional="show" />
+                <field
+                    name="sla_live_state"
+                    widget="badge"
+                    decoration-success="sla_live_state == 'on_track'"
+                    decoration-warning="sla_live_state == 'at_risk'"
+                    decoration-danger="sla_live_state == 'overdue'"
+                    decoration-muted="sla_live_state == 'paused'"
+                    optional="show"
+                />
+            </field>
+        </field>
+    </record>
+
+    <record id="hr_equipment_request_view_search" model="ir.ui.view">
+        <field name="name">equipment.request.search.sla</field>
+        <field name="model">maintenance.request</field>
+        <field
+            name="inherit_id"
+            ref="maintenance.hr_equipment_request_view_search"
+        />
+        <field name="arch" type="xml">
+            <!-- Each request answers exactly one of these: the one its badge
+                 shows, since the search follows the worst state. -->
+            <filter name="inactive" position="after">
+                <separator />
+                <filter
+                    name="sla_overdue"
+                    string="SLA Overdue"
+                    domain="[('sla_live_state', '=', 'overdue')]"
+                />
+                <filter
+                    name="sla_at_risk"
+                    string="SLA At Risk"
+                    domain="[('sla_live_state', '=', 'at_risk')]"
+                />
+            </filter>
         </field>
     </record>
 

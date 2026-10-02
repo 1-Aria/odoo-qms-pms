@@ -3,6 +3,8 @@
 from datetime import timedelta
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
+from odoo.osv import expression
 from odoo.tools import float_compare
 
 from .maintenance_sla import _request_selection
@@ -16,6 +18,60 @@ STATES = [
 ]
 OPEN_STATES = ("running", "paused")
 FINISHED_STATES = ("achieved", "achieved_late")
+
+LIVE_STATES = [
+    ("on_track", "On track"),
+    ("at_risk", "At risk"),
+    ("overdue", "Overdue"),
+    ("paused", "Paused"),
+]
+# Worst first: the request shows the first of these any of its records holds.
+# Paused is last, so it shows only when nothing runs.
+LIVE_SEVERITY = ("overdue", "at_risk", "on_track", "paused")
+SEARCH_OPERATORS = ("=", "in", "!=", "not in")
+
+
+def _live_state_domain(state, now):
+    """The records in this live state at now, as a domain on stored fields.
+
+    The three running domains are disjoint however at_risk_pct is set: on
+    track also requires the deadline ahead, so a share above 100 (risk_at after
+    the deadline) reads as overdue once the deadline passes, never as both.
+    """
+    if not state:
+        return [("state", "not in", list(OPEN_STATES))]
+    if state == "paused":
+        return [("state", "=", "paused")]
+    running = [("state", "=", "running")]
+    if state == "overdue":
+        return running + [("deadline", "<=", now)]
+    if state == "at_risk":
+        return running + [("risk_at", "<=", now), ("deadline", ">", now)]
+    return running + [("risk_at", ">", now), ("deadline", ">", now)]
+
+
+def _search_values(env, operator, value):
+    """The values a live-state search asks for, or UserError.
+
+    = and in, and their negations: the custom filter editor offers "is not in"
+    on a selection, so the negations are reachable from the UI.
+    """
+    if operator not in SEARCH_OPERATORS:
+        raise UserError(
+            env._("Operator %(operator)s is not supported here.", operator=operator)
+        )
+    return list(value) if operator in ("in", "not in") else [value]
+
+
+def _search_result(model, operator, positive):
+    """The positive domain, or its complement for the negated operators.
+
+    Negating through the ids keeps the result right when False is among the
+    values, where flipping each leaf would not.
+    """
+    if operator in ("=", "in"):
+        return positive
+    return [("id", "not in", model._search(positive))]
 
 
 def _format_hours(hours):
@@ -151,6 +207,14 @@ class MaintenanceRequestSla(models.Model):
     company_id = fields.Many2one(
         related="request_id.company_id", store=True, string="Company"
     )
+    # Computed on read, searched through stored fields: filters and colours
+    # need no scheduled job.
+    live_state = fields.Selection(
+        selection=LIVE_STATES,
+        string="Live State",
+        compute="_compute_live_state",
+        search="_search_live_state",
+    )
 
     @api.depends("sla_id", "request_id")
     def _compute_display_name(self):
@@ -160,6 +224,32 @@ class MaintenanceRequestSla(models.Model):
             record.display_name = (
                 f"{record.sla_id.name} · {record.request_id.sudo().display_name}"
             )
+
+    @api.depends("state", "deadline", "risk_at")
+    def _compute_live_state(self):
+        """The same comparisons as _live_state_domain, in the same order."""
+        now = fields.Datetime.now()
+        for record in self:
+            if record.state == "paused":
+                record.live_state = "paused"
+            elif record.state != "running":
+                record.live_state = False
+            elif record.deadline and record.deadline <= now:
+                record.live_state = "overdue"
+            elif record.risk_at and record.risk_at <= now:
+                record.live_state = "at_risk"
+            else:
+                record.live_state = "on_track"
+
+    def _search_live_state(self, operator, value):
+        now = fields.Datetime.now()
+        positive = expression.OR(
+            [
+                _live_state_domain(state, now)
+                for state in _search_values(self.env, operator, value)
+            ]
+        )
+        return _search_result(self, operator, positive)
 
     def _sla_dimensions(self):
         """The grouping dimensions as written, shaped like the request's."""
