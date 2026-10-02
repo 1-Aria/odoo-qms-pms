@@ -3,6 +3,7 @@
 from datetime import timedelta
 
 from odoo import api, fields, models
+from odoo.tools import float_compare
 
 from .maintenance_sla import _request_selection
 
@@ -13,6 +14,14 @@ STATES = [
     ("achieved_late", "Achieved late"),
     ("cancelled", "Cancelled"),
 ]
+OPEN_STATES = ("running", "paused")
+FINISHED_STATES = ("achieved", "achieved_late")
+
+
+def _format_hours(hours):
+    """Hours as H:MM, rounded to the minute."""
+    minutes = round(hours * 60)
+    return f"{minutes // 60}:{minutes % 60:02d}"
 
 
 class MaintenanceRequestSla(models.Model):
@@ -24,9 +33,11 @@ class MaintenanceRequestSla(models.Model):
     The exceptions are company_id, which must not drift from its request, and
     display_name.
 
-    Readable by every internal user, with no delegation to the request: record
-    access governs reading records, not finding them, so a restriction would hide
-    nothing from searches or the pivot.
+    Readable by every internal user within their companies, with no delegation
+    to the request. Record access is enforced in _search, which search(),
+    read_group() and the reading of stored fields all go through, so a
+    _check_access override would restrict almost nothing; and what a
+    restriction would hide is a rule name and some times.
     """
 
     _name = "maintenance.request.sla"
@@ -50,7 +61,8 @@ class MaintenanceRequestSla(models.Model):
     # Snapshots of the rule, taken when the record is created: later edits to
     # the rule do not reach them. restrict on the target means a stage that was
     # ever a target cannot be deleted, and stages have no active field to retire
-    # them with; renaming or resequencing stays possible.
+    # them with; renaming or resequencing stays possible. The rule's pause
+    # stages are deliberately not snapshotted: they are read live.
     target_stage_id = fields.Many2one(
         comodel_name="maintenance.stage",
         string="Target Stage",
@@ -127,7 +139,7 @@ class MaintenanceRequestSla(models.Model):
 
         The base is max(last_change_at, start_at): time before the clock starts
         is never counted, so a clock starting in the future is at rest until
-        then. Step 3 calls this on every resume.
+        then.
         """
         for record in self:
             if record.state != "running":
@@ -142,3 +154,98 @@ class MaintenanceRequestSla(models.Model):
                     "risk_at": deadline - timedelta(hours=margin),
                 }
             )
+
+    def _sla_close(self, now):
+        """Book the time since the last change, and make now the last change.
+
+        Running time goes to consumed, paused time to paused_time. Both count
+        from max(last_change_at, start_at) and are clamped at zero, so neither
+        counts anything before the clock starts.
+        """
+        for record in self:
+            base = max(record.last_change_at or record.start_at, record.start_at)
+            hours = max(0.0, (now - base).total_seconds() / 3600)
+            if record.state == "running":
+                record.consumed += hours
+            elif record.state == "paused":
+                record.paused_time += hours
+            record.last_change_at = now
+
+    def _sla_cancel(self, now):
+        """Cancel the open records among self; finished ones keep their state."""
+        records = self.filtered(lambda record: record.state in OPEN_STATES)
+        records._sla_close(now)
+        records.write({"state": "cancelled"})
+        records._set_deadline()
+        return records
+
+    def _sla_evaluate(self, now):
+        """Bring each open record in line with its request's current stage.
+
+        Positions are compared as (sequence, id) pairs read live, the order the
+        board itself uses; target_sequence is evidence, never an input. A record
+        is written only when its state changes: a move between two counting
+        stages leaves it exactly as it was.
+
+        Returns the records that finished or were cancelled.
+        """
+        changed = self.browse()
+        for record in self.filtered(lambda record: record.state in OPEN_STATES):
+            stage = record.request_id.stage_id
+            target = record.target_stage_id
+            if stage.sla_cancel:
+                changed |= record._sla_cancel(now)
+            elif (stage.sequence, stage.id) >= (target.sequence, target.id):
+                record._sla_close(now)
+                # consumed is a sum of second counts divided by 3600: a target
+                # reached exactly at its deadline can come out a hair over.
+                on_time = (
+                    float_compare(
+                        record.consumed, record.duration, precision_digits=6
+                    )
+                    <= 0
+                )
+                record.write(
+                    {
+                        "reached_at": now,
+                        "elapsed": record.consumed,
+                        "state": "achieved" if on_time else "achieved_late",
+                        "on_time": 100.0 if on_time else 0.0,
+                    }
+                )
+                record._set_deadline()
+                changed |= record
+            else:
+                pausing = stage in record.sla_id.pause_stage_ids
+                if pausing == (record.state == "paused"):
+                    continue
+                record._sla_close(now)
+                record.state = "paused" if pausing else "running"
+                record._set_deadline()
+        return changed
+
+    def _sla_note_line(self):
+        """The chatter line for this record's outcome, or None.
+
+        Outcomes only: met on time or late, cancelled, or a next cycle opened.
+        A first record and a pause or resume post nothing; the stage tracking
+        already records the move.
+        """
+        self.ensure_one()
+        values = {
+            "rule": self.sla_id.name,
+            "elapsed": _format_hours(self.elapsed),
+            "target": _format_hours(self.duration),
+            "cycle": self.cycle,
+        }
+        if self.state == "achieved":
+            return self.env._(
+                "%(rule)s met on time: %(elapsed)s of %(target)s", **values
+            )
+        if self.state == "achieved_late":
+            return self.env._("%(rule)s met late: %(elapsed)s of %(target)s", **values)
+        if self.state == "cancelled":
+            return self.env._("%(rule)s cancelled", **values)
+        if self.cycle > 1:
+            return self.env._("%(rule)s: cycle %(cycle)s started", **values)
+        return None

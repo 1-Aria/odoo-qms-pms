@@ -22,13 +22,16 @@ class MaintenanceStage(models.Model):
         That constraint fires only when a rule's target is written, and dotted
         names are ignored by @api.constrains (odoo/api.py:180). Archived rules
         count, so that un-archiving one cannot bring the conflict back: writing
-        active triggers neither check.
+        active triggers neither check. Searched as sudo(): stages carry no
+        company, and the multi-company rule must not hide another company's
+        rule from the check.
         """
         flagged = self.filtered("sla_cancel")
         if not flagged:
             return
         rule = (
             self.env["maintenance.sla"]
+            .sudo()
             .with_context(active_test=False)
             .search([("target_stage_id", "in", flagged.ids)], limit=1)
         )

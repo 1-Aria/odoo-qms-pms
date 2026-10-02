@@ -14,6 +14,7 @@
     "depends": ["maintenance", "mail"],
     "data": [
         "security/ir.model.access.csv",
+        "security/maintenance_sla_security.xml",
         "views/maintenance_sla_views.xml",
         "views/maintenance_stage_views.xml",
         "views/maintenance_request_sla_views.xml",

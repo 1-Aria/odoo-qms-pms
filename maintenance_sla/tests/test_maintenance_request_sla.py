@@ -358,3 +358,49 @@ class TestRequestSlaAccess(RequestSlaCase):
             records.write({"cycle": 2})
         with self.assertRaises(AccessError):
             records.unlink()
+
+    def test_company_boundary(self):
+        """A user of one company sees neither the rules nor the evidence of another.
+
+        The second company's request names its own team and no machine, so the
+        request's own company checks pass.
+        """
+        main = self.env.company
+        other = self.env["res.company"].create({"name": "SLA test other plant"})
+        team_other = self.env["maintenance.team"].create(
+            {"name": "SLA test other team", "company_id": other.id}
+        )
+        rule_other = self._make_rule(
+            name="SLA test other rule",
+            target_stage_id=self.stage_progress.id,
+            company_id=other.id,
+        )
+        request_main = self._request()
+        request_other = self.env["maintenance.request"].create(
+            {
+                "name": "SLA test other request",
+                "maintenance_type": "corrective",
+                "stage_id": self.stage_new.id,
+                "maintenance_team_id": team_other.id,
+                "company_id": other.id,
+                "priority": "2",
+            }
+        )
+        self.assertTrue(self._records(request_other))
+        user = new_test_user(
+            self.env,
+            login="sla_test_main_only",
+            groups="base.group_user",
+            company_id=main.id,
+            company_ids=[Command.set(main.ids)],
+        )
+        rules = self.env["maintenance.sla"].with_user(user).search(
+            [("id", "in", (rule_other | self.response).ids)]
+        )
+        self.assertEqual(rules, self.response)
+        records = (
+            self.env["maintenance.request.sla"]
+            .with_user(user)
+            .search([("request_id", "in", (request_main | request_other).ids)])
+        )
+        self.assertEqual(records, self._records(request_main))

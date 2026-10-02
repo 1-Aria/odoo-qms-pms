@@ -18,6 +18,12 @@
             <field name="request_date" position="after">
                 <field name="reported_at" readonly="id" />
             </field>
+            <!-- Cancellation is final for a request under SLA: write() refuses
+                 the way back, and the button that takes it is hidden. Core has
+                 invisible="not archive" (maintenance_views.xml:85). -->
+            <button name="reset_equipment_request" position="attributes">
+                <attribute name="invisible">not archive or sla_ids</attribute>
+            </button>
             <xpath expr="//notebook" position="inside">
                 <page string="SLA" name="sla">
                     <field name="sla_ids" readonly="1" nolabel="1" />

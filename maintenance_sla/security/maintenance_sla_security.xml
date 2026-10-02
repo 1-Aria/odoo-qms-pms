@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- A company boundary, declared as core declares
+         maintenance_request_comp_rule: no groups and no global field, which
+         ir.rule computes from the absence of groups. Matching runs as sudo(),
+         so neither rule affects which records a request gets. -->
+    <record id="maintenance_sla_comp_rule" model="ir.rule">
+        <field name="name">Maintenance SLA Rule Multi-company rule</field>
+        <field name="model_id" ref="model_maintenance_sla" />
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+
+    <record id="maintenance_request_sla_comp_rule" model="ir.rule">
+        <field name="name">Maintenance Request SLA Multi-company rule</field>
+        <field name="model_id" ref="model_maintenance_request_sla" />
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+
+</odoo>

@@ -14,7 +14,7 @@ The engine of the SLA cluster. It reads the native `priority` field and nothing 
 |---|---|---|---|
 | 1 | Configuration: `maintenance.sla` rules and their constraints, `sla_cancel` on stages, access, views, menu | done | 2026-10-01, one pass. `exit=0`, 10 tests, 0 failures; UI checked: the SLA Rules menu and form, the domain editor offering request fields, an `h:mm` target, *Cancels SLA* in the stage list, and a cancel flag on a target refused from both ends |
 | 2 | Evidence: `maintenance.request.sla` and its snapshots, `reported_at`, `_sla_apply()` at creation | done | 2026-10-01, two passes. The first failed `test_requester_creates_records` with an `AccessError` on create: `hr_maintenance` computes `owner_user_id` from an employee (`hr_maintenance/models/equipment.py:87-97`), and `create()` checks record rules (`odoo/models.py:5298`) before mail subscribes the creator (`mail/models/mail_thread.py:294-299`), so a plain internal user failed the own-requests rule before this module ran. The test now makes the requester the request's responsible. Second run `exit=0`, 27 tests, 0 failures; UI checked: *Reported At* editable before the first save, one running record per matching rule with its deadline, a backdated report giving an overdue deadline, records read-only, existing requests without records |
-| 3 | The clock: stage transitions, pause and resume, achieved and late, cancel, cycles | — | |
+| 3 | The clock: stage transitions, pause and resume, reached on time and late, cancel stages and archiving, final cancellation, next cycles, chatter notes, multi-company rules | done | 2026-10-02, one pass. `exit=0`, 47 tests, 0 failures; UI checked: a commitment met on time with its note, *Scrap* cancelling with its note and refusing the way back, archiving cancelling with *Reopen Request* hidden. The UI check also showed that an archived request can still be dragged between stages in the kanban — core's behaviour, harmless to the evidence, left as it is (D13) |
 | 4 | Re-matching on request changes, waivers, `reported_at` correction | — | |
 | 5 | Live state, the request's `next_deadline` and `sla_live_state`, kanban ordering and filters | — | |
 | 6 | Reporting: the pivot and graph actions and their menu | — | |
@@ -44,7 +44,9 @@ tests without it, because the tests build their own stages and rules.
 | 4 | §4.1 has `start_from` (`reported` / `scheduled`) on the rule | no such field: the start follows the request's type — `reported_at` for corrective, `schedule_date` for preventive, falling back to `reported_at` when a preventive request has no scheduled date, and to `create_date` when `reported_at` is empty | R6 already ties the start to the type, and no rule the design names needs the other combination. A field that can only ever hold the value its type implies is a way to misconfigure a rule. The fallbacks exist because core does not require `schedule_date` and only `maintenance_plan` always sets it — a preventive request raised by hand would otherwise be unmeasured — and because `reported_at` is not required either, while a record's `start_at` is |
 | 5 | §4.1 matches `equipment_category_ids` without saying how | exact match on the request's category; no `child_of` | `child_of` on a model without `_parent_store` reads `_fields['parent_id']` (`odoo/osv/expression.py:902`), which only exists while `maintenance_equipment_category_hierarchy` is installed. A module meant for contribution cannot depend on it. A site that has the hierarchy can still write `[('category_id', 'child_of', X)]` in the rule's `domain`, which divergence 2's check accepts there |
 | 6 | §4.3 makes the grouping dimensions `related, stored` | plain fields, copied at record creation and refreshed by `_sla_apply()` while the record is open; only `company_id` stays related | A related stored field rewrites every record when the request changes, finished ones included, which breaks O2. Copied only at creation, a request reassigned to another team would leave its open record credited to the old one. Refreshed while open and fixed once finished, the dimensions describe the request as it stood when the commitment was met |
-| 7 | §4.3 delegates access to the request with `return result or self.request_id._check_access(operation)`, as `helpdesk.ticket.sla` does | no delegation: the evidence is readable by every internal user | Settled in review on 2026-10-01: the restriction accomplishes nothing. `_check_access` governs reading records, not finding them — `search` and `read_group` apply record rules only — so the pivot would count and group every record whatever it hid. What it would hide is a rule name and some times. The snippet is also defective as written: it returns the request's records as the forbidden ones, while `_filtered_access` subtracts them from this model's (`odoo/models.py:4460-4461`), which raises `TypeError` (`:6963-6964`) |
+| 7 | §4.3 delegates access to the request with `return result or self.request_id._check_access(operation)`, as `helpdesk.ticket.sla` does | no delegation: the evidence is readable by every internal user | Settled in review on 2026-10-01: the restriction accomplishes nothing. Record access is enforced in `_search`, which `search`, `read_group` and the reading of stored fields all go through: `fetch()` reads stored fields through `_search([('id', 'in', ids)])` (`odoo/models.py:4141-4142`), and its refusal is raised from `ir.rule`, not from `_check_access` (`:4160-4164`). A `_check_access` override would therefore restrict almost nothing, not even most reads; restricting the evidence would take a `_search` override, as `mail.activity` has. What it would hide is a rule name and some times. The snippet is also defective as written: it returns the request's records as the forbidden ones, while `_filtered_access` subtracts them from this model's (`odoo/models.py:4460-4461`), which raises `TypeError` (`:6963-6964`) |
+| 8 | §5.1: "Every state change is posted to the request's chatter" | outcomes only: a commitment met on time or late, a commitment cancelled, and a next cycle opened — one note per request per change, not one per record. Pausing and resuming post nothing, nor does a first record | A pause or resume is a stage change, which the request's stage tracking already writes to the chatter; a note beside it repeats it. A first record exists on every request from its creation and is on the SLA page. What the chatter cannot otherwise show is the outcome |
+| 9 | §5.1 cancels open records on a cancel stage or on archiving, and does not forbid the way back | cancellation is final for a request under SLA: `write()` refuses to move it out of a cancel stage, or to un-archive it, and the form hides *Reopen Request* | A cancelled work order is final in CMMS practice; reopening is raising a new request. Odoo treats its own manufacturing orders the same way: `mrp.production` has `action_cancel` (`mrp/models/mrp_production.py:1748`) and no way back from `cancel`. And it keeps the cycle simple: a request coming back from a cancellation would need a rule for what the gap means — a new cycle from the move, or the old clock resumed — and neither is evidence of anything. Requests without SLA records keep core's behaviour |
 
 ## Decisions for later steps
 
@@ -58,17 +60,14 @@ Settled before the code exists, so that steps 2–4 are specced against them.
 | D4 | **An empty priority collects only the rules with no priority set.** `maintenance_priority_matrix` allows an empty priority when no grid row matches; such a request gets the site's priority-agnostic commitments and no others. Tested | 2 |
 | D5 | **No backfill.** Records are created by `create()` and `write()` only. Requests that exist when the module is installed get none, and nothing re-matches when a *rule* changes | 2 |
 | D6 | **The current stage is evaluated at creation.** Step 2 creates a record `paused` when the request starts in one of its rule's pause stages. Step 3 adds the reached case: a request created at or past a target — a kanban quick-create in a later column — has that record finished straight away | 2, 3 |
-| D7 | **When `write()` re-matches.** `priority`, `maintenance_team_id`, `category_id`, `maintenance_type` and `company_id` are read per record before `super()`, and `_sla_apply()` runs for the records where any of them changed. Captured, not read from `vals`: `category_id` is a stored related on `equipment_id`, so a reassigned machine changes it while `vals` names neither — the lesson `maintenance_priority_matrix` learnt for its own suggestion. A rule's `domain` is evaluated only at those moments: a change to a field only the domain reads triggers nothing | 4 |
+| D7 | **When `write()` re-matches.** `priority`, `maintenance_team_id`, `category_id`, `maintenance_type` and `company_id` are read per record before `super()`, and `_sla_apply()` runs for the records where any of them changed. Captured, not read from `vals`: `category_id` is a stored related on `equipment_id`, so a reassigned machine changes it while `vals` names neither — the lesson `maintenance_priority_matrix` learnt for its own suggestion. A rule's `domain` is evaluated only at those moments: a change to a field only the domain reads triggers nothing. Correcting `reported_at` moves only cycle-1 records whose start came from it: a next cycle starts at its move, and a preventive record at `schedule_date` | 4 |
 | D8 | **Load order does not matter.** `maintenance_priority_matrix` writes `priority` from inside its `create()`. Whichever module loads last, either our `write()` runs inside `super().create()` before our own matching, or after it. Two tests cover both: create-then-write-priority leaves exactly one record per target stage, held by the winner; and a second `_sla_apply()` on an unchanged request changes nothing | 2, 4 |
-| D9 | **Reached target stages are left alone.** A target stage whose latest record is finished and which the request still sits at or past gets no new record from re-matching | 4 |
+| D9 | **Reached target stages are left alone.** A target stage whose latest record is finished and which the request still sits at or past gets no new record from re-matching | 3, 4 |
 | D10 | **A replacement carries the clock.** A record replacing a cancelled open one takes its `start_at`, `consumed`, `paused_time` and `cycle`; the new rule's target, duration and at-risk % apply from then on. A record with no predecessor — a rule newly matching — has no pause history, so its clock counts from `start_at` | 4 |
-| D11 | **The next cycle is opened by `_sla_apply()` too.** For a target stage with no open record, whose latest record is finished, while the request now sits below that stage: a new record from the *current* winner, with `cycle + 1` and `start_at` the moment of the move. Only the latest record counts, and only when no open record exists for that stage, so a finished record cannot open a cycle twice. If priority changed in between, the next cycle follows the current rule — where design §5.2's `_open_next_cycles` reopens from the same rule, the one place this differs from it | 3 |
+| D11 | **The next cycle is opened by `_sla_apply()` too.** For a target stage with no open record, whose latest record is finished, while the request now sits below that stage: a new record from the *current* winner, with `cycle + 1` and `start_at` the moment of the move. Only the latest record counts, and only when no open record exists for that stage, so a finished record cannot open a cycle twice. If priority changed in between, the next cycle follows the current rule — where design §5.2's `_open_next_cycles` reopens from the same rule, the one place this differs from it. A rejection back below several targets opens a cycle for each: back to *New*, below both, opens a *Response* cycle 2 as well as a *Restore* one | 3 |
 | D12 | **A cancel stage acts on open records only.** Finished records are evidence and keep their state | 3 |
-
-**Open for the step 3 spec.** A request that leaves a cancel stage, or is un-archived —
-core's `reset_equipment_request` (`maintenance/models/maintenance.py:293-297`) moves it back to the
-first stage — has only cancelled records. Plain matching would recreate cycle 1 from
-`reported_at`, overdue from the moment it exists.
+| D13 | **Cancellation is final for a request under SLA** (divergence 9). For a request with SLA records, `write()` refuses a move from a stage flagged `sla_cancel` to one that is not, and `archive=False` on an archived request — which also covers core's `reset_equipment_request` (`maintenance/models/maintenance.py:293-297`), writing both. The form hides *Reopen Request* for such a request. Requests without records keep core's behaviour. `_sla_apply()` keeps its row for a cancelled latest record, which now serves only step 4's case: a record cancelled because its rule stopped matching. An archived request can still be dragged between stages in the kanban: core hides the stage bar on the form (`maintenance/views/maintenance_views.xml:86`) but enforces nothing on the server. Left as it is — no record is open to evaluate, `_sla_apply()` skips archived requests, and only the move out of a cancel stage is refused | 3 |
+| D14 | **A stage change opens next cycles only.** On a stage change `_sla_apply()` runs with `next_cycles_only=True`: it may open D11's next cycle, never a first record. Otherwise a rule added after the request was raised would attach to it at its next move, counting from `reported_at` — the backfill D5 rules out, by a side door | 3 |
 
 ## Folder structure
 
@@ -82,6 +81,7 @@ maintenance_sla/
 │   ├── maintenance_request_sla.py                        # 2
 │   └── maintenance_request.py                            # 2, 3, 4, 5
 ├── security/ir.model.access.csv                          # 1, 2
+│           maintenance_sla_security.xml                  # 3
 ├── views/
 │   ├── maintenance_sla_views.xml                         # 1
 │   ├── maintenance_stage_views.xml                       # 1
@@ -90,6 +90,7 @@ maintenance_sla/
 │   └── maintenance_sla_report_views.xml                  # 6
 ├── tests/__init__.py, test_maintenance_sla_rule.py       # 1
 │         test_maintenance_request_sla.py                 # 2
+│         test_maintenance_sla_clock.py                   # 3
 └── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), 5 (USAGE)
 ```
 
@@ -105,7 +106,7 @@ maintenance_sla/
 | `license` | `AGPL-3` |
 | `category` | `Maintenance` |
 | `depends` | `maintenance`, `mail` |
-| `data` | `security/ir.model.access.csv`, `views/maintenance_sla_views.xml`, `views/maintenance_stage_views.xml`, `views/maintenance_request_sla_views.xml` (step 2), `views/maintenance_request_views.xml` (step 2) |
+| `data` | `security/ir.model.access.csv`, `security/maintenance_sla_security.xml` (step 3), `views/maintenance_sla_views.xml`, `views/maintenance_stage_views.xml`, `views/maintenance_request_sla_views.xml` (step 2), `views/maintenance_request_views.xml` (step 2) |
 | `installable` | `True` |
 
 `mail` is declared although `maintenance` already brings it: this module posts to the request's
@@ -118,7 +119,7 @@ accident.
 |---|---|
 | `__init__.py` | `from . import models` |
 | `models/__init__.py` | `from . import maintenance_sla`, `from . import maintenance_stage`, `from . import maintenance_request_sla` (step 2), `from . import maintenance_request` (step 2) |
-| `tests/__init__.py` | `from . import test_maintenance_sla_rule`, `from . import test_maintenance_request_sla` (step 2) |
+| `tests/__init__.py` | `from . import test_maintenance_sla_rule`, `from . import test_maintenance_request_sla` (step 2), `from . import test_maintenance_sla_clock` (step 3) |
 
 ## Models
 
@@ -224,7 +225,7 @@ while *Scrap* must cancel them.
 
 | Method | Decorator | Rule | Message |
 |---|---|---|---|
-| `_check_not_a_target` | `@api.constrains("sla_cancel")` | a flagged stage may not be the target of any rule, archived rules included (`active_test=False`) | `"'%(stage)s' is the target stage of the SLA rule '%(rule)s', so it cannot cancel SLA records."` |
+| `_check_not_a_target` | `@api.constrains("sla_cancel")` | a flagged stage may not be the target of any rule, archived rules included (`active_test=False`), searched as `sudo()` so that step 3's multi-company rule cannot hide another company's rule from the check — stages carry no company | `"'%(stage)s' is the target stage of the SLA rule '%(rule)s', so it cannot cancel SLA records."` |
 
 **The rule's constraint cannot see this side.** `@api.constrains("target_stage_id")` fires only
 when a rule's target is written, and dotted names are ignored (`odoo/api.py:180`), so flagging a
@@ -232,7 +233,7 @@ stage that is already a target needs its own check here. Archived rules are incl
 un-archiving one cannot bring the conflict back unnoticed — writing `active` triggers neither
 constraint.
 
-### `maintenance.request.sla` — `models/maintenance_request_sla.py` (step 2)
+### `maintenance.request.sla` — `models/maintenance_request_sla.py` (steps 2, 3)
 
 `models.Model` · `_name = "maintenance.request.sla"` · `_description = "Maintenance Request SLA"` · `_order = "id"`
 
@@ -248,7 +249,17 @@ STATES = [
     ("achieved_late", "Achieved late"),
     ("cancelled", "Cancelled"),
 ]
+OPEN_STATES = ("running", "paused")
+FINISHED_STATES = ("achieved", "achieved_late")
+
+
+def _format_hours(hours):
+    """Hours as H:MM, rounded to the minute."""
+    minutes = round(hours * 60)
+    return f"{minutes // 60}:{minutes % 60:02d}"
 ```
+
+`FINISHED_STATES` is imported by `models/maintenance_request.py` for `_sla_apply()`'s guard.
 
 | Field | Type | Attributes |
 |---|---|---|
@@ -293,15 +304,40 @@ the rule, and stages have no `active` field to retire them with
 long as that record does. Renaming or resequencing it remains possible; the record's
 `target_sequence` keeps the position it had.
 
-**The evidence is readable by every internal user** (divergence 7): no record rules, and no
-delegation to the request.
+**The evidence is readable by every internal user** (divergence 7), within the companies they
+work in: one multi-company record rule (step 3, *Security*), and no delegation to the request.
 
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_compute_display_name` | `@api.depends("sla_id", "request_id")` | `"<rule name> · <request display name>"`, the request's name read through `sudo()` — a reader of the evidence may not be able to read the request itself |
-| `_set_deadline` | — | for each record: while `running`, `deadline = max(last_change_at, start_at) + (duration − consumed)` hours and `risk_at = deadline − (1 − at_risk_pct / 100) × duration` hours; otherwise both `False`. Step 3 calls it on every resume |
+| `_set_deadline` | — | for each record: while `running`, `deadline = max(last_change_at, start_at) + (duration − consumed)` hours and `risk_at = deadline − (1 − at_risk_pct / 100) × duration` hours; otherwise both `False` |
+| `_sla_close` (step 3) | — | `(now)`: for each record, adds `max(0, now − max(last_change_at, start_at))` hours to `consumed` when `running`, to `paused_time` when `paused`; then `last_change_at = now`. The clamp and the shared base are what keep a clock that starts in the future at rest: neither running nor paused time counts before `start_at` |
+| `_sla_cancel` (step 3) | — | `(now)`: on the open records only — `_sla_close(now)`, `state` `cancelled`, `_set_deadline()`. Returns them |
+| `_sla_note_line` (step 3) | — | `ensure_one`; the chatter line for this record's outcome, from the table under `_sla_post`, or `None` |
+| `_sla_evaluate` (step 3) | — | `(now)`: brings each **open** record in line with its request's current stage, below. Returns the records that finished or were cancelled |
 
-### `maintenance.request` — `models/maintenance_request.py` (step 2)
+**`_sla_evaluate(now)`** — per open record, against the request's stage as it is now, comparing
+positions as `(sequence, id)` pairs read live (design §5.2), never `target_sequence`:
+
+| Request's stage | Record | Effect |
+|---|---|---|
+| flagged `sla_cancel` | open | `_sla_cancel(now)` (D12) |
+| at or past `target_stage_id` | open | `_sla_close(now)`; `reached_at = now`; `elapsed = consumed`; `state` `achieved` when `float_compare(consumed, duration, precision_digits=6) <= 0`, else `achieved_late` — `consumed` is a sum of second counts divided by 3600, so a target reached exactly at its deadline can come out a hair over and be judged late without it; `on_time` 100 or 0; `_set_deadline()` clears the deadline |
+| below the target, among the rule's `pause_stage_ids` | `running` | `_sla_close(now)`; `state` `paused`; `_set_deadline()` clears it |
+| below the target, not a pause stage | `paused` | `_sla_close(now)`; `state` `running`; `_set_deadline()` from the remaining time |
+| below the target | already in the matching state | nothing |
+
+**A record is written only when its state changes.** A move between two counting stages leaves a
+running record exactly as it was: closing and reopening it would add nothing to the clock and
+move `last_change_at`, which records the last *state* change, and re-derive a deadline that
+cannot differ. It is also why a record created in step 2's initial state passes through
+`_sla_evaluate` untouched unless the stage reaches or cancels it.
+
+**Pause stages are read from the rule, live.** The snapshots are the target, the duration and
+the at-risk share (design R5, §4.3); a rule's pause stages are not among them, so editing them
+changes how open records treat their next stage change. Finished records are unaffected.
+
+### `maintenance.request` — `models/maintenance_request.py` (steps 2, 3)
 
 | Field | Type | Attributes |
 |---|---|---|
@@ -315,44 +351,78 @@ time. On this instance that is the four test requests.
 
 | Method | Decorator | Behaviour |
 |---|---|---|
-| `create` | `@api.model_create_multi` | `super()`, then `_sla_apply()` on the new requests |
+| `create` | `@api.model_create_multi` | `super()`, then `_sla_apply()` on the new requests, then `_sla_post()` with what it returns |
+| `write` (step 3) | — | below |
 | `_sla_start` | — | `ensure_one`; the clock start: `schedule_date or reported_at or create_date` for a preventive request, `reported_at or create_date` otherwise (divergence 4). `reported_at` is not required, and a caller may pass `False`; `start_at` is required, so without the last fallback the record's INSERT would fail and block the request's creation |
-| `_sla_apply` | — | the one matching function (D1), below |
+| `_sla_apply` | — | `(next_cycles_only=False, now=None)`: the one matching function (D1), below. `now` defaults to the current time; `write()` passes its own, so a stage change and the next cycle it opens share one timestamp. Returns the records it created, in their evaluated state — those finished at creation included |
+| `_sla_post` (step 3) | — | `(records)`: one note per request, below; the lines come from each record's `_sla_note_line()`, and this method only groups them per request and posts |
 
-**`_sla_apply()` in step 2** — the creation case, on `self.sudo()` (D2):
+**`_sla_apply(next_cycles_only=False)`** — on `self.sudo()` (D2), with `now` read once:
 
 1. Read the active rules once, in `_order`.
 2. Skip a request that is archived or sits in a stage flagged `sla_cancel`: nothing is
    promised on a request that is already cancelled.
 3. Per target stage, the winner is the first rule in that order whose `_matches(request)` holds.
-4. For each target stage with a winner and **no record of the request on that target stage that
-   is not cancelled**, create one: `sla_id` and the four snapshots from the rule; `start_at` from
-   `_sla_start()`; `state` `paused` when the request's stage is among the rule's
-   `pause_stage_ids`, `running` otherwise; `consumed` and `paused_time` `0.0`;
-   `last_change_at = start_at`; `cycle` 1; the five dimensions from the request. Then
-   `_set_deadline()` on the new records.
+4. For each target stage with a winner, look at the request's **latest** record on that stage
+   (highest `id`) and the request's position against the stage:
 
-The guard in item 4 is what makes a second run change nothing (D8). `last_change_at = start_at` makes
-a backdated `reported_at` count from the report rather than from the save, and puts a preventive
-clock whose scheduled date lies ahead at rest until that date.
+   | Latest record | Request's stage | Result |
+   |---|---|---|
+   | none | any | a first record — unless `next_cycles_only` (D14) |
+   | open | any | nothing; step 4 replaces one whose rule no longer wins |
+   | cancelled | any | nothing (D13) |
+   | finished | at or past the target stage | nothing (D9) |
+   | finished | below the target stage | the next cycle (D11) |
 
-**The clamp, a contract for step 3.** Step 2 can create a record whose `last_change_at` and
-`start_at` lie in the future. Both of step 3's time additions — to `consumed` when leaving
-`running`, to `paused_time` when leaving `paused` — are therefore
-`max(0, now − max(last_change_at, start_at))`. Paused time uses the same base as running time, so
-a pause before the clock starts counts nothing.
+5. A new record takes: `sla_id` and the four snapshots from the winner; `state` `paused` when the
+   request's stage is among the winner's `pause_stage_ids`, `running` otherwise; `consumed` and
+   `paused_time` `0.0`; the five dimensions from the request; and by kind —
 
-What later steps add to the same function: a record reached at creation and the next cycle (step
-3, D6, D11); cancelling and replacing an open record whose rule no longer wins, and refreshing
-the dimensions of open records (step 4, D1, D10, divergence 6). Step 2 posts nothing to the
-chatter; posts begin with the state changes of step 3.
+   | Kind | `start_at` | `last_change_at` | `cycle` |
+   |---|---|---|---|
+   | first record | `_sla_start()` | `start_at` | 1 |
+   | next cycle | `now` | `now` | the latest record's + 1 |
 
-**Step 3 narrows item 4's guard.** As written it serves creation only: it would block D11, since
-a finished record already exists on the target stage and no next cycle could open. Step 3
-replaces it with: the target stage has **no open record**, and its latest record is not finished
-while the request sits at or past that stage. Neither form settles a request leaving a cancel
-stage — its latest records are cancelled, so both would recreate cycle 1 from the original start
-— which stays the open item under *Decisions for later steps*, for step 3 to answer alongside.
+6. `_set_deadline()`, then `_sla_evaluate(now)` on the new records: a request created at or past a
+   target has that record finished at once (D6).
+
+The table is what makes a second run change nothing (D8): every row but the first and the last
+leaves a target stage alone, and those two only fire where nothing open exists.
+`last_change_at = start_at` makes a backdated `reported_at` count from the report rather than from
+the save, and puts a preventive clock whose scheduled date lies ahead at rest until that date.
+
+What step 4 adds to the same function: cancelling and replacing an open record whose rule no
+longer wins (D10), and refreshing the dimensions of open records (divergence 6).
+
+**`write(vals)` (step 3)**
+
+| Moment | Behaviour |
+|---|---|
+| before `super()` | for a request with SLA records, raise `UserError` (D13) when `vals` moves it from a stage flagged `sla_cancel` to one that is not, or when `vals` has `archive` falsy while the request is archived: `"%(request)s was cancelled with SLA commitments recorded against it, so it cannot be reopened. Raise a new request instead."` |
+| | when `vals` has `stage_id`, each record's current stage is kept by `id` |
+| after `super()`, on `self.sudo()` with `now` read once | when `vals.get("archive")`, `_sla_cancel(now)` on the requests' open records (design §5.1: archiving hides a request without changing its stage, so nothing else would stop its clocks) |
+| | the requests whose stage actually changed get `_sla_evaluate(now)` on their open records, then `_sla_apply(next_cycles_only=True)` |
+| | `_sla_post()` with every record cancelled, finished or created above |
+
+Comparing the stage before and after, rather than testing for the key, keeps a write that sets the
+stage a request already has — a form saved unchanged, an import — from doing anything. Core's
+own nested writes after a stage change (`close_date`, `kanban_state`,
+`maintenance/models/maintenance.py:343-365`) do not carry `stage_id`, so they pass through without
+effect.
+
+**`_sla_post(records)`** — on the sudo requests, through `_message_log` (`mail/models/mail_thread.py:2826`):
+an internal note, no notification. One note per request, one line per record, in `id` order:
+
+| Record | Line |
+|---|---|
+| `achieved` | `"%(rule)s met on time: %(elapsed)s of %(target)s"` |
+| `achieved_late` | `"%(rule)s met late: %(elapsed)s of %(target)s"` |
+| `cancelled` | `"%(rule)s cancelled"` |
+| open, `cycle` > 1 | `"%(rule)s: cycle %(cycle)s started"` |
+| open, `cycle` 1 | no line |
+
+Hours are shown as `H:MM`, rounded to the minute. A request with no line gets no note. The lines
+are passed through `self.env._` and joined as escaped HTML, so a rule name cannot inject markup.
 
 **On this instance `maintenance_priority_matrix` loads first**, so its `create()` runs inside
 this one. Modules of equal depth load in name order (`odoo/modules/graph.py:109-117`), and
@@ -379,6 +449,25 @@ Read for every internal user for the same reason the priority grid needs it: cor
 creation. Matching itself runs as `sudo()` (D2); the read right is for the forms and the
 evidence that link to rules. `base_maintenance_group`'s *Full Access* group implies
 `maintenance.group_equipment_manager`, so the manager row covers it.
+
+## Security — `security/maintenance_sla_security.xml` (step 3)
+
+| XML id | Model | Groups | Domain |
+|---|---|---|---|
+| `maintenance_sla_comp_rule` | `model_maintenance_sla` | none (global) | `[('company_id', 'in', company_ids + [False])]` |
+| `maintenance_request_sla_comp_rule` | `model_maintenance_request_sla` | none (global) | `[('company_id', 'in', company_ids + [False])]` |
+
+Named *Maintenance SLA Rule Multi-company rule* and *Maintenance Request SLA Multi-company rule*,
+and declared the way core declares `maintenance_request_comp_rule`
+(`maintenance/security/maintenance.xml:43-47`): no groups and no `global` field, which
+`ir.rule` computes from the absence of groups (`base/models/ir_rule.py:53`).
+
+**A company boundary, not the request-level restriction divergence 7 declines.** The instance
+runs two companies; without these, each company's managers would see the other's rules in
+configuration, and step 6's pivot would mix both companies' evidence. A rule with no company
+stays visible to all, as the priority grid's rows do. Matching runs as `sudo()` (D2), so neither
+rule affects which records a request gets — and `_check_not_a_target` searches as `sudo()` for the
+same reason.
 
 ## Views — `views/maintenance_sla_views.xml`
 
@@ -432,6 +521,7 @@ report action over the same list.
 |---|---|---|---|
 | `hr_equipment_request_view_form` | `maintenance.hr_equipment_request_view_form` | field `request_date` after | `reported_at`, `readonly="id"` |
 | | | `//notebook` inside | page `SLA` (`name="sla"`) holding `sla_ids` (`readonly="1"`, `nolabel="1"`), shown through `maintenance_request_sla_view_list` |
+| | | button `reset_equipment_request`, `position="attributes"` (step 3) | `invisible` becomes `not archive or sla_ids` — core has `not archive` (`maintenance/views/maintenance_views.xml:85`); D13 |
 
 `request_date` sits in the form's first group (`maintenance/views/maintenance_views.xml:104`),
 which is where the report time belongs. **`reported_at` is editable only before the first
@@ -510,6 +600,37 @@ fixture sets it.
 | `test_requester_creates_records` | a request raised by the requester gets its records, although the requester has no create right on them — the engine runs as `sudo()` (D2). The request names no machine: core's *Users are allowed to access equipment they follow* rule applies to every internal user, and core's own computes read the machine as the requesting user (`maintenance/models/maintenance.py:305-310`, `:313-319`), so a machine the requester does not follow would fail there before this module runs. The requester is the request's responsible (`user_id`): `hr_maintenance` computes `owner_user_id` from an employee, and `create()` checks record rules before mail subscribes the creator, so without it a plain internal user fails the own-requests rule on create |
 | `test_records_readable_by_any_internal_user` | on a request the requester neither owns, follows nor is assigned — and so cannot read — the requester reads its records' `state`, `deadline` and `display_name` (divergence 7; the display name through its `sudo()` read of the request) |
 | `test_records_read_only_for_everyone` | the manager reads the records, and writing or deleting them raises `AccessError` |
+| `test_company_boundary` (step 3) | a user of the main company alone does not find a rule of a second company, nor the records of a request raised in it, and does find a company-less rule and the records of a main-company request. The second company's request names its own team and no machine, so the request's company checks pass |
+
+## Tests — `tests/test_maintenance_sla_clock.py` (step 3)
+
+`TestSlaClock(RequestSlaCase)`, `@tagged("post_install", "-at_install")`, importing the base
+class from `test_maintenance_request_sla`. Time is fixed with `freezegun.freeze_time`, which the
+container provides and OCA's `maintenance_plan` tests already use: each request is created at a
+fixed `T0` and moved at `T0` plus a number of hours, so every duration is exact. With the
+fixture rules, *Response* is 1 hour at 75 % and *Restore* 8 hours at 50 %, pausing in *waiting*.
+
+| Test | Asserts |
+|---|---|
+| `test_target_reached_on_time` | moved to *in progress* at +0:30, *Response* is `achieved`, `reached_at` +0:30, `elapsed` 0.5, `on_time` 100, no deadline; *Restore*, still below its target, is untouched — `last_change_at` `T0`, deadline `T0` + 8 |
+| `test_target_reached_late` | moved at +2, *Response* is `achieved_late`, `elapsed` 2.0, `on_time` 0 |
+| `test_reached_exactly_at_the_deadline` | *Restore* paused from +0:20 to +0:40, then the request moved to *restored* at the record's own deadline: `achieved`, `on_time` 100 — the `float_compare` boundary |
+| `test_later_stage_counts_as_reached` | moved from *new* straight to *restored* at +3, both are finished: *Response* late, *Restore* on time |
+| `test_pause_and_resume` | +1 *in progress*; +2 *waiting*: *Restore* `paused`, `consumed` 2.0, no deadline; +5 *in progress*: `running`, `paused_time` 3.0, deadline `T0` + 11, `risk_at` `T0` + 7; +6 *restored*: `achieved`, `elapsed` 3.0, `paused_time` 3.0 |
+| `test_cancel_stage_cancels_open_records_only` | +1 *in progress*, +2 *scrap*: *Restore* `cancelled` with `consumed` 2.0; *Response* stays `achieved` with its `reached_at` (D12) |
+| `test_archiving_cancels_open_records` | `archive_equipment_request()` at +1 cancels both |
+| `test_cancelled_request_cannot_come_back` | for a request with records: moved to *scrap*, a move back to *new* raises `UserError`; archived, `reset_equipment_request()` raises `UserError` (D13) |
+| `test_request_without_records_reopens_freely` | with every rule archived, a request moved to *scrap* moves back, and an archived one is reopened by `reset_equipment_request()` — core's behaviour |
+| `test_reopen_hidden_under_sla` | in the request form's arch from `get_view`, the `reset_equipment_request` button carries `invisible="not archive or sla_ids"` |
+| `test_rejection_opens_the_next_cycle` | +1 *in progress*, +3 *restored*, +4 back to *in progress*: a second *Restore* record, `cycle` 2, `start_at` +4, `running`, deadline +12; the first is untouched; *Response*, still reached, gets nothing (D9). A second request rejected from *restored* back to *new* gets a cycle 2 of both *Response* and *Restore* |
+| `test_next_cycle_opens_once` | after the rejection, +5 *waiting* and +6 *in progress* still leave exactly two *Restore* records |
+| `test_next_cycle_follows_the_current_rule` | a lower-sequence rule on *restored*, added after the first cycle finished, holds the second cycle (D11) |
+| `test_reached_at_creation` | a request created in *in progress* with `reported_at` two hours back has *Response* `achieved_late` at once, `elapsed` 2.0, `reached_at` `T0` (D6) |
+| `test_clock_at_rest_before_its_start` | a preventive rule pausing in *waiting*, on a request scheduled for +48: moved to *waiting* at +1, then to *new* at +50 — `consumed` 0.0, `paused_time` 2.0, deadline +50 plus the target (the clamp) |
+| `test_unchanged_stage_does_nothing` | writing the stage the request already has changes no record and posts no note |
+| `test_new_rule_not_picked_up_on_stage_change` | a rule created after the request, on a stage it has no record for, gives it no record when it moves (D14) |
+| `test_outcomes_posted` | +2 *in progress*, +3 *waiting*, +4 *scrap*: one note naming *Response* met late with `2:00 of 1:00`, one naming *Restore* cancelled, and no note for the pause |
+| `test_next_cycle_posted` | the rejection of `test_rejection_opens_the_next_cycle` posts a note naming *Restore* and cycle 2 |
 
 ## Readme
 
