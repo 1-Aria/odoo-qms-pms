@@ -12,7 +12,7 @@ the QMS chain and of the SLA cluster.
 
 | # | Scope | Status | Result |
 |---|---|---|---|
-| 1 | The whole module: `action_template_ids` on the plan, action generation in the request's `create()`, the plan form page, tests, readme | proposed | |
+| 1 | The whole module: `action_template_ids` on the plan, action generation in the request's `create()`, the plan form page, tests, readme | done | 2026-10-03, one pass. `exit=0`, 7 tests, 0 failures; UI checked: a typed and an untyped template on a plan, manual generation giving each request one action from the typed template, due on its scheduled date and linked back; nothing from the untyped one |
 
 ## O6, checked
 
@@ -95,7 +95,7 @@ No access file: no new model. Templates are readable and editable by every inter
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `create` | `@api.model_create_multi` | `super()`, then `_create_plan_actions()` on the new requests (D1) |
-| `_create_plan_actions` | — | for each request with a `maintenance_plan_id`, one action per template of the plan that has a `type_action`, created in one `create()` call on `mgmtsystem.action` as `sudo()` (divergence 1), with D2's values plus `maintenance_request_id` the request and `date_deadline` the date of its `schedule_date` (divergence 3). A template without a type is skipped and logged at `INFO`, naming the template and the request (divergence 2) |
+| `_create_plan_actions` | — | reading the requests and their plans as `sudo()` — a requester raising a request by hand with a plan set needs no read access to plans — for each request with a `maintenance_plan_id`, one action per template of the plan that has a `type_action`, all created in one batched `create()` on `mgmtsystem.action` as `sudo()` (divergence 1), with D2's values plus `maintenance_request_id` the request and `date_deadline` the date of its `schedule_date` (divergence 3). A template without a type is skipped and logged at `INFO`, naming the template and the request (divergence 2) |
 
 ## Views — `views/maintenance_plan_views.xml`
 
@@ -107,7 +107,10 @@ No access file: no new model. Templates are readable and editable by every inter
 
 `TestPlanActionTemplate(TransactionCase)`, `@tagged("post_install", "-at_install")`: the
 fixtures create equipment, a plan, requests and a user. Two templates with a type, one without,
-a tag, and a plan on the test's own machine.
+a tag, and a plan on the test's own machine with a monthly interval, a two-month horizon and
+today's start, so generation yields several requests. `_generate` runs the plan's own button and
+`_actions` searches actions by `maintenance_request_id`; the log is asserted on the module's own
+logger, `odoo.addons.maintenance_plan_action_template.models.maintenance_request`.
 
 | Test | Asserts |
 |---|---|

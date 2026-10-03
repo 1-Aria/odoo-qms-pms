@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="maintenance_plan_view_form" model="ir.ui.view">
+        <field name="name">maintenance.plan.form.action.templates</field>
+        <field name="model">maintenance.plan</field>
+        <field name="inherit_id" ref="maintenance_plan.maintenance_plan_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Action Templates" name="action_templates">
+                    <field
+                        name="action_template_ids"
+                        nolabel="1"
+                        widget="many2many_tags"
+                        options="{'no_create': True}"
+                    />
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
