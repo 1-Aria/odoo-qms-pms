@@ -32,6 +32,8 @@ until a commitment of the request pauses, is met or is cancelled; the commitment
 - It is **cancelled** with its request, by a cancelling stage or by the *Cancel* button.
   **Cancellation is final**: a cancelled request with commitments cannot be reopened; raise a new
   one.
+- A request with commitments **cannot be deleted**; cancel it instead. Its commitments are
+  evidence, and deleting the request would take them with it.
 - Sending a request **back** below a target it had reached opens a **new cycle** of that
   commitment, starting at the moment it was sent back. The first one keeps its result.
 - A change of **priority, team, machine or type** applies the rules again: a commitment whose rule

@@ -217,6 +217,27 @@ class MaintenanceRequest(models.Model):
             "maintenance_type": self.maintenance_type,
         }
 
+    @api.ondelete(at_uninstall=False)
+    def _unlink_except_sla_records(self):
+        """A request under SLA is cancelled, never deleted.
+
+        Deleting it would take its records with it (request_id cascades), and
+        SLA records are evidence, never deleted (R10). Applies to every user,
+        sudo() included; at_uninstall=False lets an uninstall remove the
+        module's data. Nothing in the installed stack deletes requests in code,
+        and no parent cascades into them: equipment, stage and plan are all
+        restrict.
+        """
+        for request in self.sudo():
+            if request.sla_ids:
+                raise UserError(
+                    self.env._(
+                        "%(request)s has SLA commitments recorded against it, so "
+                        "it cannot be deleted. Cancel it instead.",
+                        request=request.display_name,
+                    )
+                )
+
     def _sla_check_reopen(self, vals):
         """Refuse the way back from a cancellation, for a request under SLA.
 

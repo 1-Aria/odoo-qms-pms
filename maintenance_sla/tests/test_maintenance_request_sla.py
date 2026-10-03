@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 from odoo import Command, fields
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import TransactionCase, new_test_user, tagged
 
 
@@ -404,6 +404,29 @@ class TestRequestSlaAccess(RequestSlaCase):
             .search([("request_id", "in", (request_main | request_other).ids)])
         )
         self.assertEqual(records, self._records(request_main))
+
+    def test_request_under_sla_cannot_be_deleted(self):
+        request = self._request()
+        records = self._records(request)
+        self.assertTrue(records)
+        with self.assertRaises(UserError):
+            request.unlink()
+        self.assertTrue(request.exists())
+        self.assertEqual(records.exists(), records)
+
+    def test_request_without_records_deletes(self):
+        (self.response | self.restore).write({"active": False})
+        request = self._request()
+        self.assertFalse(self._records(request))
+        request.unlink()
+        self.assertFalse(request.exists())
+
+    def test_delete_refused_for_a_manager(self):
+        """The check is not an access rule: a manager is refused too."""
+        request = self._request()
+        with self.assertRaises(UserError):
+            request.with_user(self.manager).unlink()
+        self.assertTrue(request.exists())
 
     def test_cancel_flag_sees_other_company_rules(self):
         """_check_not_a_target searches as sudo(): stages carry no company.
