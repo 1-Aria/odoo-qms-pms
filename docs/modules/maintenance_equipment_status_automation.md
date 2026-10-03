@@ -11,13 +11,13 @@ runs, and depends only on core and OCA.
 
 | # | Scope | Status | Result |
 |---|---|---|---|
-| 1 | The whole module: the stage's status, the request hook, the stage list column, tests, readme | proposed | |
+| 1 | The whole module: the stage's status, the request hook, the stage list column, tests, readme | done | 2026-10-03, one pass. `exit=0`, 9 tests, 0 failures; UI checked: statuses and mapping configured, a corrective request setting *Down* at *In Progress* and *Operational* at *Restored – to Confirm*, a hand-set status kept on a save that does not move the request, a preventive request leaving the machine alone |
 
 ## Divergences from the plan
 
 | # | Plan | This module | Reason |
 |---|---|---|---|
-| 1 | §7.13 is a fixed table: *In Progress* → Down, *Repaired* → Operational, *Scrapped* → Scrapped | the mapping is configuration: `equipment_status_id` on each stage, empty by default | `maintenance_equipment_status` has no fixed statuses — `maintenance.equipment.status` is a list a site defines (`maintenance_equipment_status/models/maintenance_equipment_status.py`), and this instance holds only *New*. Stages are configuration as well, and the flow has changed since the plan was written (`maintenance_sla_garment`). Naming neither in code keeps the module right for any flow. With nothing configured it does nothing |
+| 1 | §7.13 is a fixed table: *In Progress* → Down, *Repaired* → Operational, *Scrapped* → Scrapped | the mapping is configuration: `equipment_status_id` on each stage, empty by default | `maintenance_equipment_status` has no fixed statuses — `maintenance.equipment.status` is a list a site defines (`maintenance_equipment_status/models/maintenance_equipment_status.py`), and this instance holds none. Stages are configuration as well, and the flow has changed since the plan was written (`maintenance_sla_garment`). Naming neither in code keeps the module right for any flow. With nothing configured it does nothing |
 | 2 | §7.13 does not say when a request created directly in a mapped stage counts | creation counts: a corrective request created in a mapped stage sets the status at once | A kanban quick-create in a later column is a request that has reached that stage; ignoring it would leave the machine's status behind the request's |
 | 3 | §7.13 is silent on a status limited to some categories | a status whose `category_ids` does not include the equipment's category is not applied | OCA limits a status to categories (`category_ids`, applied as a domain on the equipment form, `maintenance_equipment_status/views/maintenance_equipment_views.xml:14`); writing a status the form would not offer would put the machine in a state its own form calls invalid |
 
@@ -117,12 +117,12 @@ machine, and do not read the instance's.
 | `test_manual_status_survives_an_unchanged_stage` | after a hand-set status, a write that keeps the stage, and a write to another field, leave it (D1) |
 | `test_status_limited_to_other_categories_skipped` | a stage mapped to *Retired*, limited to another category, leaves the machine's status alone (divergence 3) |
 | `test_request_without_equipment_ignored` | a corrective request with no machine moves through a mapped stage without error |
-| `test_any_request_mover_may_trigger_it` | a user without write access to equipment, the request's responsible, moves it to the *Down* stage and the machine becomes *Down* (D2); the user is the request's `user_id` for the reason `maintenance_sla` records — `hr_maintenance` empties `owner_user_id` |
-| `test_no_write_when_unchanged` | moving between two stages mapped to the same status writes nothing on the machine: the equipment model's `write`, wrapped with `unittest.mock.patch.object`, is not called. `write_date` cannot show it — within one test transaction every write carries the same timestamp |
+| `test_any_request_mover_may_trigger_it` | a user without write access to equipment, the request's responsible, moves it to the *Down* stage and the machine becomes *Down* (D2). The control: the same user writing the machine's status directly raises `AccessError`, so the test passes because of the `sudo()`; the user is the request's `user_id` for the reason `maintenance_sla` records — `hr_maintenance` empties `owner_user_id` |
+| `test_no_write_when_unchanged` | moving between two stages mapped to the same status writes nothing on the machine: `write` on the registry's class, `self.env.registry["maintenance.equipment"]`, wrapped with `unittest.mock.patch.object`, is not called. `write_date` cannot show it — within one test transaction every write carries the same timestamp |
 
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | Keeps a machine's status in step with its corrective requests: a maintenance stage can name the equipment status a corrective request's machine takes when the request reaches it — *Down* when work starts, *Operational* when it is restored, *Retired* when it is scrapped, or whatever statuses the site defines |
-| `readme/USAGE.md` | Define the statuses under *Maintenance → Configuration → Equipment Statuses*; set *Equipment Status* on the stages that should change it, in the stage list (debug mode). Only corrective requests, and only a real stage change; a status set by hand stands until the next mapped move. With two open requests on one machine, the last mapped move wins. A status limited to categories is skipped for other machines |
+| `readme/USAGE.md` | Define the statuses under *Maintenance → Configuration → Equipment Statuses*; set *Equipment Status* on the stages that should change it, in the stage list (debug mode). Only corrective requests, and only a real stage change; a status set by hand stands until the next mapped move. With two open requests on one machine, the last mapped move wins. A status limited to categories is skipped for other machines. Map *Down* at the stage where work starts, not where requests arrive: a reported request does not mean the machine is down. Two restore options: *Operational* at *Restored – to Confirm*, when the technician's word counts, or at *Done*, when the requester's confirmation does. Once *Scrap* is mapped to a retired status, scrapping a request retires its machine: a request raised by mistake is cancelled with the **Cancel** button |

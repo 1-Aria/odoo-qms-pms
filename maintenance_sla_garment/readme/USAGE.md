@@ -50,3 +50,6 @@ contractor or supplier delay; not a maintenance fault.
 A technician leaves a machine in *Restored – to Confirm* once it runs again; that meets the
 restore commitment. Moving it to *Done* is the requester's confirmation; sending it back to
 *In Progress* opens a new restore cycle.
+
+*Scrap* means the machine is scrapped. A request raised by mistake is cancelled with the
+**Cancel** button.

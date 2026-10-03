@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="hr_equipment_stage_view_tree" model="ir.ui.view">
+        <field name="name">equipment.stage.list.equipment.status</field>
+        <field name="model">maintenance.stage</field>
+        <field name="inherit_id" ref="maintenance.hr_equipment_stage_view_tree" />
+        <field name="arch" type="xml">
+            <!-- Core ships no form for a stage, only this editable list. -->
+            <field name="done" position="after">
+                <field name="equipment_status_id" options="{'no_create': True}" />
+            </field>
+        </field>
+    </record>
+
+</odoo>
