@@ -35,6 +35,16 @@ RESPONSE_RULES = [
     ("sla_response_any", "Response, no priority", False, 1.0, 100),
 ]
 
+# Stage -> equipment status, for maintenance_equipment_status_automation. Down
+# where work starts, not where requests arrive; Operational on the technician's
+# word, since a running machine goes back into use before anyone confirms; the
+# waiting stages and Done unmapped, so the machine keeps the status it has.
+STATUS_MAP = [
+    ("maintenance.stage_1", f"{MODULE}.status_down"),
+    (f"{MODULE}.stage_restored", f"{MODULE}.status_operational"),
+    ("maintenance.stage_4", f"{MODULE}.status_retired"),
+]
+
 # Criticality x urgency -> priority. Safety is always High; a minor machine
 # stopping a line is Normal, since on a sewing line a spare replaces it.
 PRIORITY_GRID = [
@@ -59,6 +69,7 @@ PRIORITY_GRID = [
 def post_init_hook(env):
     _arrange_stages(env)
     _create_response_rules(env)
+    _map_equipment_statuses(env)
     _fill_priority_grid(env)
 
 
@@ -108,6 +119,20 @@ def _create_response_rules(env):
                 "noupdate": True,
             }
         )
+
+
+def _map_equipment_statuses(env):
+    """Map the stages to the statuses, where a stage has none yet.
+
+    A stage a site has already mapped keeps its status, as a configured grid
+    pair does. Also run by the 18.0.1.1.0 migration: this hook runs at install
+    only, and the stages are noupdate.
+    """
+    for stage_xml_id, status_xml_id in STATUS_MAP:
+        stage = env.ref(stage_xml_id, raise_if_not_found=False)
+        status = env.ref(status_xml_id, raise_if_not_found=False)
+        if stage and status and not stage.equipment_status_id:
+            stage.equipment_status_id = status
 
 
 def _fill_priority_grid(env):

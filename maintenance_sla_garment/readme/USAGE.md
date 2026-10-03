@@ -8,6 +8,7 @@ SLA Rules, Priority Rules, Waive Reasons and Maintenance Stages.
 - **Installing rearranges core's stages** around three new ones, and renames *Repaired* to
   *Done*. Stage ids do not change, so existing requests keep their stages.
 - **A priority pair already configured keeps its value**; only the missing pairs are filled.
+  Likewise, **a stage already mapped to an equipment status keeps it**.
 - **Upgrading never overwrites tuned values**: the records belong to the site once installed.
 - **English names only.** In another language, *Done* keeps core's translation of *Repaired*, and
   the new stages, rules and reasons show in English.
@@ -42,6 +43,15 @@ All corrective, at risk from 75 % of the target.
 | B — important | High | High | Normal | Normal | Low |
 | C — minor | High | Normal | Normal | Low | Very Low |
 
+| Equipment status | Set when a corrective request reaches |
+|---|---|
+| Down | In Progress |
+| Operational | Restored – to Confirm |
+| Retired | Scrap |
+
+The machine stays *Down* while it waits for parts or production, and *Operational* once the
+request is confirmed *Done*. A reported request does not set *Down*: it may not stop the machine.
+
 Waive reasons: power or utility outage; production refused access to the machine; external
 contractor or supplier delay; not a maintenance fault.
 
@@ -51,5 +61,5 @@ A technician leaves a machine in *Restored – to Confirm* once it runs again; t
 restore commitment. Moving it to *Done* is the requester's confirmation; sending it back to
 *In Progress* opens a new restore cycle.
 
-*Scrap* means the machine is scrapped. A request raised by mistake is cancelled with the
-**Cancel** button.
+*Scrap* means the machine is scrapped, and retires it. A request raised by mistake is cancelled
+with the **Cancel** button.

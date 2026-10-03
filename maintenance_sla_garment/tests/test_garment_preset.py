@@ -1,13 +1,18 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+import os
+
+from odoo.modules.migration import load_script
 from odoo.tests.common import TransactionCase, tagged
 
 from ..hooks import (
     MODULE,
     PRIORITY_GRID,
     RESPONSE_RULES,
+    STATUS_MAP,
     _arrange_stages,
     _fill_priority_grid,
+    _map_equipment_statuses,
     post_init_hook,
 )
 
@@ -33,6 +38,18 @@ class TestGarmentPreset(TransactionCase):
 
     def _ref(self, xml_id):
         return self.env.ref(f"{MODULE}.{xml_id}")
+
+    def _mapped_stages(self):
+        return self.env["maintenance.stage"].concat(
+            *(self.env.ref(stage) for stage, _status in STATUS_MAP)
+        )
+
+    def _assert_mapped(self):
+        for stage, status in STATUS_MAP:
+            with self.subTest(stage=stage):
+                self.assertEqual(
+                    self.env.ref(stage).equipment_status_id, self.env.ref(status)
+                )
 
     def test_stage_flow(self):
         _arrange_stages(self.env)
@@ -75,9 +92,24 @@ class TestGarmentPreset(TransactionCase):
     def test_hook_runs_again_without_duplicates(self):
         rules = self.env["maintenance.sla"].with_context(active_test=False)
         grid = self.env["maintenance.priority.rule"].with_context(active_test=False)
-        before = (rules.search_count([]), grid.search_count([]))
+        statuses = self.env["maintenance.equipment.status"].with_context(
+            active_test=False
+        )
+        stages = self.env["maintenance.stage"].search([])
+
+        def snapshot():
+            return (
+                rules.search_count([]),
+                grid.search_count([]),
+                statuses.search_count([]),
+                stages.mapped("equipment_status_id"),
+            )
+
+        # Run once to settle whatever a site changed since install, then again.
         post_init_hook(self.env)
-        self.assertEqual((rules.search_count([]), grid.search_count([])), before)
+        before = snapshot()
+        post_init_hook(self.env)
+        self.assertEqual(snapshot(), before)
 
     def test_grid_keeps_a_configured_pair(self):
         grid = self.env["maintenance.priority.rule"].with_context(active_test=False)
@@ -89,6 +121,52 @@ class TestGarmentPreset(TransactionCase):
         self.assertEqual(grid.search_count([]), len(PRIORITY_GRID))
         self.assertEqual(configured.priority, "1")
 
+    def test_status_mapping(self):
+        self.env["maintenance.stage"].search([]).equipment_status_id = False
+        _map_equipment_statuses(self.env)
+        self._assert_mapped()
+        unmapped = (
+            self.env.ref("maintenance.stage_0")
+            | self._ref("stage_waiting_parts")
+            | self._ref("stage_waiting_production")
+            | self.env.ref("maintenance.stage_3")
+        )
+        self.assertFalse(unmapped.equipment_status_id)
+
+    def test_mapping_keeps_a_configured_stage(self):
+        """A stage a site has mapped keeps its status, as a grid pair does."""
+        own = self.env["maintenance.equipment.status"].create(
+            {"name": "Status test: idle"}
+        )
+        self._mapped_stages().equipment_status_id = False
+        in_progress = self.env.ref("maintenance.stage_1")
+        in_progress.equipment_status_id = own
+        _map_equipment_statuses(self.env)
+        self.assertEqual(in_progress.equipment_status_id, own)
+        self.assertEqual(
+            self._ref("stage_restored").equipment_status_id,
+            self._ref("status_operational"),
+        )
+        self.assertEqual(
+            self.env.ref("maintenance.stage_4").equipment_status_id,
+            self._ref("status_retired"),
+        )
+
+    def test_migration_maps_the_statuses(self):
+        """The upgrade path from 18.0.1.0.0, loaded from its file as Odoo does."""
+        self._mapped_stages().equipment_status_id = False
+        path = os.path.join(
+            os.path.dirname(__file__),
+            os.pardir,
+            "migrations",
+            "18.0.1.1.0",
+            "post-migration.py",
+        )
+        script = load_script(path, "maintenance_sla_garment_test_migration")
+        script.migrate(self.env.cr, "18.0.1.0.0")
+        self.env.invalidate_all()
+        self._assert_mapped()
+
     def test_hook_survives_missing_core_stages(self):
         """The safe-to-fail path: nothing to find, nothing done, no error.
 
@@ -97,6 +175,8 @@ class TestGarmentPreset(TransactionCase):
         """
         scrap = self.env.ref("maintenance.stage_4")
         scrap.sequence = 99
+        in_progress = self.env.ref("maintenance.stage_1")
+        (scrap | in_progress).equipment_status_id = False
         response_ids = [xml_id for xml_id, *_rest in RESPONSE_RULES]
         self.env["ir.model.data"].search(
             [
@@ -114,3 +194,5 @@ class TestGarmentPreset(TransactionCase):
         post_init_hook(self.env)
         self.assertEqual(rules.search_count([]), before)
         self.assertEqual(scrap.sequence, 99)
+        # No status mapped onto a stage the hook could not find.
+        self.assertFalse((scrap | in_progress).equipment_status_id)
