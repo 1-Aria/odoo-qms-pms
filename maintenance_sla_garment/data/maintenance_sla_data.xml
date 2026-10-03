@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+
+    <!-- Restore rules: reported to Restored – to Confirm, time in the two
+         waiting stages not counted. They reference only this module's own
+         stages; the Response rules, which target core's In Progress, are
+         created by the install hook. The fallback's higher sequence makes it
+         apply only where no priority rule matches. -->
+    <record id="sla_restore_high" model="maintenance.sla">
+        <field name="name">Restore, High priority</field>
+        <field name="sequence">10</field>
+        <field name="maintenance_type">corrective</field>
+        <field name="priority">3</field>
+        <field name="target_stage_id" ref="stage_restored" />
+        <field
+            name="pause_stage_ids"
+            eval="[(6, 0, [ref('stage_waiting_parts'), ref('stage_waiting_production')])]"
+        />
+        <field name="duration">2.0</field>
+    </record>
+
+    <record id="sla_restore_normal" model="maintenance.sla">
+        <field name="name">Restore, Normal priority</field>
+        <field name="sequence">10</field>
+        <field name="maintenance_type">corrective</field>
+        <field name="priority">2</field>
+        <field name="target_stage_id" ref="stage_restored" />
+        <field
+            name="pause_stage_ids"
+            eval="[(6, 0, [ref('stage_waiting_parts'), ref('stage_waiting_production')])]"
+        />
+        <field name="duration">8.0</field>
+    </record>
+
+    <record id="sla_restore_low" model="maintenance.sla">
+        <field name="name">Restore, Low priority</field>
+        <field name="sequence">10</field>
+        <field name="maintenance_type">corrective</field>
+        <field name="priority">1</field>
+        <field name="target_stage_id" ref="stage_restored" />
+        <field
+            name="pause_stage_ids"
+            eval="[(6, 0, [ref('stage_waiting_parts'), ref('stage_waiting_production')])]"
+        />
+        <field name="duration">24.0</field>
+    </record>
+
+    <record id="sla_restore_very_low" model="maintenance.sla">
+        <field name="name">Restore, Very Low priority</field>
+        <field name="sequence">10</field>
+        <field name="maintenance_type">corrective</field>
+        <field name="priority">0</field>
+        <field name="target_stage_id" ref="stage_restored" />
+        <field
+            name="pause_stage_ids"
+            eval="[(6, 0, [ref('stage_waiting_parts'), ref('stage_waiting_production')])]"
+        />
+        <field name="duration">72.0</field>
+    </record>
+
+    <record id="sla_restore_any" model="maintenance.sla">
+        <field name="name">Restore, no priority</field>
+        <field name="sequence">100</field>
+        <field name="maintenance_type">corrective</field>
+        <field name="target_stage_id" ref="stage_restored" />
+        <field
+            name="pause_stage_ids"
+            eval="[(6, 0, [ref('stage_waiting_parts'), ref('stage_waiting_production')])]"
+        />
+        <field name="duration">8.0</field>
+    </record>
+
+</odoo>

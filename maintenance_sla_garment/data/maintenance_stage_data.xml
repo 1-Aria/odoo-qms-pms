@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+
+    <!-- Between core's In Progress (2) and Repaired, which the install hook
+         moves to 6 and renames Done. None is done: Restored – to Confirm
+         flagged done would set close_date before the requester has
+         confirmed anything. -->
+    <record id="stage_waiting_parts" model="maintenance.stage">
+        <field name="name">Waiting for Parts</field>
+        <field name="sequence">3</field>
+    </record>
+
+    <record id="stage_waiting_production" model="maintenance.stage">
+        <field name="name">Waiting for Production</field>
+        <field name="sequence">4</field>
+    </record>
+
+    <record id="stage_restored" model="maintenance.stage">
+        <field name="name">Restored – to Confirm</field>
+        <field name="sequence">5</field>
+    </record>
+
+</odoo>

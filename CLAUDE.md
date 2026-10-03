@@ -269,8 +269,9 @@ the module doc named.
   module. (`qms_nonconformity_hr`)
 - A field left out of `create()` is cached as its empty value (`0.0` for a Float) while its
   column stays NULL, and a write equal to the cached value is skipped: writing `0` over a NULL
-  can silently do nothing. Invalidate the field first, and assert stored values through SQL,
-  not the ORM. (`maintenance_sla`)
+  in the transaction that created the record can silently do nothing. A fetch in a later
+  transaction caches NULL as `None`, so the bug hides outside it. Invalidate the field first,
+  and assert stored values through SQL, not the ORM. (`maintenance_sla`)
 
 **Views**
 - View inheritance may not select on a translated attribute such as `@string`; select

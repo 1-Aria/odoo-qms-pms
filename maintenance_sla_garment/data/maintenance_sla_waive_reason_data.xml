@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+
+    <record id="waive_reason_power" model="maintenance.sla.waive.reason">
+        <field name="name">Power or utility outage</field>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="waive_reason_access" model="maintenance.sla.waive.reason">
+        <field name="name">Production refused access to the machine</field>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="waive_reason_contractor" model="maintenance.sla.waive.reason">
+        <field name="name">External contractor or supplier delay</field>
+        <field name="sequence">30</field>
+    </record>
+
+    <record id="waive_reason_not_a_fault" model="maintenance.sla.waive.reason">
+        <field name="name">Not a maintenance fault</field>
+        <field name="sequence">40</field>
+    </record>
+
+</odoo>

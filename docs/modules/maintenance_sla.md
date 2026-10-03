@@ -436,8 +436,10 @@ positions as `(sequence, id)` pairs read live (design §5.2), never `target_sequ
 `create()`, so their columns are NULL while the cache holds `0.0` (`odoo/models.py:5254-5255`,
 `Float.convert_to_cache`), and `Field.write` skips a record whose cached value equals the new one
 (`odoo/fields.py:1209-1212`). Written without the invalidation, a late outcome's `on_time` of 0
-and a zero-time `elapsed` of 0 stay NULL — and AVG skips them, so compliance reads high. The same
-happens in a later request, since reading any field loads the row and caches NULL as `0.0`.
+and a zero-time `elapsed` of 0 stay NULL — and AVG skips them, so compliance reads high. A later
+request is not affected: a fetch caches NULL as `None`, which a write of 0 does not equal
+(`odoo/api.py:1292-1294`); the defect hit records created and finished in one transaction — a
+request created at or past its target (D6) — and the tests.
 Found by step 6's report test; step 3's own test had asserted `on_time` through the ORM, which
 read the cached `0.0`.
 
