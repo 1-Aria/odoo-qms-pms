@@ -318,7 +318,7 @@ Restore confirmation is the move from *Restored – to confirm* to *Done*. A rej
 
 Reporting is a standard pivot and graph action on `maintenance.request.sla` (Maintenance → Reporting → SLA Analysis), shipped in the maintenance\_sla\_report module. The SLA records already hold every measure and dimension, so no report model or custom code is needed.
 
-**The menu carries its own `groups`.** Its parent, core's *Reporting* menu, is one of the nine whose `groups_id` is rewritten by `maintenance_security` and rewritten back by `maintenance_security_user_menu`; a child menu is only visible when its parent is, so relying on inheritance would make SLA Analysis appear or vanish according to which of those modules was upgraded last. Name the groups that should see it — equipment managers, or a dedicated SLA group — on the menu item itself.
+**The menu carries its own `groups`.** Its parent is core's visible *Reporting* menu, `maintenance.maintenance_reporting` (`maintenance/views/maintenance_views.xml:997-1004`), which has no groups and holds core's *Maintenance Requests* report; neither `maintenance_security` nor `maintenance_security_user_menu` touches it. (Core has a second menu named *Reporting*, `maintenance.menu_m_reports`, which both modules re-group; its two children carry no action, so Odoo hides it.) A child of an unrestricted menu is visible to everyone who sees the parent, so name the groups that should see SLA Analysis — equipment managers, or a dedicated SLA group — on the menu item itself. *Corrected 2026-10-03: an earlier version placed the report under the re-grouped menu.*
 
 | Measure | Field and aggregation | Default filter |
 | --- | --- | --- |

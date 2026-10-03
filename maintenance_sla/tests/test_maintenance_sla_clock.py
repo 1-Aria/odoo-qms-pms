@@ -8,6 +8,7 @@ from lxml import etree
 from odoo import Command
 from odoo.exceptions import UserError
 from odoo.tests.common import tagged
+from odoo.tools import SQL
 
 from .test_maintenance_request_sla import RequestSlaCase
 
@@ -42,6 +43,22 @@ class TestSlaClock(RequestSlaCase):
             lambda record: record.sla_id == rule
         ).sorted("cycle")
 
+    def _stored(self, record, field):
+        """The value in the database, not in the cache.
+
+        A field left out of create() is cached as 0.0 while its column is
+        NULL, so an ORM read cannot tell a stored 0 from a skipped write.
+        """
+        self.env.flush_all()
+        self.env.cr.execute(
+            SQL(
+                "SELECT %s FROM maintenance_request_sla WHERE id = %s",
+                SQL.identifier(field),
+                record.id,
+            )
+        )
+        return self.env.cr.fetchone()[0]
+
     def _notes(self, request):
         request.invalidate_recordset(["message_ids"])
         return [
@@ -59,7 +76,7 @@ class TestSlaClock(RequestSlaCase):
         self.assertEqual(response.state, "achieved")
         self.assertEqual(response.reached_at, at(0.5))
         self.assertAlmostEqual(response.elapsed, 0.5)
-        self.assertEqual(response.on_time, 100.0)
+        self.assertEqual(self._stored(response, "on_time"), 100.0)
         self.assertFalse(response.deadline)
         # Still below its target: a move between counting stages leaves it be.
         restore = self._record(request, self.restore)
@@ -73,7 +90,7 @@ class TestSlaClock(RequestSlaCase):
         response = self._record(request, self.response)
         self.assertEqual(response.state, "achieved_late")
         self.assertAlmostEqual(response.elapsed, 2.0)
-        self.assertEqual(response.on_time, 0.0)
+        self.assertEqual(self._stored(response, "on_time"), 0.0)
 
     def test_reached_exactly_at_the_deadline(self):
         """The float_compare boundary: thirds of an hour do not sum exactly."""
@@ -85,7 +102,7 @@ class TestSlaClock(RequestSlaCase):
         with freeze_time(restore.deadline):
             request.write({"stage_id": self.stage_restored.id})
         self.assertEqual(restore.state, "achieved")
-        self.assertEqual(restore.on_time, 100.0)
+        self.assertEqual(self._stored(restore, "on_time"), 100.0)
 
     def test_later_stage_counts_as_reached(self):
         request = self._new()
@@ -226,6 +243,22 @@ class TestSlaClock(RequestSlaCase):
         self._move(request, self.stage_progress, 4)
         second = self._records(request).filtered(lambda record: record.cycle == 2)
         self.assertEqual(second.sla_id, stricter)
+
+    def test_outcome_stored_when_met_at_creation(self):
+        """A late 0 and a zero-time elapsed reach the database, not only the cache.
+
+        The record is created and finished in one environment, where its
+        on_time and elapsed are cached as 0.0 over NULL columns: the case a
+        write skipped as unchanged.
+        """
+        late = self._new(stage_id=self.stage_progress.id, reported_at=at(-2))
+        response = self._record(late, self.response)
+        self.assertEqual(self._stored(response, "on_time"), 0.0)
+        self.assertEqual(self._stored(response, "elapsed"), 2.0)
+        instant = self._new(stage_id=self.stage_progress.id)
+        response = self._record(instant, self.response)
+        self.assertEqual(self._stored(response, "elapsed"), 0.0)
+        self.assertEqual(self._stored(response, "on_time"), 100.0)
 
     def test_reached_at_creation(self):
         request = self._new(stage_id=self.stage_progress.id, reported_at=at(-2))

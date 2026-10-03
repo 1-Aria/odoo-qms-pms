@@ -267,6 +267,10 @@ the module doc named.
   the column with `groups`. (`qms_determination`)
 - Anything reaching `hr` fields (`employee_id`) needs `hr` declared — put it in a bridge
   module. (`qms_nonconformity_hr`)
+- A field left out of `create()` is cached as its empty value (`0.0` for a Float) while its
+  column stays NULL, and a write equal to the cached value is skipped: writing `0` over a NULL
+  can silently do nothing. Invalidate the field first, and assert stored values through SQL,
+  not the ORM. (`maintenance_sla`)
 
 **Views**
 - View inheritance may not select on a translated attribute such as `@string`; select

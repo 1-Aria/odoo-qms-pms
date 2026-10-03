@@ -39,6 +39,14 @@ until a commitment of the request pauses, is met or is cancelled; the commitment
 
 Every outcome is noted in the request's chatter.
 
+## Reporting
+
+*Maintenance → Reporting → SLA Analysis*, for equipment managers, opens on finished commitments
+that are not waived. The average of **On Time (%)** is compliance; **Elapsed** is the average time
+taken. Group by rule, team, category, machine, priority, type, waiver reason or month. To see what
+is late now, swap *Finished* for *Open* and add *Overdue* or *At risk*. *Sent back* shows the
+repeat cycles, beside the first ones.
+
 ## Waivers
 
 An equipment manager can waive a finished commitment — one that was met — with a reason from the

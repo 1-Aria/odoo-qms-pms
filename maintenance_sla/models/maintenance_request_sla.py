@@ -127,9 +127,14 @@ class MaintenanceRequestSla(models.Model):
     )
     # Evidence of what "reached" meant when the record was made. Evaluation
     # always compares against the live stage order, never against this.
-    target_sequence = fields.Integer(string="Target Position")
-    duration = fields.Float(string="Target (hours)")
-    at_risk_pct = fields.Integer(string="At Risk (%)")
+    #
+    # Every numeric field's aggregation is a decision: the hour fields the report
+    # reads average, and the rest are not offered as measures, since Integer and
+    # Float otherwise sum (fields.py:1532, :1627) and a summed position, share,
+    # partial count or cycle number is noise.
+    target_sequence = fields.Integer(string="Target Position", aggregator=None)
+    duration = fields.Float(string="Target (hours)", aggregator="avg")
+    at_risk_pct = fields.Integer(string="At Risk (%)", aggregator=None)
 
     # The clock.
     start_at = fields.Datetime(string="Clock Start", required=True)
@@ -138,22 +143,23 @@ class MaintenanceRequestSla(models.Model):
     )
     consumed = fields.Float(
         string="Counted (hours)",
+        aggregator=None,
         help="Running time accumulated up to the last change.",
     )
-    paused_time = fields.Float(string="Paused (hours)")
+    paused_time = fields.Float(string="Paused (hours)", aggregator="avg")
     last_change_at = fields.Datetime(string="Last Change")
     deadline = fields.Datetime(help="Set while running, empty otherwise.")
     risk_at = fields.Datetime(
         string="At Risk From", help="Set while running, empty otherwise."
     )
     reached_at = fields.Datetime(string="Reached At")
-    elapsed = fields.Float(string="Elapsed (hours)")
+    elapsed = fields.Float(string="Elapsed (hours)", aggregator="avg")
     # Written only when a record finishes, never before: a Float written False
     # stores 0.0 (Float.convert_to_column), and an average counts zeros, so a
     # running record would read as a breach. Left out, the column stays NULL,
     # which AVG skips.
     on_time = fields.Float(string="On Time (%)", aggregator="avg")
-    cycle = fields.Integer(default=1)
+    cycle = fields.Integer(default=1, aggregator=None)
     # The cancelled record this one took over from: a replacement when another
     # rule started to win, a resumption when a rule matched again. Without it a
     # record cancelled by re-matching would look like one cancelled with its
@@ -333,6 +339,12 @@ class MaintenanceRequestSla(models.Model):
                     )
                     <= 0
                 )
+                # on_time and elapsed were left out at create, so their columns
+                # are NULL but their cache holds 0.0 (models.py:5254-5255,
+                # Float.convert_to_cache); a write equal to the cached value is
+                # skipped (fields.py:1209-1212). Without this, a late outcome's
+                # 0 and a zero-time elapsed would never reach the database.
+                record.invalidate_recordset(["on_time", "elapsed"])
                 record.write(
                     {
                         "reached_at": now,

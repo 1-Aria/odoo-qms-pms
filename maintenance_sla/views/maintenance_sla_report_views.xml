@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- The report's search view, and the model's only one, so the record list
+         gets the same filters wherever it is opened. -->
+    <record id="maintenance_request_sla_view_search" model="ir.ui.view">
+        <field name="name">maintenance.request.sla.search</field>
+        <field name="model">maintenance.request.sla</field>
+        <field name="arch" type="xml">
+            <search string="SLA Records">
+                <field name="request_id" />
+                <field name="sla_id" />
+                <field name="team_id" />
+                <field name="equipment_id" />
+                <field name="category_id" />
+                <filter
+                    name="finished"
+                    string="Finished"
+                    domain="[('state', 'in', ('achieved', 'achieved_late'))]"
+                />
+                <filter
+                    name="met_late"
+                    string="Met late"
+                    domain="[('state', '=', 'achieved_late')]"
+                />
+                <filter
+                    name="open"
+                    string="Open"
+                    domain="[('state', 'in', ('running', 'paused'))]"
+                />
+                <filter
+                    name="cancelled"
+                    string="Cancelled"
+                    domain="[('state', '=', 'cancelled')]"
+                />
+                <separator />
+                <filter
+                    name="not_waived"
+                    string="Not waived"
+                    domain="[('waived', '=', False)]"
+                />
+                <filter
+                    name="waived"
+                    string="Waived"
+                    domain="[('waived', '=', True)]"
+                />
+                <separator />
+                <!-- Live, against now: they find open commitments, so they
+                     combine with Open, not with Finished. -->
+                <filter
+                    name="overdue"
+                    string="Overdue"
+                    domain="[('live_state', '=', 'overdue')]"
+                />
+                <filter
+                    name="at_risk"
+                    string="At risk"
+                    domain="[('live_state', '=', 'at_risk')]"
+                />
+                <separator />
+                <filter
+                    name="sent_back"
+                    string="Sent back"
+                    domain="[('cycle', '>', 1)]"
+                />
+                <separator />
+                <filter name="filter_start_at" date="start_at" />
+                <group name="group_by">
+                    <filter
+                        name="group_by_rule"
+                        string="SLA Rule"
+                        context="{'group_by': 'sla_id'}"
+                    />
+                    <filter
+                        name="group_by_team"
+                        string="Team"
+                        context="{'group_by': 'team_id'}"
+                    />
+                    <filter
+                        name="group_by_category"
+                        string="Equipment Category"
+                        context="{'group_by': 'category_id'}"
+                    />
+                    <filter
+                        name="group_by_equipment"
+                        string="Equipment"
+                        context="{'group_by': 'equipment_id'}"
+                    />
+                    <filter
+                        name="group_by_priority"
+                        string="Priority"
+                        context="{'group_by': 'priority'}"
+                    />
+                    <filter
+                        name="group_by_type"
+                        string="Maintenance Type"
+                        context="{'group_by': 'maintenance_type'}"
+                    />
+                    <filter
+                        name="group_by_target_stage"
+                        string="Target Stage"
+                        context="{'group_by': 'target_stage_id'}"
+                    />
+                    <filter
+                        name="group_by_waive_reason"
+                        string="Waiver Reason"
+                        context="{'group_by': 'waive_reason_id'}"
+                    />
+                    <filter
+                        name="group_by_month"
+                        string="Month"
+                        context="{'group_by': 'start_at:month'}"
+                    />
+                    <filter
+                        name="group_by_company"
+                        string="Company"
+                        context="{'group_by': 'company_id'}"
+                        groups="base.group_multi_company"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- The average of on_time is compliance; elapsed averages by its own
+         aggregator. Count stays available in the Measures menu. -->
+    <record id="maintenance_request_sla_view_pivot" model="ir.ui.view">
+        <field name="name">maintenance.request.sla.pivot</field>
+        <field name="model">maintenance.request.sla</field>
+        <field name="arch" type="xml">
+            <pivot string="SLA Analysis" sample="1">
+                <field name="sla_id" type="row" />
+                <field name="start_at" interval="month" type="col" />
+                <field name="on_time" type="measure" />
+                <field name="elapsed" type="measure" widget="float_time" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="maintenance_request_sla_view_graph" model="ir.ui.view">
+        <field name="name">maintenance.request.sla.graph</field>
+        <field name="model">maintenance.request.sla</field>
+        <field name="arch" type="xml">
+            <graph string="SLA Compliance" type="bar" sample="1">
+                <field name="start_at" interval="month" />
+                <field name="on_time" type="measure" />
+            </graph>
+        </field>
+    </record>
+
+    <!-- Opens on Finished and Not waived: what compliance means. -->
+    <record id="maintenance_request_sla_action_report" model="ir.actions.act_window">
+        <field name="name">SLA Analysis</field>
+        <field name="res_model">maintenance.request.sla</field>
+        <field name="view_mode">pivot,graph,list,form</field>
+        <field name="search_view_id" ref="maintenance_request_sla_view_search" />
+        <field name="context">{
+            'search_default_finished': 1,
+            'search_default_not_waived': 1,
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No SLA commitments yet</p>
+            <p>
+                Commitments appear here as maintenance requests meet them. Swap
+                the Finished filter for Open, with Overdue or At risk, to see
+                what is late now.
+            </p>
+        </field>
+    </record>
+
+    <!-- Its own groups: the parent, core's visible Reporting menu, restricts
+         nobody. -->
+    <menuitem
+        id="menu_maintenance_sla_report"
+        name="SLA Analysis"
+        parent="maintenance.maintenance_reporting"
+        action="maintenance_request_sla_action_report"
+        groups="maintenance.group_equipment_manager"
+        sequence="20"
+    />
+
+</odoo>
