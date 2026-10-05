@@ -625,8 +625,9 @@ the one place in the design that would silently stop firing.
 | **`<company>_maintenance_sla_config`** (data only) | Stages and their SLA flags, SLA rules, priority rows, escalation Automated Actions | `maintenance_sla`, `maintenance_priority_matrix`, `base_automation` |
 | **`maintenance_equipment_status_automation`** | equipment state driven by corrective request progression | `maintenance`, `maintenance_equipment_status` |
 | **`maintenance_plan_action_template`** | `action_template_ids` on the plan; action generation via `create()` override | `maintenance_plan`, `mgmtsystem_action_template`, `maintenance_mgmtsystem_action` |
+| **`zalo_oa`** | Zalo Official Account integration: token ownership and refresh, a "Send Zalo message" server action with templates and destinations, a send queue and log, inbound webhook events — see `docs/Zalo ↔ Odoo Integration Design Note.md` | `mail`, `base_automation` |
 
-The last four are independent of the QMS chain, depend only on core and OCA
+The `maintenance_*` modules from `maintenance_priority_matrix` on are independent of the QMS chain, depend only on core and OCA
 modules, and are candidates for upstream contribution. Keeping them separate
 means a site can adopt SLA measurement, status automation or plan-seeded actions
 without installing the quality system at all.
@@ -636,6 +637,10 @@ Action ↔ Maintenance Request relation — `qms_maintenance` and
 `maintenance_plan_action_template`. Without it, the Phase 2 module would have to
 depend on the whole QMS chain. Action ↔ Inspection has only one consumer and so
 lives directly in `qms_quality_control`; the asymmetry is deliberate.
+
+`zalo_oa` is a supporting integration outside both phases. Nothing depends on it: maintenance,
+quality and other applications send through it by configuration only — automation rules using its
+server action type.
 
 ### Dependency graph
 
@@ -669,6 +674,9 @@ lives directly in `qms_quality_control`; the asymmetry is deliberate.
   maintenance_sla                         →  maintenance, mail
   maintenance_equipment_status_automation →  maintenance
                                              maintenance_equipment_status
+
+  ── supporting integration ────────────────────────────────
+  zalo_oa                                 →  mail, base_automation
 ```
 
 ---
