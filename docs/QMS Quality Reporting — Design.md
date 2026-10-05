@@ -4,7 +4,7 @@ Oct 4, 2026 · @Peter
 
 The quality-side counterpart of `maintenance_sla`'s *SLA Analysis*: reporting on what inspections
 find, in a module of its own, `qms_quality_report` (working name), depending on
-`qms_quality_control`.
+`qms_quality_control` and `qms_fabric_inspection`.
 
 ## 1. Objectives
 
@@ -27,7 +27,7 @@ Pareto.
 | Capture of pieces inspected, defective pieces, re-inspection | In (in `qms_quality_control`) | The metrics' denominators and filters do not exist today (§3) |
 | Defect code and severity frozen on the inspection line | In (in `qms_quality_control`) | A Pareto must group by them, and must not change when a checklist is edited |
 | Work centre from the production order | In | Q2 |
-| Fabric section: roll acceptance, points per 100 yd², fabric defect Pareto, shade | **Waits** for `qms_fabric_inspection`, §8.1 | The data it reads does not exist until that module does; the rest of the report does not wait for it |
+| Fabric section: roll acceptance, points per 100 m², fabric defect Pareto, shade, bands | In, §8.1 | `qms_fabric_inspection` is built first, so the data exists when this module is built |
 | Operator and operation dimension | Out — possible future addition, §8.2 | Deferred; nothing in this design depends on it |
 | AQL lot acceptance | Out | Its own design: sample plans and accept/reject numbers |
 | A ratio column (DHU, FTR) in the pivot | Out for v1 | §6; an SQL-view report if it becomes necessary |
@@ -123,6 +123,12 @@ each, and a menu for quality-control managers.
 All headline metrics read **finished, first inspections**: state *success* or *failed*, not
 re-inspection. Both are default filters.
 
+*Inspection Analysis* also excludes **roll inspections** (the test's `qms_roll_inspection`, from
+`qms_fabric_inspection`) by default: their `success` reflects the rolls and their `qty` is the
+receipt line's area, so they would mix fabric verdicts into the garment figures. Fabric is read in its
+own section (§8.1). *Defect Analysis* keeps the failed question lines of fabric tests — weight, width,
+hand — since those are defects found at receipt and attributed to the supplier like any other.
+
 | Metric | Definition | In the pivot |
 |---|---|---|
 | **DHU** | defects ÷ pieces inspected × 100 | `qms_qty_defects` and `qms_qty_inspected`, side by side |
@@ -151,23 +157,26 @@ code* group, never hidden: it is a configuration gap, and the report should make
 | D7 | **Pieces inspected defaults to `qty`;** defective pieces and the re-inspection flag are entered |
 | D8 | **Ratios as paired sums** in v1 (§6) |
 | D9 | **Access:** the analyses are for quality-control managers; role design across QM is plan O7 |
+| D10 | **The report depends on `qms_fabric_inspection`** and carries the fabric section in v1; roll inspections are excluded from Inspection Analysis by default (§6, §8.1) |
 
 ## 8. Waiting and future
 
-The report has no blocking dependency beyond its prerequisite in `qms_quality_control` (§5.1): its
-core — Inspection Analysis and Defect Analysis over garment checks — can be specced and built now.
+The report is built after `qms_fabric_inspection` and after its prerequisite in
+`qms_quality_control` (§5.1). Nothing else blocks it.
 
-### 8.1 The fabric section — waits for `qms_fabric_inspection`
+### 8.1 The fabric section
 
-Roll-level fabric analyses — a point system such as the 4-point system, and shade analysis — are
-designed in **`docs/Fabric Inspection — Design.md`**: configurable analyses enabled per test, each a
-section of the inspection with rows of its own, beside the question lines rather than inside them.
-The question lines this report reads are untouched by that module.
+Roll-level fabric inspection is designed in **`docs/Fabric Inspection — Design.md`**: one inspection
+per receipt line, with the rolls as rows of their own inside it — each with its 4-point entries, its
+score per 100 m², its shade readings and its band — beside the question lines rather than inside
+them. The question lines this report reads are untouched by that module.
 
-Once that module exists, this report gains a fabric section, read from its rows (that note's §8):
-roll acceptance %, the average normalised score, a fabric defect Pareto from the scored entries, and
-shade results and bands by supplier and dye lot. It is a separate grain — DHU does not apply to
-fabric, nor points per 100 yd² to garments — so nothing in §5 or §6 changes when it is added.
+The fabric section reads those rows (that note's §8): roll acceptance % over the scored rolls, the
+average score, a fabric defect Pareto from the point entries, shade results by supplier and dye lot,
+and the band distribution by dye lot. Rolls that were banded but not scored — the rest of a sample —
+count in the shade and band analyses and not in roll acceptance. It is a separate grain — DHU does
+not apply to fabric, nor points per 100 m² to garments — so §5 is unchanged; §6 gains only the
+default exclusion of roll inspections from Inspection Analysis.
 
 ### 8.2 Operator and operation — a possible future addition
 

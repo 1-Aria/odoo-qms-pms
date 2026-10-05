@@ -619,6 +619,8 @@ the one place in the design that would silently stop firing.
 | **`qms_determination`** | `qms.determination.rule`, `qms.nonconformity.response`, Suggest Response, Generate Actions — see `docs/qms_determination_plan_revised.md` | `qms_nonconformity`, `mgmtsystem_action_template`, `document_page_procedure`, `document_page_work_instruction` |
 | **`qms_quality_control`** | `defect_code_id` + related severity on `qc.test.question.value`, Populate Defect, `mgmtsystem.action.inspection_id`, NC and Action smart buttons + prefill | `qms_nonconformity`, `quality_control_oca`, `mgmtsystem_nonconformity_quality_control_oca`, `mgmtsystem_action` |
 | **`qms_maintenance`** | `mgmtsystem.nonconformity.maintenance_request_id`, NC smart button + prefill, `product_id` related field | `qms_nonconformity`, `maintenance_product`, `mgmtsystem_nonconformity_maintenance_equipment`, `maintenance_mgmtsystem_action` |
+| **`qms_fabric_inspection`** | Roll-level fabric inspection at receipt: rolls as rows of the receipt line's inspection, 4-point entries, score per 100 m², shade per roll, dye lot and shade band on the lot, the rolls in the inspection's verdict, Populate Defect from point entries — see `docs/Fabric Inspection — Design.md` | `qms_quality_control`, `quality_control_stock_oca` |
+| **`qms_quality_report`** | Inspection Analysis and Defect Analysis over finished inspections — DHU, defective %, FTR, defect Pareto — and the fabric section over roll rows and point entries; the capture fields it reads are added to `qms_quality_control` — see `docs/QMS Quality Reporting — Design.md` | `qms_quality_control`, `quality_control_mrp_oca`, `quality_control_stock_oca`, `qms_fabric_inspection` |
 | **`maintenance_mgmtsystem_action`** | `mgmtsystem.action.maintenance_request_id`, inverse `action_ids`, smart buttons both ways | `maintenance`, `mgmtsystem_action` |
 | **`maintenance_priority_matrix`** | Criticality on equipment and category, urgency, priority rules, priority override with a reason | `maintenance` |
 | **`maintenance_sla`** | SLA rules, SLA records, stage logic, live state, kanban ordering, waivers, chatter posts, and the pivot reporting over the records | `maintenance`, `mail` |
@@ -637,6 +639,10 @@ Action ↔ Maintenance Request relation — `qms_maintenance` and
 `maintenance_plan_action_template`. Without it, the Phase 2 module would have to
 depend on the whole QMS chain. Action ↔ Inspection has only one consumer and so
 lives directly in `qms_quality_control`; the asymmetry is deliberate.
+
+`qms_fabric_inspection` and `qms_quality_report` extend the quality side after Phase 1 (§10,
+Phase 3). Both sit on `qms_quality_control`; the report also depends on the fabric module, which is
+built first, so its fabric section ships with it and its garment figures can exclude roll inspections.
 
 `zalo_oa` is a supporting integration outside both phases. Nothing depends on it: maintenance,
 quality and other applications send through it by configuration only — automation rules using its
@@ -659,6 +665,12 @@ server action type.
   (action_template,  (quality_control_oca, (maintenance_product,
    document_page)     _nonconformity_qc,    _nonconformity_maint_eq,
                       mgmtsystem_action)    maintenance_mgmtsystem_action)
+                             │                      │
+                   qms_fabric_inspection            │
+                  (quality_control_stock_oca)       │
+                             │                      │
+                    qms_quality_report              │
+                  (quality_control_mrp_oca)         │
                                                     │
   ── independent of the QMS chain ──────────────────┼──────
                                                     ▼
@@ -750,6 +762,15 @@ Phase 1 or be skipped entirely.
 `maintenance_mgmtsystem_action` is shared: it is a dependency of
 `qms_maintenance` in Phase 1 and of `maintenance_plan_action_template` in
 Phase 2, so it is built as part of Phase 1 step 5.
+
+### Phase 3 — quality enhancements
+
+9. `qms_fabric_inspection` — roll-level fabric inspection at receipt,
+   `docs/Fabric Inspection — Design.md`.
+10. `qms_quality_report` — with its capture fields in `qms_quality_control` first,
+    `docs/QMS Quality Reporting — Design.md`. After the fabric module, which it depends on.
+
+Both need Phase 1 step 4 (`qms_quality_control`) and nothing from Phase 2.
 
 ### Deferred
 
