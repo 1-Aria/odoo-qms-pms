@@ -10,8 +10,8 @@ Design: `docs/Fabric Inspection — Design.md`. Plan: §8, §10 Phase 3.
 |---|---|---|---|
 | 1 | Roll inspection settings on the test and their snapshot on the inspection; `qms.inspection.roll` and `qms.inspection.point`; capped total, score per 100 m², points verdict; the rolls in the inspection's `success`; completeness at confirmation; the Rolls page; the advisory defect-code filter; the inspection's `lot_id` hidden on roll inspections | done | 2026-10-06, three runs. First: `exit=255`, the view validator refused `domain="parent.defect_code_domain"` (D6, now `or []`). Second: installed, 3 of 19 tests failed: the plain test's default cap of 4, and the snapshot computed at first read rather than at the write (D1). Third: `-u`, `exit=0`, 19 tests, 0 failures; UI checked: the Rolls page and hidden lot on roll inspections only, the roll's lot dropdown limited to the product, the defect dropdown following the profile and *Show all catalog codes*, capped points and the failing-roll colour, confirmation to *waiting* and the refusal of an unmeasured roll, the page read-only once confirmed |
 | 2 | Shade: three ΔE values and the band on the roll, the ΔE maxima on the test and in the snapshot, the ΔE checks in `passed`; `qms_dye_lot` and `qms_shade_band` on the lot, the roll's dye lot; the roll list made editable with a Points button; shared test fixtures in `tests/common.py` | done | 2026-10-06, one pass. `-u`, `exit=0`, 32 tests (13 new), 0 failures; UI checked: the three ΔE maxima on the test, the editable roll list taking lot, measurements, ΔE and band in the row, band normalisation and refusal, the Points button saving and opening the entries with the profile-filtered defect dropdown, the row refreshed on closing, the dialog read-only once confirmed, dye lot and band on the lot form and list, the lot list grouped by dye lot. Within-roll shading confirmed on the spectrophotometer the same day |
-| 3 | Load rolls: a button on the Rolls page adding a row for each lot on the inspection's receipt line that has none | specced | |
-| 4 | Populate Defect from point entries, with the item-values refactor in `qms_quality_control` | planned | |
+| 3 | Load rolls: a button on the Rolls page adding a row for each lot on the inspection's receipt line that has none | done | 2026-10-06, one pass. `-u`, `exit=0`, 37 tests (5 new), 0 failures; UI checked on a receipt-line inspection: the button above the list in *ready* only, one press listing every roll of the receipt line in receipt order with its dye lot, a second press notifying, rows already filled in kept |
+| 4 | Populate Defect from point entries, on `qms_quality_control`'s item-values split (its step 5); the roll's name read as superuser for display | specced | |
 
 ## Divergences from the design
 
@@ -45,6 +45,10 @@ Design: `docs/Fabric Inspection — Design.md`. Plan: §8, §10 Phase 3.
 | D16 | **The roll's dye lot is a stored related field** (step 2), so rolls group by dye lot in reporting; `related_sudo` defaults to true, so it needs no Inventory rights either |
 | D17 | **The roll list becomes editable, with a Points button** (step 2). Shade is entered for every roll, and a dialog per roll for a whole receipt line is too slow. Lot, measurements, ΔE values and band are typed in the row; the row's button opens the roll's point entries in a dialog — core's pattern for picking moves (`stock.move.action_show_details`, `stock/models/stock_move.py:847-866`). The o2m's inline form goes, replaced by a form view of its own; in it the point line's `parent` is the roll, so D6 is unchanged. The form is read-only outside *ready* through a related `inspection_state` |
 | D11 | **Stock moves only.** The configured trigger makes the move the inspection's `object_id` (design §2); an inspection on a product, a picking or a lot loads nothing and gets the notification |
+| D18 | **Point entries become one item per distinct defect code** (step 4, design §6), after the question-line items: the inspection's checklist first, its rolls after, numbered on together by `action_populate_defect`. Codes in order of first appearance — roll order, then position — so the list reads as the inspector entered it |
+| D19 | **`qty_affected` is the number of entries** with that code, as the design's *Slub ×14* has it; the rolls they lie on go into the note, which is what a decision on returning rolls needs. Every entry counts, on passing rolls as on failing ones: a defect found is a defect, and the roll's verdict is on its own row |
+| D20 | **Only a roll inspection's rolls count,** as in `success` and the lot's band (divergence 5). The notification `qms_quality_control` returns when nothing resolves is left as it is: its text names the checklist only, and a roll inspection with neither coded failures nor point entries is the case it describes |
+| D21 | **The roll's name is read as superuser** (step 4). `_compute_display_name` reads `lot_id.sudo().display_name`, and the Points title, the confirmation error and the item note all read the roll's `display_name`. A non-stored compute runs as the user (`compute_sudo` follows `store`, `odoo/odoo/fields.py:443`), and `stock.lot` is readable by Inventory users only, so steps 1–3 raised `AccessError` for the inspector D8 supports as soon as a roll's name was shown outside a list: the Points dialog, the confirmation error. It is core's own rule for a Many2one label, which `web_read` takes as superuser (`odoo/addons/web/models/models.py:122-123`) — the lot name is a label, not a read of the lot |
 
 ## Folder structure
 
@@ -57,7 +61,8 @@ qms_fabric_inspection/
 │   ├── qc_inspection.py
 │   ├── qms_inspection_roll.py
 │   ├── qms_inspection_point.py
-│   └── stock_lot.py                                    # 2
+│   ├── stock_lot.py                                    # 2
+│   └── mgmtsystem_nonconformity.py                     # 4
 ├── security/ir.model.access.csv
 ├── views/
 │   ├── qc_test_views.xml
@@ -68,6 +73,7 @@ qms_fabric_inspection/
 │         common.py                                       # 2
 │         test_qms_shade.py                               # 2
 │         test_qms_load_rolls.py                          # 3
+│         test_qms_populate_defect.py                     # 4
 └── readme/ DESCRIPTION.md, USAGE.md
 ```
 
@@ -91,8 +97,8 @@ qms_fabric_inspection/
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import qc_test`, `from . import qms_inspection_point`, `from . import qms_inspection_roll`, `from . import qc_inspection`, `from . import stock_lot` (step 2) |
-| `tests/__init__.py` | `from . import test_qms_fabric_inspection`, `from . import test_qms_shade` (step 2), `from . import test_qms_load_rolls` (step 3) |
+| `models/__init__.py` | `from . import qc_test`, `from . import qms_inspection_point`, `from . import qms_inspection_roll`, `from . import qc_inspection`, `from . import stock_lot` (step 2), `from . import mgmtsystem_nonconformity` (step 4) |
+| `tests/__init__.py` | `from . import test_qms_fabric_inspection`, `from . import test_qms_shade` (step 2), `from . import test_qms_load_rolls` (step 3), `from . import test_qms_populate_defect` (step 4) |
 
 ## Access — `security/ir.model.access.csv`
 
@@ -141,7 +147,7 @@ new fields need no row: `qc.test` is writable by the manager group already (`:5`
 | `_compute_success` | `@api.depends("qms_roll_inspection", "qms_roll_ids.passed")` | `super()`, then `success = success and (not qms_roll_inspection or all(qms_roll_ids.mapped("passed")))` (D2). No rolls, or not a roll inspection: OCA's verdict unchanged |
 | `_compute_qms_defect_code_domain` | `@api.depends("product_id.qms_effective_profile_ids", "qms_show_all_codes")` | `CHECKLIST_DEFECT_CODE_DOMAIN` (imported from `odoo.addons.qms_quality_control.models.qc_test_question`); plus `("parent_id.profile_ids", "in", profiles.ids)` when the product resolves profiles and the switch is off — the three states of `qms_nonconformity`'s item domain (`qms_nonconformity_item.py:91-116`), with the quality-domain half the checklist codes carry |
 | `action_confirm` | — | `self._qms_check_rolls()`, then `super()` |
-| `_qms_check_rolls` | — | for each roll of each **roll** inspection — leftover rolls on a plain one are ignored, as in `success` (divergence 5): if it has point entries, a length or a width but not both a length and a width, raise `UserError`: `"Roll %(roll)s: enter both its length and width to score it, or remove its point entries."` with the lot's name |
+| `_qms_check_rolls` | — | for each roll of each **roll** inspection — leftover rolls on a plain one are ignored, as in `success` (divergence 5): if it has point entries, a length or a width but not both a length and a width, raise `UserError`: `"Roll %(roll)s: enter both its length and width to score it, or remove its point entries."` with the roll's `display_name` (the lot's name until step 4, D21) |
 
 **The check runs before OCA's** so a roll inspection with an incomplete roll fails on the roll, the
 thing the inspector is looking at, and never reaches a state.
@@ -199,7 +205,7 @@ A lot on two move lines gives one roll: the lines' lots are a recordset, so a re
 
 | Method | Decorator | Behaviour |
 |---|---|---|
-| `_compute_display_name` | `@api.depends("lot_id")` | the lot's display name — the title of the roll's dialog and the name in the confirmation error |
+| `_compute_display_name` | `@api.depends("lot_id")` | the lot's display name, read through `lot_id.sudo()` from step 4 (D21) — the title of the roll's dialog, the name in the confirmation error and in the item note |
 | `_compute_total_points` | `@api.depends("point_ids.points", "point_ids.position", "inspection_id.qms_points_cap")` | the entries' points summed per `position`; each metre counts at most `qms_points_cap` when it is above 0; the metres summed |
 | `_compute_scored` | `@api.depends("length", "width")` | `length > 0 and width > 0` (divergence 1) |
 | `_compute_score` | `@api.depends("scored", "total_points", "length", "width")` | `total_points * 10000 / (length * width)` when scored, else 0.0 (D3) |
@@ -209,7 +215,7 @@ A lot on two move lines gives one roll: the lines' lots are a recordset, so a re
 | `create` | `@api.model_create_multi` | step 2; normalises `shade_band` in each values dict, then `super()` (D13) |
 | `write` | — | step 2; normalises `shade_band` when present, then `super()` |
 | `_check_shade_band` | `@api.constrains("shade_band")` | step 2; a non-empty band must match `^([A-Z]|[1-9]{3})$`, else `ValidationError`: `"Shade band %(band)s: use one letter (A, B, …) or a 555 code of three digits 1–9."` |
-| `action_qms_open_points` | — | step 2; `ensure_one`; an `ir.actions.act_window` on this roll, `view_mode` `form`, `views` the Points form, `target` `new`, `res_id` the roll, `name` `"Points — %(roll)s"` with the lot's name (D17) |
+| `action_qms_open_points` | — | step 2; `ensure_one`; an `ir.actions.act_window` on this roll, `view_mode` `form`, `views` the Points form, `target` `new`, `res_id` the roll, `name` `"Points — %(roll)s"` with the roll's `display_name` (D17; the lot's name until step 4, D21) |
 
 **Normalisation** is a module-level helper, `_normalise_band(value)`: `value.strip().upper()`, or
 `False` when that leaves nothing — `" a "` becomes `A`, `"455"` stays, `"  "` becomes empty.
@@ -227,6 +233,30 @@ A lot on two move lines gives one roll: the lines' lots are a recordset, so a re
 **The cap counts metres, not entries.** Two entries of 3 and 2 at metre 10 count 4; an entry of 1 at
 metre 11 counts 1; the roll scores 5. A running defect is entered once per metre it covers, and the
 cap is what keeps one metre at 4.
+
+### `mgmtsystem.nonconformity` — `models/mgmtsystem_nonconformity.py` (step 4)
+
+`_inherit = "mgmtsystem.nonconformity"`. `qc_inspection_id` comes from
+`mgmtsystem_nonconformity_quality_control_oca`; `_qms_defect_item_values` from `qms_quality_control`
+(its step 5).
+
+| Method | Behaviour |
+|---|---|
+| `_qms_defect_item_values` | `super()`, then — when `qc_inspection_id` is a roll inspection (D20) — one value dict per distinct defect code among the point entries of its rolls, appended in order of first appearance (D18) |
+
+**Values for an item from point entries**
+
+| Item field | Value |
+|---|---|
+| `nonconformity_id` | this nonconformity |
+| `defect_code_id` | the code |
+| `qty_affected` | the number of entries with that code (D19) |
+| `note` | `"Point entries on rolls %(rolls)s"`, the `display_name` of each roll carrying the code, in roll order, comma-separated (D21) |
+| `sequence` | not set: `action_populate_defect` numbers the whole list |
+| `severity_id`, `object_part_id`, `cause_id` | not set, as for an item from a line |
+
+The entries are read as `qms_roll_ids.point_ids`: rolls in their `_order`, each roll's entries in
+theirs, which is the order D18 names.
 
 ### `stock.lot` — `models/stock_lot.py` (step 2)
 
@@ -345,7 +375,7 @@ profile and a second product carrying none; three lots of the first product, eac
 Helpers: `_inspect(test, target)` creates a *draft* inspection on `target` — the profiled product by default, sets the test
 through the *Set test* wizard (`qc.inspection.set.test` with `active_id`), moves it to *ready* with
 `action_todo()` and answers the question *OK*; `_roll(inspection, lot, length, width, points, **values)`
-creates a roll — with any further field values, the band for one — and one entry per `(position, points)` pair, all with *Slub*.
+creates a roll — with any further field values, the band for one — and one entry per `(position, points)` pair, all with *Slub*. `_user_without_inventory()` (added in step 3, and used by step 2's access test since) creates a user holding *Internal User* and *Quality control · User* only, for the access tests.
 
 | Test | Asserts |
 |---|---|
@@ -430,9 +460,32 @@ the move.
 **Checked in the UI:** the button above the list in *ready* and gone otherwise; a press on a receipt
 line's inspection listing every roll in receipt order; a second press notifying.
 
+## Tests — `tests/test_qms_populate_defect.py` (step 4)
+
+`TestPopulateDefect(FabricInspectionCase)`, `@tagged("post_install", "-at_install")`. On the common
+roll test, the *Not OK* answer carries the *Hole* code. `_nonconformity(inspection)` creates a
+nonconformity in Analysis carrying `qc_inspection_id`, with the fields `mgmtsystem_nonconformity`
+requires — as `qms_quality_control`'s own Populate Defect tests do.
+`_user_without_inventory(*groups)` takes further group XML ids, here
+`mgmtsystem.group_mgmtsystem_user`.
+
+| Test | Asserts |
+|---|---|
+| `test_points_become_items` | rolls on lots 1 and 2 with Slub at metres 1 and 2 and Hole at 3 on lot 1, Slub at 1 on lot 2; after confirming, Populate Defect creates two items: Slub with `qty_affected` 3 and a note naming both rolls, then Hole with 1 and a note naming lot 1 only; `sequence` 10 and 20 |
+| `test_lines_come_first` | with the question answered *Not OK*, the line's Hole item comes first with the question as its note, and the point items follow, numbered on from it |
+| `test_only_points_resolve` | with every question passing, point entries alone create items and the method returns `True` |
+| `test_entries_on_passing_rolls_count` | a roll within its limit still gives its entries' item (D19) |
+| `test_plain_test_rolls_ignored` | an inspection switched to the plain test and confirmed creates no point items, and with no coded line returns the notification (D20) |
+| `test_populate_by_user_without_inventory` | a user holding *Quality control · User* and *Management system · User* and no Inventory group populates the items, the note naming the rolls (D21). The control: the same user reading the lot raises `AccessError` |
+| `test_points_action_by_user_without_inventory` | that user's `action_qms_open_points` returns the action, titled with the roll's name (D21) |
+
+**Checked in the UI:** on a nonconformity raised from a confirmed roll inspection, Populate Defect
+listing the checklist's items first and one item per point-entry code after, with counts and roll
+names; the Points dialog opening for an inspector without Inventory rights.
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | Inspects fabric roll by roll at receipt. A receipt line's inspection lists its rolls — each a lot — with the defects found on each, scored by the 4-point system and normalised to points per 100 m². A roll that exceeds the test's limit fails the inspection. Step 2 adds: each roll's shade, measured on the spectrophotometer against the standard and within the roll, and its shade band; the dye lot and band on the lot, where cutting reads them |
-| `readme/USAGE.md` | **Test**: tick *Roll Inspection* on the test and set the limit in points per 100 m² and the cap per metre (4 under the 4-point system). If the buyer's standard gives the limit per 100 yd², multiply it by 1.196. **Trigger**: set the fabric receipt trigger to the *after* timing, without *inspection per lot*, so each receipt line gets one inspection. **Rolls**: on the inspection's *Rolls* page, add a row per roll inspected and pick its lot; enter length in metres and width in centimetres to score it, then each defect with the metre it lies in (1 for the first) and its points, 1 to 4. A roll with neither length nor width is not scored — the rest of a sample. **Load rolls** (step 3), above the list, adds a row for every lot on the receipt line that has none yet, in receipt order, so every roll can be banded while only the sample is scored; rows already there are kept, and a deleted row comes back at the next press. The defect list follows the product's catalog profiles; *Show all catalog codes* widens it. **Shade** (step 2): set the three ΔE maxima on the test — 0 leaves one unjudged; in each roll's row enter the spectrophotometer's ΔE against the standard, head–tail and side–centre–side, and the band from shade sorting, one letter or a 555 code; from step 2 the point entries open from the row's list button. **Lots** (step 2): the dye lot is read from the lot name up to its last "-" and can be corrected on the lot; the band shows on the lot once its inspection is confirmed; group the lot list by dye lot to see bands for cutting. **Verdict**: the inspection succeeds only when every question passes and every roll passes its points and its shade; one failing roll sends it to supervisor approval, which records it as failed — the decision on which rolls are returned belongs on the nonconformity |
+| `readme/USAGE.md` | **Test**: tick *Roll Inspection* on the test and set the limit in points per 100 m² and the cap per metre (4 under the 4-point system). If the buyer's standard gives the limit per 100 yd², multiply it by 1.196. **Trigger**: set the fabric receipt trigger to the *after* timing, without *inspection per lot*, so each receipt line gets one inspection. **Rolls**: on the inspection's *Rolls* page, add a row per roll inspected and pick its lot; enter length in metres and width in centimetres to score it, then each defect with the metre it lies in (1 for the first) and its points, 1 to 4. A roll with neither length nor width is not scored — the rest of a sample. **Load rolls** (step 3), above the list, adds a row for every lot on the receipt line that has none yet, in receipt order, so every roll can be banded while only the sample is scored; rows already there are kept, and a deleted row comes back at the next press. The defect list follows the product's catalog profiles; *Show all catalog codes* widens it. **Shade** (step 2): set the three ΔE maxima on the test — 0 leaves one unjudged; in each roll's row enter the spectrophotometer's ΔE against the standard, head–tail and side–centre–side, and the band from shade sorting, one letter or a 555 code; from step 2 the point entries open from the row's list button. **Lots** (step 2): the dye lot is read from the lot name up to its last "-" and can be corrected on the lot; the band shows on the lot once its inspection is confirmed; group the lot list by dye lot to see bands for cutting. **Nonconformity** (step 4): Populate Defect on a nonconformity raised from a confirmed roll inspection adds, after the checklist's items, one item per defect code found on the rolls, with the number of entries as the quantity and the rolls named in the note. **Verdict**: the inspection succeeds only when every question passes and every roll passes its points and its shade; one failing roll sends it to supervisor approval, which records it as failed — the decision on which rolls are returned belongs on the nonconformity |

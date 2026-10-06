@@ -134,3 +134,48 @@ class QcInspection(models.Model):
                             roll=roll.lot_id.name,
                         )
                     )
+
+    def _qms_lots_to_load(self):
+        """The lots of this inspection's receipt line that have no roll yet.
+
+        The move lines are searched rather than read off the move: stock.move
+        and stock.lot are readable by Inventory users only, stock.move.line by
+        every internal user, so an inspector without Inventory rights can load.
+        The move's id comes from object_id and the lot ids off the lines,
+        neither read. Ordered by lot creation, the order the receipt entered
+        them -- not by name, which sorts "-10" before "-2".
+        """
+        self.ensure_one()
+        move = self.object_id
+        if not move or move._name != "stock.move":
+            return self.env["stock.lot"]
+        lines = self.env["stock.move.line"].search(
+            [("move_id", "=", move.id), ("lot_id", "!=", False)]
+        )
+        return (lines.lot_id - self.qms_roll_ids.lot_id).sorted("id")
+
+    def action_qms_load_rolls(self):
+        """Add a roll for every lot of the receipt line that has none.
+
+        Add-only: rows already there keep what was entered on them.
+        """
+        vals_list = [
+            {"inspection_id": inspection.id, "lot_id": lot.id}
+            for inspection in self
+            for lot in inspection._qms_lots_to_load()
+        ]
+        if not vals_list:
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "type": "info",
+                    "title": self.env._("No rolls to load"),
+                    "message": self.env._(
+                        "Every lot on this receipt line already has a row. Rolls "
+                        "are loaded from the lots of the inspection's receipt line."
+                    ),
+                },
+            }
+        self.env["qms.inspection.roll"].create(vals_list)
+        return True

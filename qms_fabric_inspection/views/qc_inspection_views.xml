@@ -42,6 +42,17 @@
                             <field name="qms_show_all_codes" />
                         </group>
                     </group>
+                    <!-- Above the list it fills, and only where that list is
+                         editable. An object button saves the inspection first. -->
+                    <div>
+                        <button
+                            name="action_qms_load_rolls"
+                            type="object"
+                            string="Load rolls"
+                            class="btn-secondary"
+                            invisible="state != 'ready'"
+                        />
+                    </div>
                     <!-- Editable in ready only, as OCA's Questions page. Editable
                          in place so shade can be typed for every roll; the point
                          entries open from the row's button, core's pattern for

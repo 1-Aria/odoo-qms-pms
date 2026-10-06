@@ -18,7 +18,9 @@ On the inspection's **Rolls** page, add a row per roll and pick its lot. Enter i
 metres and width in centimetres to score it, then open its point entries with the row's list
 button and enter each defect with the metre it lies in (1 for the first) and its points, 1 to 4. A running defect is entered once per metre
 it covers; no metre counts more than the cap. A roll with neither length nor width is not
-scored — the rest of a sample. The defect list follows the product's catalog profiles;
+scored — the rest of a sample. **Load rolls**, above the list, adds a row for every lot on the receipt
+line that has none yet, in receipt order, so every roll can be banded while only the sample is
+scored. Rows already there are kept; a deleted row comes back at the next press. The defect list follows the product's catalog profiles;
 **Show all catalog codes** widens it.
 
 ## Shade

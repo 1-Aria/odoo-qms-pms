@@ -159,24 +159,7 @@ class TestShade(FabricInspectionCase):
         self.assertFalse(self.lot1.qms_shade_band)
 
     def test_lot_band_by_inspector_without_inventory(self):
-        inspector = self.env["res.users"].create(
-            {
-                "name": "Fabric inspector",
-                "login": f"{self.prefix}-inspector",
-                "groups_id": [
-                    (
-                        6,
-                        0,
-                        [
-                            self.env.ref("base.group_user").id,
-                            self.env.ref(
-                                "quality_control_oca.group_quality_control_user"
-                            ).id,
-                        ],
-                    )
-                ],
-            }
-        )
+        inspector = self._user_without_inventory()
         inspection = self._inspect()
         roll = self._roll(inspection, self.lot1)
 
