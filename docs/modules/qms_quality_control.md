@@ -12,7 +12,8 @@ Plan: §7.10 (inspection rows), §7.11.
 | 2 | `qms_defect_code_id` and `qms_qty_failed` on `qc.inspection.line`, shown in the line lists; Populate Defect on the nonconformity, gated on a confirmed inspection and an empty analysis | done | two passes, both 2026-09-23. First: `exit=0`, 19 tests, 0 failures; UI checked — the defect-code column filled on failures only, the button appearing once the inspection is confirmed and going once an item exists, the notification when nothing resolves, and the form opening cleanly for a management-system user outside quality control. A log review then found the group gate did not gate: `groups` reads a comma as *at least one* (`res_users.py:1167-1170`), so naming the management-system group beside the quality-control one passed every management-system user through. Both elements now name the quality-control group alone, `test_view_hides_gate_without_quality_control` covers the arch rather than only the compute, and the two step 1 restrict tests gained the `@mute_logger("odoo.sql_db")` every other restrict test in the repository carries. Second pass added `qms_qty_failed` and its transfer to the item: `exit=0`, 20 tests, 0 failures, both columns and the quantity carry-over checked in the UI |
 | 3 | `mgmtsystem.action.qms_inspection_id` and the field on the action form; on the inspection, a three-path action count and a smart button | done | upgraded and tested 2026-09-23, `exit=0`, 33 tests, 0 failures; UI checked — the field beside Reference, the actions list opening at a count of zero with the inspection prefilled on New, and the count including actions reached through the nonconformity and through its immediate action without double-counting one reachable both ways. `_compute_qms_action_count` returns 0 for an unsaved record: a `NewId` cannot go into a domain and the compute runs during onchange, the guard core writes as `isinstance(record.id, models.NewId)` (`crm_lead.py:575`). **Retrofitted 2026-09-24**: the action-side smart button and the button box it needed were removed again, leaving the field as the link — divergence 13. That dropped `test_view_inspection_res_id`, so the module runs 38 tests, not 39 |
 | 4 | Nonconformity prefill when created from an inspection: `action_view_nonconformities` overridden so the defaults apply whatever the count, and the product carried across | done | upgraded and tested 2026-09-24, `exit=0`, 39 tests, 0 failures; UI checked — a new nonconformity opening prefilled from an inspection with none, its Analysis Items dropdowns scoped by the prefilled product, New from the list of several prefilling the same way (the OCA gap this step closes, and the part only a click can prove), and the list showing colleagues' nonconformities rather than only the viewer's. The readme also gained the *Actions* section step 3 shipped without |
-| 5 | Populate Defect split: the item values are built by `_qms_defect_item_values`, which `qms_fabric_inspection` extends with its roll point entries (its step 4); `action_populate_defect` numbers and creates them. No change in behaviour | specced | |
+| 5 | Populate Defect split: the item values are built by `_qms_defect_item_values`, which `qms_fabric_inspection` extends with its roll point entries (its step 4); `action_populate_defect` numbers and creates them. No change in behaviour | done | 2026-10-06, `-u`, `exit=0`, 38 tests, 0 failures — the unchanged suite as the regression check; the extension proven by `qms_fabric_inspection`'s step 4 tests |
+| 6 | `action_view_nonconformities` builds the action itself through `_for_xml_id`, without OCA's method, so the inspection's Nonconformities button works for users outside *Settings* | done | 2026-10-06, one pass. `-u`, `exit=0`, 40 tests (2 new), 0 failures; UI checked as a quality and management-system user outside *Settings*: the button opening a new prefilled form with none, the record with one, the list with several. Found earlier the same day in the UI checks of `qms_fabric_inspection` step 4: a user with *Quality control · User* and *Management system · User* got `You are not allowed to access 'Action Window'` |
 
 ## Divergences from the plan
 
@@ -75,6 +76,20 @@ the group gives.
 **A `groups` attribute listing two groups is a union, not an intersection.** There is no
 way to spell "both groups" in a view, so a gate must name the one group that actually
 guards the access — see the note under the nonconformity view below.
+
+**OCA's bridge reads its window action with `.read()`** (step 6).
+`action_view_nonconformities` starts with
+`self.env.ref("mgmtsystem_nonconformity.open_mgmtsystem_nonconformity_list").read()[0]`
+(`mgmtsystem_nonconformity_quality_control_oca/models/qc_inspection.py:24-26`), and Odoo 18 lets only
+*Settings* read `ir.actions.act_window` (`odoo/odoo/addons/base/security/ir.model.access.csv:101`).
+Core reads an action through `_for_xml_id()`, which reads it as superuser
+(`odoo/odoo/addons/base/models/ir_actions.py:218-237`). So the button raises `AccessError` for every
+user who is not an administrator, and step 4's override, which calls `super()`, inherited it; its
+tests run as admin and never saw it. The same `.read()` pattern is in
+`mail.thread.action_view_non_conformities` (`mgmtsystem_nonconformity/models/mail_thread.py:20-22`),
+which nothing calls: the chatter's nonconformity button loads its own action by XML id from the
+client (`static/src/components/chatter_topbar/chatter_topbar.esm.js:12-19`), and the client loads
+actions as superuser. An upstream note only.
 
 **Steps 3 and 4 inherit this.** Any field on the nonconformity or the action that reads
 inspection data — a smart-button count above all — needs the same group treatment, and the
@@ -395,7 +410,21 @@ the client changes.
 | Method | Behaviour |
 |---|---|
 | `_qms_nonconformity_context` | `ensure_one`; the defaults a nonconformity raised from this inspection starts with |
-| `action_view_nonconformities` | `super()`, then replaces the returned action's `context` with `_qms_nonconformity_context()` |
+| `action_view_nonconformities` | `ensure_one`; from step 6 **does not call `super()`**: the action from `_for_xml_id("mgmtsystem_nonconformity.open_mgmtsystem_nonconformity_list")`; with more than one of `mgmtsystem_nonconformity_ids`, `domain` `[("id", "in", ids)]`; otherwise `views` the nonconformity form (`mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form`) and `res_id` the one nonconformity or `False`; then `context` from `_qms_nonconformity_context()`. Before step 6: `super()`, then the context replaced |
+
+**Why the method is rewritten rather than called as superuser** (step 6). OCA's method reads the
+action record, which only *Settings* may do (*Known traps*). Calling it through `self.sudo()` would
+fix that, but its branch is chosen by `mgmtsystem_nonconformity_count`, and under `sudo()` that count
+ignores `mgmtsystem_nonconformity`'s multi-company record rule
+(`mgmtsystem_nonconformity/security/mgmtsystem_nonconformity_security.xml`). This instance has two
+companies, and the rule's `company_ids` are the ones selected in the switcher: a single
+nonconformity in a company the user has not selected would be opened by `res_id` and raise, where
+the user should get a new form. Built here, the action reads the action record as `_for_xml_id`
+does — as superuser — and the nonconformities as the user, so the branch follows what the user
+sees. The cost is a copy of OCA's branching — eight lines — which an upstream fix no longer reaches;
+re-check `mgmtsystem_nonconformity_quality_control_oca/models/qc_inspection.py` on an OCA upgrade,
+and drop the override's first half if the bridge moves to `_for_xml_id`. Same branching as OCA's,
+with OCA's own view, so nothing the client receives changes for a user who could already click it.
 
 **The context**
 
@@ -635,6 +664,8 @@ fixtures create a product, an inspection and nonconformities. Every test reads t
 | `test_product_default_from_inspection` | `default_product_id` is the inspection's product, which is what makes the §7.6 dropdowns work on the new record |
 | `test_no_product_default_without_object` | an inspection with no `object_id` resolves no product, so `default_product_id` is `False` — the same result a picking-based inspection gives, and by design |
 | `test_user_filter_dropped` | `search_default_user_id` is absent from the context, so the list shows every nonconformity from this inspection rather than only the viewer's |
+| `test_button_for_user_outside_settings` | step 6; a user holding *Internal User*, *Quality control · User* and *Management system · User* gets the action, its context carrying `default_qc_inspection_id`. The control: the same user reading the action record `mgmtsystem_nonconformity.open_mgmtsystem_nonconformity_list` raises `AccessError` — the read OCA's method makes |
+| `test_button_ignores_other_company` | step 6; a second company is created; that user belongs to the first only, and the inspection's one nonconformity to the second: the action opens a new form — `res_id` `False` — rather than a record the user cannot read. The test that a superuser call of OCA's method would fail |
 
 ## Readme
 

@@ -146,8 +146,12 @@ class QmsInspectionRoll(models.Model):
 
     @api.depends("lot_id")
     def _compute_display_name(self):
+        # Through sudo: stock.lot is readable by Inventory users only, and a
+        # non-stored compute runs as the user, so an inspector without those
+        # rights would raise on the Points dialog's title. The lot's name is a
+        # label here, as web_read takes any Many2one's label as superuser.
         for roll in self:
-            roll.display_name = roll.lot_id.display_name or ""
+            roll.display_name = roll.lot_id.sudo().display_name or ""
 
     @api.depends(
         "point_ids.points", "point_ids.position", "inspection_id.qms_points_cap"
@@ -234,7 +238,7 @@ class QmsInspectionRoll(models.Model):
         view = self.env.ref("qms_fabric_inspection.qms_inspection_roll_points_form")
         return {
             "type": "ir.actions.act_window",
-            "name": self.env._("Points — %(roll)s", roll=self.lot_id.name),
+            "name": self.env._("Points — %(roll)s", roll=self.display_name),
             "res_model": "qms.inspection.roll",
             "view_mode": "form",
             "views": [(view.id, "form")],

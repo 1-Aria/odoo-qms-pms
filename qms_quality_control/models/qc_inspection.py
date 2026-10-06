@@ -98,21 +98,42 @@ class QcInspection(models.Model):
         }
 
     def action_view_nonconformities(self):
-        """OCA's button, with the defaults applied whatever the count.
+        """OCA's button, rebuilt: the defaults apply whatever the count, and it
+        opens for users outside Settings.
 
         The bridge sets its context only in the branch it takes for zero or one
         nonconformity (mgmtsystem_nonconformity_quality_control_oca/models/
         qc_inspection.py); with two or more it sets a domain and leaves the
         action's stored context, so New from that list prefills nothing.
         Setting the context outside the branch makes plan 7.10's "the same
-        defaults still on the action" true for every count.
-
-        It replaces rather than merges because that stored context is the string
+        defaults still on the action" true for every count. It replaces rather
+        than merges because that stored context is the string
         {"search_default_user_id":uid}, evaluated by the client
-        (mgmtsystem_nonconformity/views/mgmtsystem_nonconformity.xml:325), so
-        merging into it would mean string surgery.
+        (mgmtsystem_nonconformity/views/mgmtsystem_nonconformity.xml:325).
+
+        super() is not called. The bridge reads the action with .read(), which
+        Odoo 18 allows to Settings only (base/security/ir.model.access.csv:101),
+        so its button raised for every other user. _for_xml_id reads the action
+        as superuser, as core does. Calling the bridge through sudo() instead
+        would also count the nonconformities as superuser, past the
+        multi-company rule, and a single one in a company the user has not
+        selected would open as an access error rather than a new form. Here the
+        nonconformities are read as the user. The branching is OCA's, copied:
+        re-check the bridge on an upgrade.
         """
-        action = super().action_view_nonconformities()
+        self.ensure_one()
+        action = self.env["ir.actions.act_window"]._for_xml_id(
+            "mgmtsystem_nonconformity.open_mgmtsystem_nonconformity_list"
+        )
+        nonconformities = self.mgmtsystem_nonconformity_ids
+        if len(nonconformities) > 1:
+            action["domain"] = [("id", "in", nonconformities.ids)]
+        else:
+            form = self.env.ref(
+                "mgmtsystem_nonconformity.view_mgmtsystem_nonconformity_form"
+            )
+            action["views"] = [(form.id, "form")]
+            action["res_id"] = nonconformities.id
         action["context"] = self._qms_nonconformity_context()
         return action
 

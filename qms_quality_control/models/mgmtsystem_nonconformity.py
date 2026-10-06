@@ -49,44 +49,53 @@ class MgmtsystemNonconformity(models.Model):
                 and nonconformity.qc_inspection_id.state in INSPECTION_DONE_STATES
             )
 
-    def action_populate_defect(self):
-        """Fill the analysis from the source inspection's recorded defects.
+    def _qms_defect_item_values(self):
+        """The values of the items Populate Defect creates, without sequence.
 
-        One item per inspection line that resolves a defect code, in line
-        order. Creates only -- never deletes, because the button is gone once
-        the nonconformity holds an item.
+        One per inspection line that resolves a defect code, in line order.
+        The extension point for another source of defects, which appends to
+        the list (qms_fabric_inspection adds its roll point entries);
+        action_populate_defect numbers the whole list.
 
         The item's severity is not set here: qms_nonconformity derives it from
         the defect code in a stored compute, for items created in code as well.
-        The failed quantity is carried across. Object part and cause are left
-        for the analyst, and the determination engine matches a partial item
-        natively.
+        Object part and cause are left for the analyst, and the determination
+        engine matches a partial item natively.
 
         Line order needs no sorting: qc.inspection.line declares no _order, so
         it is id, and the lines are created by walking test.test_lines
         (quality_control_oca/models/qc_inspection.py:217-224), which is ordered
         sequence, id.
         """
+        self.ensure_one()
+        lines = self.qc_inspection_id.inspection_lines.filtered("qms_defect_code_id")
+        return [
+            {
+                "nonconformity_id": self.id,
+                "defect_code_id": line.qms_defect_code_id.id,
+                # The quantity the inspector recorded against this defect.
+                # Unfilled copies 0.0, which is the item's own default, so
+                # there is no special case.
+                "qty_affected": line.qms_qty_failed,
+                # The question, so an item does not read "Torn" with no trace
+                # of which check raised it.
+                "note": line.name,
+            }
+            for line in lines
+        ]
+
+    def action_populate_defect(self):
+        """Fill the analysis from the source inspection's recorded defects.
+
+        Creates only -- never deletes, because the button is gone once the
+        nonconformity holds an item.
+        """
         values = []
         for nonconformity in self:
-            lines = nonconformity.qc_inspection_id.inspection_lines.filtered(
-                "qms_defect_code_id"
-            )
-            for index, line in enumerate(lines, start=1):
-                values.append(
-                    {
-                        "nonconformity_id": nonconformity.id,
-                        "sequence": index * 10,
-                        "defect_code_id": line.qms_defect_code_id.id,
-                        # The quantity the inspector recorded against this
-                        # defect. Unfilled copies 0.0, which is the item's own
-                        # default, so there is no special case.
-                        "qty_affected": line.qms_qty_failed,
-                        # The question, so an item does not read "Torn" with no
-                        # trace of which check raised it.
-                        "note": line.name,
-                    }
-                )
+            item_values = nonconformity._qms_defect_item_values()
+            for index, vals in enumerate(item_values, start=1):
+                vals["sequence"] = index * 10
+            values.extend(item_values)
         if self.env["qms.nonconformity.item"].create(values):
             return True
         # The button is visible exactly when the analysis is empty, so a click

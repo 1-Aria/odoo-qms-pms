@@ -131,7 +131,7 @@ class QcInspection(models.Model):
                         self.env._(
                             "Roll %(roll)s: enter both its length and width to "
                             "score it, or remove its point entries.",
-                            roll=roll.lot_id.name,
+                            roll=roll.display_name,
                         )
                     )
 

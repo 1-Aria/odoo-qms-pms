@@ -43,3 +43,9 @@ cutting: never mix two bands of one dye lot in a lay.
 The inspection succeeds only when every question passes and every roll passes. One failing
 roll sends it to supervisor approval, which records it as failed; which rolls are returned is
 decided on the nonconformity.
+
+## Nonconformity
+
+Populate Defect on a nonconformity raised from a confirmed roll inspection adds, after the
+checklist's items, one item per defect code found on the rolls, with the number of entries as
+the quantity and the rolls named in the note.

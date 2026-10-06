@@ -1,6 +1,9 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+from odoo.exceptions import AccessError
 from odoo.tests.common import TransactionCase, tagged
+
+from odoo.addons.qms_catalog.tests.common import unique_code_prefix
 
 
 @tagged("post_install", "-at_install")
@@ -104,3 +107,47 @@ class TestNonconformityPrefill(TransactionCase):
         self._nonconformity(self.inspection)
         result = self.inspection.action_view_nonconformities()
         self.assertNotIn("search_default_user_id", result["context"])
+
+    # -- users outside Settings (step 6) --------------------------------------
+
+    def _user_outside_settings(self):
+        """A quality and management-system user, no administrator."""
+        xmlids = (
+            "base.group_user",
+            "quality_control_oca.group_quality_control_user",
+            "mgmtsystem.group_mgmtsystem_user",
+        )
+        return self.env["res.users"].create(
+            {
+                "name": "Inspector",
+                "login": f"{unique_code_prefix()}-inspector",
+                "groups_id": [(6, 0, [self.env.ref(xmlid).id for xmlid in xmlids])],
+            }
+        )
+
+    def test_button_for_user_outside_settings(self):
+        user = self._user_outside_settings()
+        result = self.inspection.with_user(user).action_view_nonconformities()
+        self.assertEqual(
+            result["context"]["default_qc_inspection_id"], self.inspection.id
+        )
+
+        # The control: the read OCA's method makes, refused to this user.
+        action = self.env.ref(
+            "mgmtsystem_nonconformity.open_mgmtsystem_nonconformity_list"
+        )
+        with self.assertRaises(AccessError):
+            action.with_user(user).read(["name"])
+
+    def test_button_ignores_other_company(self):
+        """A superuser count would open a record the user cannot read."""
+        other = self.env["res.company"].create(
+            {"name": f"{unique_code_prefix()} Other company"}
+        )
+        nonconformity = self._nonconformity(self.inspection)
+        nonconformity.company_id = other
+        user = self._user_outside_settings()
+        self.assertNotIn(other, user.company_ids)
+
+        result = self.inspection.with_user(user).action_view_nonconformities()
+        self.assertFalse(result["res_id"])

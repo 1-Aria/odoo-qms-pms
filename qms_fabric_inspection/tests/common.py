@@ -100,24 +100,21 @@ class FabricInspectionCase(TransactionCase):
         )
         return test
 
-    def _user_without_inventory(self):
-        """A quality-control user holding no Inventory group."""
+    def _user_without_inventory(self, *groups):
+        """A quality-control user holding no Inventory group.
+
+        `groups` are further group XML ids the user should hold.
+        """
+        xmlids = (
+            "base.group_user",
+            "quality_control_oca.group_quality_control_user",
+            *groups,
+        )
         return self.env["res.users"].create(
             {
                 "name": "Fabric inspector",
                 "login": f"{self.prefix}-inspector",
-                "groups_id": [
-                    (
-                        6,
-                        0,
-                        [
-                            self.env.ref("base.group_user").id,
-                            self.env.ref(
-                                "quality_control_oca.group_quality_control_user"
-                            ).id,
-                        ],
-                    )
-                ],
+                "groups_id": [(6, 0, [self.env.ref(xmlid).id for xmlid in xmlids])],
             }
         )
 
