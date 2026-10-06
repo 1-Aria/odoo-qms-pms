@@ -272,6 +272,11 @@ the module doc named.
   in the transaction that created the record can silently do nothing. A fetch in a later
   transaction caches NULL as `None`, so the bug hides outside it. Invalidate the field first,
   and assert stored values through SQL, not the ORM. (`maintenance_sla`)
+- A stored compute does not run when its dependency is written: it is marked pending and runs
+  at the next read or flush, reading its sources as they are then. A snapshot that copies a
+  source it does not depend on therefore copies that source's value at the first read, not at
+  the write — so a test that edits the source before reading the snapshot sees the edit copied.
+  Read the field before changing the source. (`qms_fabric_inspection`)
 
 **Views**
 - View inheritance may not select on a translated attribute such as `@string`; select

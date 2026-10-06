@@ -1,0 +1,3 @@
+"id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
+"access_qms_inspection_roll_user","qms.inspection.roll.user","model_qms_inspection_roll","quality_control_oca.group_quality_control_user",1,1,1,1
+"access_qms_inspection_point_user","qms.inspection.point.user","model_qms_inspection_point","quality_control_oca.group_quality_control_user",1,1,1,1

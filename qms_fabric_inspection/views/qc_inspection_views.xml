@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Inherits the stock bridge's extension rather than the base form, so
+         its lot_id and the base form's notebook are both in reach. -->
+    <record id="qc_inspection_form_view" model="ir.ui.view">
+        <field name="name">qc.inspection.form.qms.rolls</field>
+        <field name="model">qc.inspection</field>
+        <field
+            name="inherit_id"
+            ref="quality_control_stock_oca.qc_inspection_form_view_picking"
+        />
+        <field name="arch" type="xml">
+            <field name="product_id" position="after">
+                <field name="qms_roll_inspection" invisible="1" />
+            </field>
+            <!-- On a receipt-line inspection OCA's compute names the move's
+                 first lot (quality_control_stock_oca/models/qc_inspection.py:
+                 42-57), one roll among many; the Rolls page is the truth. -->
+            <field name="lot_id" position="attributes">
+                <attribute name="invisible">qms_roll_inspection</attribute>
+            </field>
+            <!-- The Questions page carries only a translated string, which
+                 view inheritance may not select on, so it is taken by
+                 position. -->
+            <xpath expr="//notebook/page[1]" position="after">
+                <page
+                    string="Rolls"
+                    name="qms_rolls"
+                    invisible="not qms_roll_inspection"
+                >
+                    <group>
+                        <group>
+                            <field name="qms_points_limit" />
+                            <field name="qms_points_cap" />
+                        </group>
+                        <group>
+                            <field name="qms_show_all_codes" />
+                        </group>
+                    </group>
+                    <!-- Editable in ready only, as OCA's Questions page. Not an
+                         editable list: an editable list cannot open a row's
+                         form, and the point entries live in that form. -->
+                    <field
+                        name="qms_roll_ids"
+                        nolabel="1"
+                        readonly="state != 'ready'"
+                    >
+                        <list decoration-danger="not passed">
+                            <field name="lot_id" />
+                            <field name="length" />
+                            <field name="width" />
+                            <field name="total_points" />
+                            <field name="score" digits="[16,1]" />
+                            <field name="passed" />
+                        </list>
+                        <form>
+                            <group>
+                                <group>
+                                    <field
+                                        name="lot_id"
+                                        domain="[('product_id', '=', parent.product_id)]"
+                                        options="{'no_create': True}"
+                                    />
+                                    <field name="length" />
+                                    <field name="width" />
+                                </group>
+                                <group>
+                                    <field name="total_points" />
+                                    <field name="score" digits="[16,1]" />
+                                    <field name="points_pass" />
+                                    <field name="passed" />
+                                </group>
+                            </group>
+                            <field name="defect_code_domain" invisible="1" />
+                            <field name="point_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="position" />
+                                    <field
+                                        name="defect_code_id"
+                                        domain="parent.defect_code_domain or []"
+                                        options="{'no_create': True}"
+                                    />
+                                    <field name="points" />
+                                </list>
+                            </field>
+                        </form>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
