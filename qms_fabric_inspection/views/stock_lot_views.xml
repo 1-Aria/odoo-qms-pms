@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Cutting reads the band with the dye lot: "A" in one dye lot has nothing
+         to do with "A" in another. -->
+    <record id="view_production_lot_form" model="ir.ui.view">
+        <field name="name">stock.lot.form.qms.fabric</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_form" />
+        <field name="arch" type="xml">
+            <field name="ref" position="after">
+                <field name="qms_dye_lot" />
+                <field name="qms_shade_band" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_production_lot_tree" model="ir.ui.view">
+        <field name="name">stock.lot.list.qms.fabric</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_tree" />
+        <field name="arch" type="xml">
+            <field name="product_id" position="after">
+                <field name="qms_dye_lot" optional="show" />
+                <field name="qms_shade_band" optional="show" />
+            </field>
+        </field>
+    </record>
+
+    <record id="search_product_lot_filter" model="ir.ui.view">
+        <field name="name">stock.lot.search.qms.fabric</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.search_product_lot_filter" />
+        <field name="arch" type="xml">
+            <field name="product_id" position="after">
+                <field name="qms_dye_lot" />
+            </field>
+            <filter name="group_by_product" position="after">
+                <filter
+                    name="group_by_qms_dye_lot"
+                    string="Dye Lot"
+                    context="{'group_by': 'qms_dye_lot'}"
+                />
+                <filter
+                    name="group_by_qms_shade_band"
+                    string="Shade Band"
+                    context="{'group_by': 'qms_shade_band'}"
+                />
+            </filter>
+        </field>
+    </record>
+
+</odoo>

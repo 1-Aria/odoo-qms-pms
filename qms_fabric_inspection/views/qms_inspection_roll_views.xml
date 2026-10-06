@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- The roll's point entries, opened in a dialog from its row in the
+         inspection (action_qms_open_points). Here the point line's parent is
+         the roll itself, so the defect domain is read one level up, as in
+         step 1. The `or []` is for the view validator, which refuses a bare
+         attribute access (odoo/tools/view_validation.py:76-126). -->
+    <record id="qms_inspection_roll_points_form" model="ir.ui.view">
+        <field name="name">qms.inspection.roll.points.form</field>
+        <field name="model">qms.inspection.roll</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="inspection_state" invisible="1" />
+                <field name="defect_code_domain" invisible="1" />
+                <group>
+                    <group>
+                        <field name="lot_id" readonly="1" />
+                        <field name="dye_lot" />
+                        <field
+                            name="length"
+                            readonly="inspection_state != 'ready'"
+                        />
+                        <field
+                            name="width"
+                            readonly="inspection_state != 'ready'"
+                        />
+                    </group>
+                    <group>
+                        <field name="total_points" />
+                        <field name="score" digits="[16,1]" />
+                        <field name="points_pass" />
+                        <field name="passed" />
+                    </group>
+                </group>
+                <field
+                    name="point_ids"
+                    nolabel="1"
+                    readonly="inspection_state != 'ready'"
+                >
+                    <list editable="bottom">
+                        <field name="position" />
+                        <field
+                            name="defect_code_id"
+                            domain="parent.defect_code_domain or []"
+                            options="{'no_create': True}"
+                        />
+                        <field name="points" />
+                    </list>
+                </field>
+            </form>
+        </field>
+    </record>
+
+</odoo>

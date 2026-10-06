@@ -20,6 +20,18 @@
                         name="qms_points_cap"
                         invisible="not qms_roll_inspection"
                     />
+                    <field
+                        name="qms_delta_e_max"
+                        invisible="not qms_roll_inspection"
+                    />
+                    <field
+                        name="qms_delta_e_length_max"
+                        invisible="not qms_roll_inspection"
+                    />
+                    <field
+                        name="qms_delta_e_width_max"
+                        invisible="not qms_roll_inspection"
+                    />
                 </group>
             </xpath>
         </field>

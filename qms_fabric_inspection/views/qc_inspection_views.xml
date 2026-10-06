@@ -34,58 +34,58 @@
                         <group>
                             <field name="qms_points_limit" />
                             <field name="qms_points_cap" />
+                            <field name="qms_delta_e_max" />
+                            <field name="qms_delta_e_length_max" />
+                            <field name="qms_delta_e_width_max" />
                         </group>
                         <group>
                             <field name="qms_show_all_codes" />
                         </group>
                     </group>
-                    <!-- Editable in ready only, as OCA's Questions page. Not an
-                         editable list: an editable list cannot open a row's
-                         form, and the point entries live in that form. -->
+                    <!-- Editable in ready only, as OCA's Questions page. Editable
+                         in place so shade can be typed for every roll; the point
+                         entries open from the row's button, core's pattern for
+                         picking moves (stock.move.action_show_details). -->
                     <field
                         name="qms_roll_ids"
                         nolabel="1"
                         readonly="state != 'ready'"
                     >
-                        <list decoration-danger="not passed">
-                            <field name="lot_id" />
+                        <list editable="bottom" decoration-danger="not passed">
+                            <field
+                                name="lot_id"
+                                domain="[('product_id', '=', parent.product_id)]"
+                                options="{'no_create': True}"
+                            />
+                            <field name="dye_lot" optional="show" />
                             <field name="length" />
                             <field name="width" />
                             <field name="total_points" />
                             <field name="score" digits="[16,1]" />
+                            <button
+                                name="action_qms_open_points"
+                                type="object"
+                                icon="fa-list"
+                                title="Points"
+                            />
+                            <field
+                                name="delta_e"
+                                digits="[16,2]"
+                                optional="show"
+                            />
+                            <field
+                                name="delta_e_length"
+                                digits="[16,2]"
+                                optional="show"
+                            />
+                            <field
+                                name="delta_e_width"
+                                digits="[16,2]"
+                                optional="show"
+                            />
+                            <field name="shade_band" />
                             <field name="passed" />
                         </list>
-                        <form>
-                            <group>
-                                <group>
-                                    <field
-                                        name="lot_id"
-                                        domain="[('product_id', '=', parent.product_id)]"
-                                        options="{'no_create': True}"
-                                    />
-                                    <field name="length" />
-                                    <field name="width" />
-                                </group>
-                                <group>
-                                    <field name="total_points" />
-                                    <field name="score" digits="[16,1]" />
-                                    <field name="points_pass" />
-                                    <field name="passed" />
-                                </group>
-                            </group>
-                            <field name="defect_code_domain" invisible="1" />
-                            <field name="point_ids" nolabel="1">
-                                <list editable="bottom">
-                                    <field name="position" />
-                                    <field
-                                        name="defect_code_id"
-                                        domain="parent.defect_code_domain or []"
-                                        options="{'no_create': True}"
-                                    />
-                                    <field name="points" />
-                                </list>
-                            </field>
-                        </form>
                     </field>
                 </page>
             </xpath>

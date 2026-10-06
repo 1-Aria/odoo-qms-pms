@@ -32,6 +32,21 @@ class QcInspection(models.Model):
         compute="_compute_qms_test_settings",
         store=True,
     )
+    qms_delta_e_max = fields.Float(
+        string="Max ΔE vs Standard",
+        compute="_compute_qms_test_settings",
+        store=True,
+    )
+    qms_delta_e_length_max = fields.Float(
+        string="Max ΔE Head–Tail",
+        compute="_compute_qms_test_settings",
+        store=True,
+    )
+    qms_delta_e_width_max = fields.Float(
+        string="Max ΔE Side–Centre–Side",
+        compute="_compute_qms_test_settings",
+        store=True,
+    )
     qms_roll_ids = fields.One2many(
         comodel_name="qms.inspection.roll",
         inverse_name="inspection_id",
@@ -62,6 +77,9 @@ class QcInspection(models.Model):
             inspection.qms_roll_inspection = test.qms_roll_inspection
             inspection.qms_points_limit = test.qms_points_limit
             inspection.qms_points_cap = test.qms_points_cap
+            inspection.qms_delta_e_max = test.qms_delta_e_max
+            inspection.qms_delta_e_length_max = test.qms_delta_e_length_max
+            inspection.qms_delta_e_width_max = test.qms_delta_e_width_max
 
     @api.depends("qms_roll_inspection", "qms_roll_ids.passed")
     def _compute_success(self):

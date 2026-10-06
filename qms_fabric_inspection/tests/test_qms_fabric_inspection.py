@@ -3,10 +3,10 @@
 from psycopg2 import IntegrityError
 
 from odoo.exceptions import UserError
-from odoo.tests.common import TransactionCase, tagged
+from odoo.tests.common import tagged
 from odoo.tools import mute_logger
 
-from odoo.addons.qms_catalog.tests.common import unique_code_prefix
+from .common import FabricInspectionCase
 
 # Seven metres at the cap: 28 points.
 SEVEN_FULL_METRES = [(metre, 4) for metre in range(1, 8)]
@@ -15,128 +15,8 @@ MIXED_METRES = [(10, 3), (10, 2), (11, 1)]
 
 
 @tagged("post_install", "-at_install")
-class TestFabricInspection(TransactionCase):
-    """Roll scoring, the verdict and the settings snapshot.
-
-    post_install: the fixtures create products and lots, core records later
-    modules extend.
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        prefix = unique_code_prefix()
-        defect = cls.env["qms.defect.code"]
-
-        cls.fabric_group = defect.create(
-            {"name": "Fabric", "ref_code": f"{prefix}-FAB", "domain_kind": "qm"}
-        )
-        cls.slub = defect.create(
-            {
-                "name": "Slub",
-                "ref_code": f"{prefix}-FAB-01",
-                "domain_kind": "qm",
-                "parent_id": cls.fabric_group.id,
-            }
-        )
-        cls.seam_group = defect.create(
-            {"name": "Seam", "ref_code": f"{prefix}-SEAM", "domain_kind": "qm"}
-        )
-        cls.open_seam = defect.create(
-            {
-                "name": "Open seam",
-                "ref_code": f"{prefix}-SEAM-01",
-                "domain_kind": "qm",
-                "parent_id": cls.seam_group.id,
-            }
-        )
-        profile = cls.env["qms.catalog.profile"].create(
-            {
-                "name": "Fabric",
-                "domain_kind": "qm",
-                "defect_group_ids": [(6, 0, cls.fabric_group.ids)],
-            }
-        )
-
-        # Odoo 18 has no "product" type: an inventory product is a storable
-        # consumable, and lots are offered only for tracked storable products.
-        product = cls.env["product.product"]
-        storable = {"type": "consu", "is_storable": True, "tracking": "lot"}
-        cls.product = product.create(
-            dict(storable, name="Fabric", qms_profile_ids=[(6, 0, profile.ids)])
-        )
-        cls.plain_product = product.create(
-            dict(storable, name="Fabric without profile")
-        )
-        lot = cls.env["stock.lot"]
-        cls.lot1, cls.lot2, cls.lot3 = (
-            lot.create({"name": f"{prefix}DL-{n}", "product_id": cls.product.id})
-            for n in (1, 2, 3)
-        )
-
-        cls.roll_test = cls._test(
-            "Fabric check",
-            qms_roll_inspection=True,
-            qms_points_limit=28.0,
-            qms_points_cap=4,
-        )
-        cls.plain_test = cls._test("Fabric check without rolls")
-
-    @classmethod
-    def _test(cls, name, **values):
-        test = cls.env["qc.test"].create(dict(values, name=name))
-        cls.env["qc.test.question"].create(
-            {
-                "test": test.id,
-                "name": "Hand feel",
-                "type": "qualitative",
-                "ql_values": [
-                    (0, 0, {"name": "OK", "ok": True}),
-                    (0, 0, {"name": "Not OK"}),
-                ],
-            }
-        )
-        return test
-
-    def _inspect(self, test=None, product=None):
-        """A ready inspection with its question answered OK.
-
-        The test is set through the Set test wizard, the path that bypasses
-        set_test, so the snapshot is proven on it.
-        """
-        product = product or self.product
-        inspection = self.env["qc.inspection"].create(
-            {"object_id": f"product.product,{product.id}"}
-        )
-        self.env["qc.inspection.set.test"].with_context(
-            active_id=inspection.id
-        ).create({"test": (test or self.roll_test).id}).action_create_test()
-        inspection.action_todo()
-        line = inspection.inspection_lines
-        line.qualitative_value = line.possible_ql_values.filtered("ok")
-        return inspection
-
-    def _roll(self, inspection, lot, length=0.0, width=0.0, points=()):
-        return self.env["qms.inspection.roll"].create(
-            {
-                "inspection_id": inspection.id,
-                "lot_id": lot.id,
-                "length": length,
-                "width": width,
-                "point_ids": [
-                    (
-                        0,
-                        0,
-                        {
-                            "position": position,
-                            "defect_code_id": self.slub.id,
-                            "points": value,
-                        },
-                    )
-                    for position, value in points
-                ],
-            }
-        )
+class TestFabricInspection(FabricInspectionCase):
+    """Roll scoring, the verdict and the settings snapshot."""
 
     def _failing_roll(self, inspection, lot=None):
         """29 points on 100 m x 100 cm: a score of 29 against a limit of 28."""
@@ -351,7 +231,7 @@ class TestFabricInspection(TransactionCase):
         self.assertIn(self.open_seam, found)
         self.assertFalse(found & groups)
 
-        plain = self._inspect(product=self.plain_product)
+        plain = self._inspect(target=self.plain_product)
         found = codes.search(plain.qms_defect_code_domain)
         self.assertIn(self.slub, found)
         self.assertIn(self.open_seam, found)

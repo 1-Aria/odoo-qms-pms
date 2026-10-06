@@ -224,9 +224,9 @@ fabric section (its design §8.1, D10).
 
 ## 9. Open questions
 
-- **Within-roll shading on the instrument:** whether the fabric team reads head–tail and
-  side–centre–side on the spectrophotometer, as assumed, or grades them by eye on the grey scale. If
-  by eye, those two fields become grey-scale grades with a minimum instead of a maximum.
+- ~~**Within-roll shading on the instrument**~~ — **settled 2026-10-06:** head–tail and
+  side–centre–side are read on the spectrophotometer, so all three shade values are ΔE with a
+  maximum, as §5.1 has them.
 - **Sampling practice:** the rate the team follows and how a failed sample is extended. Nothing in
   the system depends on it (D9).
 - **Limits per buyer:** one test per buyer until a per-partner limit is needed.

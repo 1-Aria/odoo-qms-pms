@@ -25,3 +25,18 @@ class QcTest(models.Model):
         help="The most points one metre of roll can score, 4 under the 4-point "
         "system; 0 means no cap.",
     )
+    qms_delta_e_max = fields.Float(
+        string="Max ΔE vs Standard",
+        help="The largest colour difference from the approved standard a roll may "
+        "have and pass, as the spectrophotometer reports it; 0 means not judged.",
+    )
+    qms_delta_e_length_max = fields.Float(
+        string="Max ΔE Head–Tail",
+        help="The largest colour difference between a roll's head and tail; "
+        "0 means not judged.",
+    )
+    qms_delta_e_width_max = fields.Float(
+        string="Max ΔE Side–Centre–Side",
+        help="The largest colour difference between a roll's sides and its "
+        "centre; 0 means not judged.",
+    )

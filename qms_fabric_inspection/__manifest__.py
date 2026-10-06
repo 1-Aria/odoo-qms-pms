@@ -17,6 +17,8 @@
         "security/ir.model.access.csv",
         "views/qc_test_views.xml",
         "views/qc_inspection_views.xml",
+        "views/qms_inspection_roll_views.xml",
+        "views/stock_lot_views.xml",
     ],
     "installable": True,
 }
