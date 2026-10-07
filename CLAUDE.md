@@ -101,7 +101,7 @@ Odoo-Build/oca/            ← running OCA repos (read-only reference)
 ## The modules
 
 Full specification in the plan, §8. Phase 1 is the core chain; Phase 2 is
-independent and can be built in any order.
+independent and can be built in any order; Phase 3 extends the quality side.
 
 **Phase 1**
 
@@ -127,6 +127,17 @@ The first two replace the plan's `maintenance_request_sla`; their design lives i
 `docs/Maintenance SLA Engine — Technical Design.md`, which the plan's §7.12 points to.
 `maintenance_equipment_status_automation` comes after them, because the SLA design changes
 which stages a corrective request passes through and that module keys on the stages.
+
+**Phase 3** — quality enhancements, on `qms_quality_control`
+
+| Module | Role |
+|---|---|
+| `qms_fabric_inspection` | Roll-level fabric inspection at receipt: rolls as rows of the receipt line's inspection, 4-point scoring, shade, dye lot and band on the lot |
+| `qms_quality_report` | Inspection and Defect Analysis — DHU, defective %, FTR, the defect Pareto — and the fabric section |
+
+Their designs are `docs/Fabric Inspection — Design.md` and `docs/QMS Quality Reporting — Design.md`.
+The report's capture fields live in `qms_quality_control` (its step 7). `zalo_oa`
+(`docs/Zalo ↔ Odoo Integration Design Note.md`) is a supporting integration outside the phases.
 
 ---
 
@@ -253,6 +264,10 @@ the module doc named.
   that changes that field on an existing record. (`qms_catalog`, `qms_nonconformity`, `qms_determination`)
 - An access test needs a positive control — the same user succeeding at an ordinary write —
   or it passes for the wrong reason. (`qms_catalog`, dropped step 6)
+- Tests and UI checks run as admin hide access bugs: the inspection's Nonconformities button had
+  failed for every non-administrator since the OCA bridge was installed, and only a UI check as a
+  role-matrix user found it. Check the UI as the users who will use it, and give each access path
+  a test as such a user. (`qms_quality_control`, step 6)
 
 **ORM**
 - `@api.constrains` runs only when its fields are in the create/write values, so it cannot
@@ -277,12 +292,19 @@ the module doc named.
   source it does not depend on therefore copies that source's value at the first read, not at
   the write — so a test that edits the source before reading the snapshot sees the edit copied.
   Read the field before changing the source. (`qms_fabric_inspection`)
+- Odoo 18 lets only *Settings* read `ir.actions.act_window` records, so `env.ref(action).read()`
+  raises for everyone else — some OCA 18 ports still do it. Read an action with
+  `self.env["ir.actions.act_window"]._for_xml_id(xmlid)`, which reads it as superuser.
+  (`qms_quality_control`, step 6)
 
 **Views**
 - View inheritance may not select on a translated attribute such as `@string`; select
   positionally. (`qms_nonconformity`)
 - A button's `confirm=` is fixed text; report anything dynamic after the click with a
   `display_notification`. (`qms_determination`)
+- A field `domain` may be a bare field name or a domain expression, not an attribute access:
+  `domain="parent.x"` fails view validation on install. Write `domain="parent.x or []"`.
+  (`qms_fabric_inspection`, step 1)
 
 ---
 

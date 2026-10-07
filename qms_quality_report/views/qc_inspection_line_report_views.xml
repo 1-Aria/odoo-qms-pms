@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Defect Analysis: one failed line of a finished inspection per row, and
+         the Pareto. Priority 99 and bound to the action, as Inspection
+         Analysis's views are. -->
+    <record id="qc_inspection_line_report_view_pivot" model="ir.ui.view">
+        <field name="name">qc.inspection.line.report.pivot</field>
+        <field name="model">qc.inspection.line</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <pivot string="Defect Analysis" sample="1">
+                <field name="qms_defect_code_id" type="row" />
+                <field name="qms_severity_id" type="col" />
+                <field name="qms_qty_defects" type="measure" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="qc_inspection_line_report_view_list" model="ir.ui.view">
+        <field name="name">qc.inspection.line.report.list</field>
+        <field name="model">qc.inspection.line</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Defect Analysis" create="0">
+                <field name="inspection_id" />
+                <field name="qms_inspection_date" />
+                <field name="qms_test_id" />
+                <field name="product_id" />
+                <field name="name" />
+                <field name="qms_defect_code_id" />
+                <field name="qms_severity_id" />
+                <field name="qms_qty_defects" sum="Total" />
+                <field name="qms_partner_id" optional="hide" />
+                <field name="qms_workcenter_id" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <!-- Work centre is a group-by, not a search field, for the reason given
+         on Inspection Analysis's search view. -->
+    <record id="qc_inspection_line_report_view_search" model="ir.ui.view">
+        <field name="name">qc.inspection.line.report.search</field>
+        <field name="model">qc.inspection.line</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <search string="Defect Analysis">
+                <field name="qms_defect_code_id" />
+                <field name="qms_test_id" />
+                <field name="product_id" />
+                <field name="qms_partner_id" />
+                <filter
+                    name="first_inspections"
+                    string="First inspections"
+                    domain="[('qms_reinspection', '=', False)]"
+                />
+                <filter
+                    name="reinspections"
+                    string="Re-inspections"
+                    domain="[('qms_reinspection', '=', True)]"
+                />
+                <separator />
+                <!-- A configuration gap the report should make visible. -->
+                <filter
+                    name="no_code"
+                    string="No defect code"
+                    domain="[('qms_defect_code_id', '=', False)]"
+                />
+                <separator />
+                <filter name="filter_date" date="qms_inspection_date" />
+                <group name="group_by">
+                    <filter
+                        name="group_by_defect_code"
+                        string="Defect Code"
+                        context="{'group_by': 'qms_defect_code_id'}"
+                    />
+                    <filter
+                        name="group_by_severity"
+                        string="Severity"
+                        context="{'group_by': 'qms_severity_id'}"
+                    />
+                    <filter
+                        name="group_by_test"
+                        string="Checkpoint"
+                        context="{'group_by': 'qms_test_id'}"
+                    />
+                    <filter
+                        name="group_by_test_category"
+                        string="Checkpoint Category"
+                        context="{'group_by': 'qms_test_category_id'}"
+                    />
+                    <filter
+                        name="group_by_product"
+                        string="Product"
+                        context="{'group_by': 'product_id'}"
+                    />
+                    <filter
+                        name="group_by_workcenter"
+                        string="Work Centre"
+                        context="{'group_by': 'qms_workcenter_id'}"
+                    />
+                    <filter
+                        name="group_by_partner"
+                        string="Partner"
+                        context="{'group_by': 'qms_partner_id'}"
+                    />
+                    <filter
+                        name="group_by_month"
+                        string="Month"
+                        context="{'group_by': 'qms_inspection_date:month'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Failed lines of finished inspections; roll inspections' failed
+         question lines stay, as defects found at receipt. The states are
+         literals for the reason given on Inspection Analysis's action. -->
+    <record id="qc_inspection_line_report_action" model="ir.actions.act_window">
+        <field name="name">Defect Analysis</field>
+        <field name="res_model">qc.inspection.line</field>
+        <field name="view_mode">pivot,list</field>
+        <field
+            name="view_ids"
+            eval="[(5, 0, 0),
+                   (0, 0, {'view_mode': 'pivot', 'view_id': ref('qc_inspection_line_report_view_pivot')}),
+                   (0, 0, {'view_mode': 'list', 'view_id': ref('qc_inspection_line_report_view_list')})]"
+        />
+        <field name="search_view_id" ref="qc_inspection_line_report_view_search" />
+        <field
+            name="domain"
+        >[('success', '=', False), ('inspection_id.state', 'in', ('waiting', 'success', 'failed'))]</field>
+        <field name="context">{'search_default_first_inspections': 1}</field>
+    </record>
+
+</odoo>

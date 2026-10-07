@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Inspection Analysis: one finished garment inspection per row. The views
+         are priority 99 and bound to the action, so OCA's inspection views stay
+         the defaults everywhere else. -->
+    <record id="qc_inspection_report_view_pivot" model="ir.ui.view">
+        <field name="name">qc.inspection.report.pivot</field>
+        <field name="model">qc.inspection</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <pivot string="Inspection Analysis" sample="1">
+                <field name="test" type="row" />
+                <field name="date" interval="month" type="col" />
+                <field name="qms_qty_inspected" type="measure" />
+                <field name="qms_qty_defects" type="measure" />
+                <field name="qms_qty_defective" type="measure" />
+                <field name="qms_defect_free" type="measure" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="qc_inspection_report_view_list" model="ir.ui.view">
+        <field name="name">qc.inspection.report.list</field>
+        <field name="model">qc.inspection</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Inspection Analysis" create="0">
+                <field name="name" />
+                <field name="date" />
+                <field name="test" />
+                <field name="product_id" />
+                <field name="qms_partner_id" />
+                <field name="qms_workcenter_id" />
+                <field name="lot_id" optional="hide" />
+                <field name="user" optional="hide" />
+                <field name="state" />
+                <field name="qms_qty_inspected" sum="Total" />
+                <field name="qms_qty_defects" sum="Total" />
+                <field name="qms_qty_defective" sum="Total" />
+                <field name="qms_defect_free" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <!-- Work centre, lot and production order are group-bys, not search
+         fields: a search field searches its comodel as the user, and those need
+         MRP or Inventory rights a quality manager need not hold. A group's name
+         is read as superuser (odoo/models.py:2612). -->
+    <record id="qc_inspection_report_view_search" model="ir.ui.view">
+        <field name="name">qc.inspection.report.search</field>
+        <field name="model">qc.inspection</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <search string="Inspection Analysis">
+                <field name="test" />
+                <field name="product_id" />
+                <field name="qms_partner_id" />
+                <filter
+                    name="first_inspections"
+                    string="First inspections"
+                    domain="[('qms_reinspection', '=', False)]"
+                />
+                <filter
+                    name="reinspections"
+                    string="Re-inspections"
+                    domain="[('qms_reinspection', '=', True)]"
+                />
+                <separator />
+                <filter
+                    name="defect_free"
+                    string="Defect-free"
+                    domain="[('success', '=', True)]"
+                />
+                <filter
+                    name="with_defects"
+                    string="With defects"
+                    domain="[('success', '=', False)]"
+                />
+                <separator />
+                <filter name="filter_date" date="date" />
+                <group name="group_by">
+                    <filter
+                        name="group_by_test"
+                        string="Checkpoint"
+                        context="{'group_by': 'test'}"
+                    />
+                    <filter
+                        name="group_by_test_category"
+                        string="Checkpoint Category"
+                        context="{'group_by': 'qms_test_category_id'}"
+                    />
+                    <filter
+                        name="group_by_product"
+                        string="Product"
+                        context="{'group_by': 'product_id'}"
+                    />
+                    <filter
+                        name="group_by_workcenter"
+                        string="Work Centre"
+                        context="{'group_by': 'qms_workcenter_id'}"
+                    />
+                    <filter
+                        name="group_by_partner"
+                        string="Partner"
+                        context="{'group_by': 'qms_partner_id'}"
+                    />
+                    <filter
+                        name="group_by_lot"
+                        string="Lot"
+                        context="{'group_by': 'lot_id'}"
+                    />
+                    <filter
+                        name="group_by_production"
+                        string="Production Order"
+                        context="{'group_by': 'production_id'}"
+                    />
+                    <filter
+                        name="group_by_user"
+                        string="Inspector"
+                        context="{'group_by': 'user'}"
+                    />
+                    <filter
+                        name="group_by_month"
+                        string="Month"
+                        context="{'group_by': 'date:month'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- The finished states are written as literals: an XML domain cannot
+         import INSPECTION_DONE_STATES from qms_quality_control, and a test
+         compares the two. A domain, not a default filter: removed in the search
+         bar, a filter would let draft inspections into the 100/0 average. -->
+    <record id="qc_inspection_report_action" model="ir.actions.act_window">
+        <field name="name">Inspection Analysis</field>
+        <field name="res_model">qc.inspection</field>
+        <field name="view_mode">pivot,list,form</field>
+        <field
+            name="view_ids"
+            eval="[(5, 0, 0),
+                   (0, 0, {'view_mode': 'pivot', 'view_id': ref('qc_inspection_report_view_pivot')}),
+                   (0, 0, {'view_mode': 'list', 'view_id': ref('qc_inspection_report_view_list')})]"
+        />
+        <field name="search_view_id" ref="qc_inspection_report_view_search" />
+        <field
+            name="domain"
+        >[('state', 'in', ('waiting', 'success', 'failed')), ('qms_roll_inspection', '=', False)]</field>
+        <field name="context">{'search_default_first_inspections': 1}</field>
+    </record>
+
+</odoo>

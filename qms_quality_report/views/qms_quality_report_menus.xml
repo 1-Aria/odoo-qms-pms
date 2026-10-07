@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- The Quality Control app has no reporting menu of its own. Between
+         Tests (20) and Configuration (100), for quality-control managers; the
+         menu is the gate, and the actions carry no group. -->
+    <menuitem
+        id="menu_qms_quality_report"
+        name="Reporting"
+        parent="quality_control_oca.qc_menu"
+        sequence="30"
+        groups="quality_control_oca.group_quality_control_manager"
+    />
+    <menuitem
+        id="menu_qc_inspection_report"
+        name="Inspection Analysis"
+        parent="menu_qms_quality_report"
+        action="qc_inspection_report_action"
+        sequence="10"
+    />
+    <menuitem
+        id="menu_qc_inspection_line_report"
+        name="Defect Analysis"
+        parent="menu_qms_quality_report"
+        action="qc_inspection_line_report_action"
+        sequence="20"
+    />
+
+</odoo>
