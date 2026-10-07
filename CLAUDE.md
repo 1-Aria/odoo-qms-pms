@@ -268,6 +268,10 @@ the module doc named.
   failed for every non-administrator since the OCA bridge was installed, and only a UI check as a
   role-matrix user found it. Check the UI as the users who will use it, and give each access path
   a test as such a user. (`qms_quality_control`, step 6)
+- In a `TransactionCase`, start `patch.dict` per test — `self.startPatcher` in `setUp`, or a `with`
+  block — never with `startClassPatcher`: after every test Odoo reads `.target` from each active
+  patch, which `patch.dict` lacks, and every test errors (`odoo/odoo/tests/common.py:1117-1122`).
+  (`zalo_oa`, step 1)
 
 **ORM**
 - `@api.constrains` runs only when its fields are in the create/write values, so it cannot
