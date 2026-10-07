@@ -49,3 +49,8 @@ decided on the nonconformity.
 Populate Defect on a nonconformity raised from a confirmed roll inspection adds, after the
 checklist's items, one item per defect code found on the rolls, with the number of entries as
 the quantity and the rolls named in the note.
+
+## Counting fields
+
+The sample size, pieces inspected, defective pieces and re-inspection fields of the quality-control
+module describe garment checks, and are hidden on roll inspections, whose figures are on the rolls.

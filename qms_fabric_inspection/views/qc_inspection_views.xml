@@ -103,4 +103,35 @@
         </field>
     </record>
 
+    <!-- The QM-report capture fields of qms_quality_control describe garment
+         checks; a roll inspection's figures are on its rolls. A record of its
+         own, extending qms_quality_control's extension: Odoo applies
+         extensions depth-first, siblings by priority then id
+         (base/models/ir_ui_view.py:650-660, 863-917), and the record above
+         extends the stock extension, which runs before qms_quality_control
+         adds these fields. qms_roll_inspection is in the combined arch through
+         the record above. -->
+    <record id="qc_inspection_form_view_capture" model="ir.ui.view">
+        <field name="name">qc.inspection.form.qms.rolls.capture</field>
+        <field name="model">qc.inspection</field>
+        <field
+            name="inherit_id"
+            ref="qms_quality_control.qc_inspection_form_view"
+        />
+        <field name="arch" type="xml">
+            <field name="qms_qty_sampled" position="attributes">
+                <attribute name="invisible">qms_roll_inspection</attribute>
+            </field>
+            <field name="qms_qty_inspected" position="attributes">
+                <attribute name="invisible">qms_roll_inspection</attribute>
+            </field>
+            <field name="qms_qty_defective" position="attributes">
+                <attribute name="invisible">qms_roll_inspection</attribute>
+            </field>
+            <field name="qms_reinspection" position="attributes">
+                <attribute name="invisible">qms_roll_inspection</attribute>
+            </field>
+        </field>
+    </record>
+
 </odoo>
