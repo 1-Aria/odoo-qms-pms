@@ -18,6 +18,7 @@
     "data": [
         "views/qc_inspection_report_views.xml",
         "views/qc_inspection_line_report_views.xml",
+        "views/qms_fabric_report_views.xml",
         "views/qms_quality_report_menus.xml",
     ],
     "installable": True,

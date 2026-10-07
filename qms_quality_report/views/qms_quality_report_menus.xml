@@ -26,5 +26,26 @@
         action="qc_inspection_line_report_action"
         sequence="20"
     />
+    <menuitem
+        id="menu_qms_inspection_roll_report"
+        name="Roll Analysis"
+        parent="menu_qms_quality_report"
+        action="qms_inspection_roll_report_action"
+        sequence="30"
+    />
+    <menuitem
+        id="menu_qms_inspection_shade_report"
+        name="Shade Analysis"
+        parent="menu_qms_quality_report"
+        action="qms_inspection_shade_report_action"
+        sequence="40"
+    />
+    <menuitem
+        id="menu_qms_inspection_point_report"
+        name="Fabric Defect Analysis"
+        parent="menu_qms_quality_report"
+        action="qms_inspection_point_report_action"
+        sequence="50"
+    />
 
 </odoo>

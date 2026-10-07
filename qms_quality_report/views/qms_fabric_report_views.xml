@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- The fabric section, over qms_fabric_inspection's rows in place. Every
+         domain carries the finished states as literals and the roll-inspection
+         term, so rolls left on an inspection switched to a plain test stay
+         out, as they do from its verdict. Views at priority 99, bound to their
+         actions. -->
+
+    <!-- One search view for Roll and Shade Analysis: the same rows, different
+         domains. The lot is a group-by, not a search field: a search field
+         searches stock.lot as the user, which needs Inventory rights. -->
+    <record id="qms_inspection_roll_report_view_search" model="ir.ui.view">
+        <field name="name">qms.inspection.roll.report.search</field>
+        <field name="model">qms.inspection.roll</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <search string="Rolls">
+                <field name="qms_product_id" />
+                <field name="qms_partner_id" />
+                <field name="dye_lot" />
+                <field name="shade_band" />
+                <filter
+                    name="failed_rolls"
+                    string="Failed rolls"
+                    domain="[('passed', '=', False)]"
+                />
+                <filter
+                    name="out_of_tolerance"
+                    string="Shade out of tolerance"
+                    domain="[('shade_pass', '=', False)]"
+                />
+                <filter
+                    name="unbanded"
+                    string="No band"
+                    domain="[('shade_band', '=', False)]"
+                />
+                <separator />
+                <!-- An unread value is stored as 0.0, so the ΔE averages are
+                     read with these on; the band distribution reads all
+                     rolls. One per value: they may be read on different
+                     rolls. -->
+                <filter
+                    name="delta_e_measured"
+                    string="ΔE measured"
+                    domain="[('delta_e', '!=', 0)]"
+                />
+                <filter
+                    name="delta_e_length_measured"
+                    string="Head–tail measured"
+                    domain="[('delta_e_length', '!=', 0)]"
+                />
+                <filter
+                    name="delta_e_width_measured"
+                    string="Side–centre–side measured"
+                    domain="[('delta_e_width', '!=', 0)]"
+                />
+                <separator />
+                <filter name="filter_date" date="qms_inspection_date" />
+                <group name="group_by">
+                    <filter
+                        name="group_by_partner"
+                        string="Partner"
+                        context="{'group_by': 'qms_partner_id'}"
+                    />
+                    <filter
+                        name="group_by_product"
+                        string="Fabric"
+                        context="{'group_by': 'qms_product_id'}"
+                    />
+                    <filter
+                        name="group_by_dye_lot"
+                        string="Dye Lot"
+                        context="{'group_by': 'dye_lot'}"
+                    />
+                    <filter
+                        name="group_by_band"
+                        string="Shade Band"
+                        context="{'group_by': 'shade_band'}"
+                    />
+                    <filter
+                        name="group_by_lot"
+                        string="Roll"
+                        context="{'group_by': 'lot_id'}"
+                    />
+                    <filter
+                        name="group_by_month"
+                        string="Month"
+                        context="{'group_by': 'qms_inspection_date:month'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Roll Analysis: scored rolls only, so acceptance averages over the rolls
+         that were judged. -->
+    <record id="qms_inspection_roll_report_view_pivot" model="ir.ui.view">
+        <field name="name">qms.inspection.roll.report.pivot</field>
+        <field name="model">qms.inspection.roll</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <pivot string="Roll Analysis" sample="1">
+                <field name="qms_partner_id" type="row" />
+                <field name="qms_inspection_date" interval="month" type="col" />
+                <field name="qms_accepted" type="measure" />
+                <field name="score" type="measure" />
+                <field name="total_points" type="measure" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="qms_inspection_roll_report_view_list" model="ir.ui.view">
+        <field name="name">qms.inspection.roll.report.list</field>
+        <field name="model">qms.inspection.roll</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Roll Analysis" create="0">
+                <field name="inspection_id" />
+                <field name="qms_inspection_date" />
+                <field name="lot_id" />
+                <field name="dye_lot" />
+                <field name="qms_partner_id" />
+                <field name="qms_product_id" />
+                <field name="length" />
+                <field name="width" />
+                <field name="total_points" />
+                <field name="score" digits="[16,1]" />
+                <field name="points_pass" />
+                <field name="qms_accepted" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_inspection_roll_report_action" model="ir.actions.act_window">
+        <field name="name">Roll Analysis</field>
+        <field name="res_model">qms.inspection.roll</field>
+        <field name="view_mode">pivot,list</field>
+        <field
+            name="view_ids"
+            eval="[(5, 0, 0),
+                   (0, 0, {'view_mode': 'pivot', 'view_id': ref('qms_inspection_roll_report_view_pivot')}),
+                   (0, 0, {'view_mode': 'list', 'view_id': ref('qms_inspection_roll_report_view_list')})]"
+        />
+        <field name="search_view_id" ref="qms_inspection_roll_report_view_search" />
+        <field
+            name="domain"
+        >[('scored', '=', True), ('inspection_id.state', 'in', ('waiting', 'success', 'failed')), ('inspection_id.qms_roll_inspection', '=', True)]</field>
+    </record>
+
+    <!-- Shade Analysis: every roll, banded-only ones included. No measure, so
+         it opens on the count of rolls by dye lot and band - the band
+         distribution; the ΔE averages are offered as measures. -->
+    <record id="qms_inspection_shade_report_view_pivot" model="ir.ui.view">
+        <field name="name">qms.inspection.shade.report.pivot</field>
+        <field name="model">qms.inspection.roll</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <pivot string="Shade Analysis" sample="1">
+                <field name="dye_lot" type="row" />
+                <field name="shade_band" type="col" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="qms_inspection_shade_report_view_list" model="ir.ui.view">
+        <field name="name">qms.inspection.shade.report.list</field>
+        <field name="model">qms.inspection.roll</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Shade Analysis" create="0">
+                <field name="inspection_id" />
+                <field name="qms_inspection_date" />
+                <field name="lot_id" />
+                <field name="dye_lot" />
+                <field name="qms_partner_id" />
+                <field name="delta_e" digits="[16,2]" />
+                <field name="delta_e_length" digits="[16,2]" />
+                <field name="delta_e_width" digits="[16,2]" />
+                <field name="shade_pass" />
+                <field name="shade_band" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_inspection_shade_report_action" model="ir.actions.act_window">
+        <field name="name">Shade Analysis</field>
+        <field name="res_model">qms.inspection.roll</field>
+        <field name="view_mode">pivot,list</field>
+        <field
+            name="view_ids"
+            eval="[(5, 0, 0),
+                   (0, 0, {'view_mode': 'pivot', 'view_id': ref('qms_inspection_shade_report_view_pivot')}),
+                   (0, 0, {'view_mode': 'list', 'view_id': ref('qms_inspection_shade_report_view_list')})]"
+        />
+        <field name="search_view_id" ref="qms_inspection_roll_report_view_search" />
+        <field
+            name="domain"
+        >[('inspection_id.state', 'in', ('waiting', 'success', 'failed')), ('inspection_id.qms_roll_inspection', '=', True)]</field>
+    </record>
+
+    <!-- Fabric Defect Analysis: the point entries, the fabric defect Pareto. -->
+    <record id="qms_inspection_point_report_view_search" model="ir.ui.view">
+        <field name="name">qms.inspection.point.report.search</field>
+        <field name="model">qms.inspection.point</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <search string="Fabric Defects">
+                <field name="defect_code_id" />
+                <field name="qms_product_id" />
+                <field name="qms_partner_id" />
+                <field name="qms_dye_lot" />
+                <filter name="filter_date" date="qms_inspection_date" />
+                <group name="group_by">
+                    <filter
+                        name="group_by_defect_code"
+                        string="Defect"
+                        context="{'group_by': 'defect_code_id'}"
+                    />
+                    <filter
+                        name="group_by_partner"
+                        string="Partner"
+                        context="{'group_by': 'qms_partner_id'}"
+                    />
+                    <filter
+                        name="group_by_product"
+                        string="Fabric"
+                        context="{'group_by': 'qms_product_id'}"
+                    />
+                    <filter
+                        name="group_by_dye_lot"
+                        string="Dye Lot"
+                        context="{'group_by': 'qms_dye_lot'}"
+                    />
+                    <filter
+                        name="group_by_month"
+                        string="Month"
+                        context="{'group_by': 'qms_inspection_date:month'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="qms_inspection_point_report_view_pivot" model="ir.ui.view">
+        <field name="name">qms.inspection.point.report.pivot</field>
+        <field name="model">qms.inspection.point</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <pivot string="Fabric Defect Analysis" sample="1">
+                <field name="defect_code_id" type="row" />
+                <field name="points" type="measure" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="qms_inspection_point_report_view_list" model="ir.ui.view">
+        <field name="name">qms.inspection.point.report.list</field>
+        <field name="model">qms.inspection.point</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Fabric Defect Analysis" create="0">
+                <field name="roll_id" />
+                <field name="qms_dye_lot" />
+                <field name="qms_partner_id" />
+                <field name="qms_inspection_date" />
+                <field name="position" />
+                <field name="defect_code_id" />
+                <field name="points" sum="Total" />
+            </list>
+        </field>
+    </record>
+
+    <record id="qms_inspection_point_report_action" model="ir.actions.act_window">
+        <field name="name">Fabric Defect Analysis</field>
+        <field name="res_model">qms.inspection.point</field>
+        <field name="view_mode">pivot,list</field>
+        <field
+            name="view_ids"
+            eval="[(5, 0, 0),
+                   (0, 0, {'view_mode': 'pivot', 'view_id': ref('qms_inspection_point_report_view_pivot')}),
+                   (0, 0, {'view_mode': 'list', 'view_id': ref('qms_inspection_point_report_view_list')})]"
+        />
+        <field name="search_view_id" ref="qms_inspection_point_report_view_search" />
+        <field
+            name="domain"
+        >[('roll_id.inspection_id.state', 'in', ('waiting', 'success', 'failed')), ('roll_id.inspection_id.qms_roll_inspection', '=', True)]</field>
+    </record>
+
+</odoo>

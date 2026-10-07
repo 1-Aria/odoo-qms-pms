@@ -10,3 +10,15 @@ quantity counts one defect. Re-inspections are filtered out by default. Fabric r
 are left out of Inspection Analysis and read in the fabric section.
 
 A *No defect code* group in Defect Analysis is a checklist answer or question missing its code.
+
+## Fabric
+
+The fabric section reads confirmed roll inspections only.
+
+- **Roll Analysis** averages roll acceptance and score over the scored rolls, by partner, fabric
+  and dye lot.
+- **Shade Analysis** counts rolls by dye lot and band, banded-only rolls included, with the ΔE
+  averages as measures. An unread ΔE counts as 0, so apply *ΔE measured* (or *Head–tail
+  measured*, *Side–centre–side measured*) when reading a ΔE average; the band distribution reads
+  all rolls.
+- **Fabric Defect Analysis** sums points and counts entries by defect code.
