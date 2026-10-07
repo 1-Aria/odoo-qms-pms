@@ -10,16 +10,25 @@ class QcInspectionLine(models.Model):
     # rather than repeating the rule, so the inspection and the items it
     # generates can never disagree.
     #
-    # Not stored, deliberately: no column, no migration, and no retroactive
-    # rewriting of past inspections when a checklist code is edited. The durable
-    # copy is the defect code on the nonconformity item. The cost is that the
-    # field cannot be searched or grouped, and an old inspection shows today's
-    # checklist codes -- the same live-reference trade as plan O5.
+    # A stored snapshot of the answer (step 7). The QM report groups defects by
+    # code, and a checklist edit must not rewrite its history, so the field
+    # depends on the line's own answer only and reads the checklist's code
+    # without depending on it: the code is taken when the line is answered.
     qms_defect_code_id = fields.Many2one(
         comodel_name="qms.defect.code",
         string="Defect Code",
         compute="_compute_qms_defect_code_id",
+        store=True,
+        index=True,
         help="The defect this line records. Empty while the line passes.",
+    )
+    # Frozen the same way, from the code.
+    qms_severity_id = fields.Many2one(
+        comodel_name="mgmtsystem.nonconformity.severity",
+        string="Severity",
+        compute="_compute_qms_severity_id",
+        store=True,
+        help="The defect code's default severity when the line was answered.",
     )
 
     # How many units the defect affected, which the inspection had no way to
@@ -40,12 +49,12 @@ class QcInspectionLine(models.Model):
         "nonconformity item when defects are populated.",
     )
 
-    @api.depends(
-        "success",
-        "question_type",
-        "qualitative_value.qms_defect_code_id",
-        "test_line.qms_defect_code_id",
-    )
+    # Not test_line: a question is a plain Many2one with ondelete "set null"
+    # (quality_control_oca/models/qc_inspection.py:308), so depending on it
+    # would wipe the codes of every line that asked a question someone deleted.
+    # test_line is set at creation and never changes otherwise, and a stored
+    # compute is computed at creation, so nothing is lost by leaving it out.
+    @api.depends("success", "question_type", "qualitative_value")
     def _compute_qms_defect_code_id(self):
         """The defect a failed line records.
 
@@ -67,3 +76,8 @@ class QcInspectionLine(models.Model):
                 line.qms_defect_code_id = line.qualitative_value.qms_defect_code_id
             else:
                 line.qms_defect_code_id = line.test_line.qms_defect_code_id
+
+    @api.depends("qms_defect_code_id")
+    def _compute_qms_severity_id(self):
+        for line in self:
+            line.qms_severity_id = line.qms_defect_code_id.default_severity_id

@@ -1,10 +1,40 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 
 class QcInspection(models.Model):
     _inherit = "qc.inspection"
+
+    # Capture for the QM report (step 7). The inspection's qty is the lot, not
+    # what was checked, so the sample is entered.
+    qms_qty_sampled = fields.Float(
+        string="Sample Size",
+        help="The pieces actually checked, when fewer than the lot; leave empty "
+        "for a full inspection.",
+    )
+    # Computed, not a default: OCA rewrites qty after creation -- validating a
+    # picking resets it (quality_control_stock_oca/models/stock_picking.py:
+    # 68-69), and the per-lot path writes it (stock_move.py:71-76). An editable
+    # copy of qty would lose the sample to such a rewrite, and a default taken
+    # at creation would go stale. This follows qty until someone samples.
+    qms_qty_inspected = fields.Float(
+        string="Pieces Inspected",
+        compute="_compute_qms_qty_inspected",
+        store=True,
+        help="The sample size when entered, otherwise the inspection's quantity.",
+    )
+    qms_qty_defective = fields.Float(
+        string="Defective Pieces",
+        help="Pieces with at least one defect; one piece with two defects counts "
+        "once.",
+    )
+    qms_reinspection = fields.Boolean(
+        string="Re-inspection",
+        help="A check of reworked pieces; kept out of first-time figures so they "
+        "are not counted twice.",
+    )
 
     # In no view, and not what the count reads. It is here to give the
     # non-stored count a dependency path: a search_count has none, so without
@@ -96,6 +126,37 @@ class QcInspection(models.Model):
             "default_name": self.name,
             "default_company_id": self.company_id.id,
         }
+
+    @api.depends("qty", "qms_qty_sampled")
+    def _compute_qms_qty_inspected(self):
+        """The sample when there is one; a sample of 0 is no sample."""
+        for inspection in self:
+            inspection.qms_qty_inspected = (
+                inspection.qms_qty_sampled
+                if inspection.qms_qty_sampled > 0
+                else inspection.qty
+            )
+
+    def action_confirm(self):
+        # Before OCA's own checks. Not @api.constrains: Odoo validates a stored
+        # compute's constraints on every recompute (odoo/models.py:5300-5305),
+        # so one on qms_qty_inspected would run when OCA rewrites qty during
+        # picking validation, and a quality rule could block a receipt.
+        self._qms_check_capture()
+        return super().action_confirm()
+
+    def _qms_check_capture(self):
+        for inspection in self:
+            if inspection.qms_qty_defective > inspection.qms_qty_inspected:
+                raise UserError(
+                    self.env._(
+                        "%(inspection)s: defective pieces (%(defective)s) cannot "
+                        "exceed pieces inspected (%(inspected)s).",
+                        inspection=inspection.name,
+                        defective=inspection.qms_qty_defective,
+                        inspected=inspection.qms_qty_inspected,
+                    )
+                )
 
     def action_view_nonconformities(self):
         """OCA's button, rebuilt: the defaults apply whatever the count, and it

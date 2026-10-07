@@ -15,7 +15,25 @@
         <field name="arch" type="xml">
             <field name="valid_values" position="after">
                 <field name="qms_defect_code_id" optional="show" />
+                <field name="qms_severity_id" optional="show" />
                 <field name="qms_qty_failed" optional="show" />
+            </field>
+            <!-- What was counted, under the quantity it is counted against.
+                 Pieces inspected is computed and so read-only already. -->
+            <field name="qty" position="after">
+                <field
+                    name="qms_qty_sampled"
+                    readonly="state in ('waiting', 'success', 'failed', 'canceled')"
+                />
+                <field name="qms_qty_inspected" />
+                <field
+                    name="qms_qty_defective"
+                    readonly="state in ('waiting', 'success', 'failed', 'canceled')"
+                />
+                <field
+                    name="qms_reinspection"
+                    readonly="state in ('waiting', 'success', 'failed', 'canceled')"
+                />
             </field>
             <!-- The button box already exists here (qc_inspection_view.xml:59);
                  OCA's own bridge adds its nonconformity count the same way, and
@@ -61,6 +79,7 @@
         <field name="arch" type="xml">
             <field name="valid_values" position="after">
                 <field name="qms_defect_code_id" optional="show" />
+                <field name="qms_severity_id" optional="show" />
                 <field name="qms_qty_failed" optional="show" />
             </field>
         </field>

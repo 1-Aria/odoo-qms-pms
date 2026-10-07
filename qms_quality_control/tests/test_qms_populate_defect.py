@@ -210,10 +210,16 @@ class TestPopulateDefect(TransactionCase):
         self.assertFalse(line.quantitative_value)
         self.assertEqual(line.qms_defect_code_id, self.undersize)
 
-    def test_code_follows_checklist_edit(self):
-        """Not stored: the line shows the checklist's current code."""
+    def test_code_frozen_after_checklist_edit(self):
+        """A snapshot of the answer: a checklist edit does not reach the line.
+
+        Read first: the stored compute runs at the first read, not at the
+        write that triggers it, so reading late would copy the edit.
+        """
+        self.assertEqual(self.line_ql.qms_defect_code_id, self.torn)
         self.answer_fail.qms_defect_code_id = self.other
-        self.assertEqual(self.line_ql.qms_defect_code_id, self.other)
+        self.line_ql.invalidate_recordset()
+        self.assertEqual(self.line_ql.qms_defect_code_id, self.torn)
 
     # -- Populate Defect --------------------------------------------------
 
@@ -257,8 +263,15 @@ class TestPopulateDefect(TransactionCase):
         )
 
     def test_populate_nothing_notifies(self):
-        self.answer_fail.qms_defect_code_id = False
-        self.question_qt.qms_defect_code_id = False
+        """Nothing resolves when the coded lines pass.
+
+        Made through the lines' own answers: the code is a snapshot of the
+        answer (step 7), so clearing the checklist's codes would not reach
+        lines already answered. The uncoded line still fails and resolves
+        nothing.
+        """
+        self.line_ql.qualitative_value = self.answer_ok
+        self.line_qt.quantitative_value = 15.0
         result = self.nonconformity.action_populate_defect()
         self.assertFalse(self.nonconformity.item_ids)
         self.assertEqual(result["tag"], "display_notification")

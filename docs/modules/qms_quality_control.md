@@ -14,6 +14,7 @@ Plan: §7.10 (inspection rows), §7.11.
 | 4 | Nonconformity prefill when created from an inspection: `action_view_nonconformities` overridden so the defaults apply whatever the count, and the product carried across | done | upgraded and tested 2026-09-24, `exit=0`, 39 tests, 0 failures; UI checked — a new nonconformity opening prefilled from an inspection with none, its Analysis Items dropdowns scoped by the prefilled product, New from the list of several prefilling the same way (the OCA gap this step closes, and the part only a click can prove), and the list showing colleagues' nonconformities rather than only the viewer's. The readme also gained the *Actions* section step 3 shipped without |
 | 5 | Populate Defect split: the item values are built by `_qms_defect_item_values`, which `qms_fabric_inspection` extends with its roll point entries (its step 4); `action_populate_defect` numbers and creates them. No change in behaviour | done | 2026-10-06, `-u`, `exit=0`, 38 tests, 0 failures — the unchanged suite as the regression check; the extension proven by `qms_fabric_inspection`'s step 4 tests |
 | 6 | `action_view_nonconformities` builds the action itself through `_for_xml_id`, without OCA's method, so the inspection's Nonconformities button works for users outside *Settings* | done | 2026-10-06, one pass. `-u`, `exit=0`, 40 tests (2 new), 0 failures; UI checked as a quality and management-system user outside *Settings*: the button opening a new prefilled form with none, the record with one, the list with several. Found earlier the same day in the UI checks of `qms_fabric_inspection` step 4: a user with *Quality control · User* and *Management system · User* got `You are not allowed to access 'Action Window'` |
+| 7 | Capture for the QM report (`docs/QMS Quality Reporting — Design.md` §5.1): `qms_defect_code_id` stored as a snapshot of the answer, `qms_severity_id` beside it; on the inspection the sample size, pieces inspected, defective pieces and the re-inspection flag, with defective ≤ inspected checked at confirmation | done | 2026-10-07, two runs. First: upgraded, 1 of 45 tests failed — `test_populate_nothing_notifies` made "nothing resolves" by clearing the checklist's codes, which the snapshot no longer lets reach answered lines; rewritten through the lines' own answers. Second: `-u`, `exit=0`, 45 tests (5 new, 1 inverted), 0 failures; `qms_fabric_inspection` rerun, 44 tests, 0 failures. UI checked: the four capture fields under the quantity, pieces inspected following it until a sample is typed, read-only once confirmed, the refusal of more defective than inspected pieces, the severity column, the line list grouped by defect code |
 
 ## Divergences from the plan
 
@@ -27,7 +28,7 @@ Plan: §7.10 (inspection rows), §7.11.
 | 6 | §7.10 lists NC ↔ Inspection as existing, via the OCA bridge | confirmed: `qc_inspection_id` on the nonconformity, `mgmtsystem_nonconformity_ids` and a count on the inspection, and `action_view_nonconformities` (`mgmtsystem_nonconformity_quality_control_oca/models/`) | Only the prefill context remains to add, in step 4 |
 | 7 | §7.11 adds `defect_severity_id`, the code's default severity shown beside it on the answer | omitted | The defect code is enough on a checklist; the severity is visible on the code itself, and the item takes it from there |
 | 8 | §7.11 puts no restriction on which defect codes a checklist may name | both fields carry the same domain: leaf codes, of the quality or both domain | A group is administrative, so an item must always carry a leaf code. On the item's own dropdown the §7.6 domain achieves that as a side effect, but Populate Defect creates items in code and bypasses it, so the restriction has to sit where the code is chosen. The `domain_kind` half keeps a maintenance-only code off a quality checklist, which is what D14 makes the field mean |
-| 9 | §7.11 has Populate Defect read the inspection's answers itself | the resolution lives on `qc.inspection.line` as `qms_defect_code_id`, a non-stored compute the button reads | The rule "qualitative from the answer, quantitative from the question, nothing when the line passed" then exists once instead of once in a method and once for the UI. It also earns its place on the inspection: an inspector sees which defect each failed check will raise before any nonconformity exists |
+| 9 | §7.11 has Populate Defect read the inspection's answers itself | the resolution lives on `qc.inspection.line` as `qms_defect_code_id`, a compute the button reads — not stored until step 7, a stored snapshot of the answer from it | The rule "qualitative from the answer, quantitative from the question, nothing when the line passed" then exists once instead of once in a method and once for the UI. It also earns its place on the inspection: an inspector sees which defect each failed check will raise before any nonconformity exists |
 | 10 | §7.11 does not say which inspections may be read | only a confirmed one — `waiting`, `success` or `failed` | A defect is not recorded against an inspection nobody has confirmed. It also removes the worst of the unmeasured-line problem: before confirmation a quantitative line reads 0.0 and fails any minimum above zero, so an unconfirmed inspection can resolve codes for questions nobody has answered |
 | 11 | §7.11 assumes the analyst can read the inspection | Populate Defect requires `quality_control_oca.group_quality_control_user`, and the button is hidden without it | `qc.inspection` is readable only by that group (`quality_control_oca/security/ir.model.access.csv:2-3`); no management-system group implies it. Anyone who populates defects reads the inspection's lines, so the prerequisite is real rather than cosmetic — but it has to be declared, because the nonconformity form works without it today. See *Known traps* |
 | 12 | §7.10 names the field on the action `inspection_id` | `qms_inspection_id` | The prefix rule, as in divergence 1. `mgmtsystem.action` is an OCA model and `inspection_id` is a name a future upstream field could take |
@@ -118,6 +119,7 @@ qms_quality_control/
 │         test_qms_populate_defect.py                     # 2
 │         test_qms_action_inspection.py                   # 3
 │         test_qms_nonconformity_prefill.py                # 4
+│         test_qms_capture.py                             # 7
 └── readme/ DESCRIPTION.md, USAGE.md                      # 1 (DESCRIPTION), 2 (USAGE)
 ```
 
@@ -147,6 +149,7 @@ already has create rights on (`qms_nonconformity/security/ir.model.access.csv`).
 |---|---|
 | `__init__.py` | `from . import models` |
 | `models/__init__.py` | `from . import qc_test_question`, `from . import qc_test_question_value`, `from . import qc_inspection_line` (step 2), `from . import mgmtsystem_nonconformity` (step 2), `from . import mgmtsystem_action`, `from . import qc_inspection` (step 3) |
+| `tests/__init__.py` | `from . import test_qms_quality_control`, `from . import test_qms_populate_defect`, `from . import test_qms_action_inspection`, `from . import test_qms_nonconformity_prefill`, `from . import test_qms_capture` (step 7) |
 
 ## The checklist domain
 
@@ -208,11 +211,13 @@ from the test at creation (`_prepare_inspection_line`,
 
 | Field | Type | Attributes |
 |---|---|---|
-| `qms_defect_code_id` | Many2one → `qms.defect.code` | `compute="_compute_qms_defect_code_id"`, not stored, `string="Defect Code"`, `help="The defect this line records. Empty while the line passes."` |
+| `qms_defect_code_id` | Many2one → `qms.defect.code` | `compute="_compute_qms_defect_code_id"`, `string="Defect Code"`, `help="The defect this line records. Empty while the line passes."`; not stored until step 7, then `store=True`, `index=True` |
+| `qms_severity_id` | Many2one → `mgmtsystem.nonconformity.severity` | step 7; `compute="_compute_qms_severity_id"`, `store=True`, `string="Severity"`, `help="The defect code's default severity when the line was answered."` |
 | `qms_qty_failed` | Float | `string="Quantity Failed"`, plain stored field, default 0.0 |
 | Method | Decorator | Behaviour |
 |---|---|---|
-| `_compute_qms_defect_code_id` | `@api.depends("success", "question_type", "qualitative_value.qms_defect_code_id", "test_line.qms_defect_code_id")` | empty when `success`; otherwise the answer's code for a qualitative line and the question's for a quantitative one |
+| `_compute_qms_defect_code_id` | from step 7 `@api.depends("success", "question_type", "qualitative_value")`; until then also `qualitative_value.qms_defect_code_id` and `test_line.qms_defect_code_id` | empty when `success`; otherwise the answer's code for a qualitative line and the question's for a quantitative one |
+| `_compute_qms_severity_id` | step 7; `@api.depends("qms_defect_code_id")` | the code's `default_severity_id`, read without depending on it |
 
 **This is the one place the resolution rule lives.** Populate Defect reads the field
 rather than repeating the rule, so the inspection list and the generated items can never
@@ -224,9 +229,27 @@ is that an answer misconfigured as correct *and* carrying a defect code shows it
 nowhere on the inspection — accepted, because that misconfiguration is visible where it
 was made, the answers list putting `ok` and the code side by side.
 
-**Not stored,** so it cannot be searched or grouped, and an old inspection shows *today's*
-checklist codes. Both are fine: the durable copy is the defect code on the nonconformity
-item, which Populate Defect writes. It is the same live-reference trade as plan O5.
+**A snapshot of the answer, stored from step 7.** Until then it was not stored — no column, and
+an old inspection showed today's checklist codes, the live-reference trade of plan O5, with the
+nonconformity item as the durable copy. The QM report groups defects by code and must not see
+a checklist edit rewrite its history (`docs/QMS Quality Reporting — Design.md` §5.1, D5), so the
+field is stored and **depends on the line's own answer only**: `success`, `question_type`,
+`qualitative_value`. It reads the answer's or the question's code without depending on it, so
+the code is taken when the line is answered — when `success` or the answer changes — and a later
+edit of the checklist reaches only lines answered afterwards. `qms_severity_id` is frozen the
+same way, from the code.
+
+**`test_line` is not a dependency,** although the reporting design lists it. A question is a
+plain Many2one with the default `ondelete="set null"` (`quality_control_oca/models/qc_inspection.py:308`)
+and nothing restricts deleting one, so with `test_line` among the dependencies, deleting a
+question would recompute every line that asked it and wipe their codes. `test_line` is set when
+the line is created and never changes otherwise, and a stored compute is computed at creation, so
+nothing is lost by leaving it out. Deleting an *answer* still empties the code of the lines that
+chose it — but OCA's own `success` flips with it, so that history is rewritten by OCA first;
+accepted.
+
+**On upgrade** the column is computed for every existing line, from the checklist as it stands.
+It is a snapshot from then on.
 
 **An unanswered quantitative line counts as a failure.** `quantitative_value` defaults to
 0.0, so a line with a minimum above zero resolves a code before anyone measures anything.
@@ -339,6 +362,41 @@ an inspection that is not in draft (`qc_inspection._unlink_except_autogenerated_
 so the only inspection that can disappear is one nobody confirmed, and an action that survives
 it with an empty link loses nothing. `restrict` would instead make a draft inspection
 undeletable because someone raised an action from it.
+
+### `qc.inspection` — capture (step 7)
+
+`models/qc_inspection.py`, the same file as steps 3 and 4.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `qms_qty_sampled` | Float | `string="Sample Size"`, help: the pieces actually checked, when fewer than the lot; leave empty for a full inspection |
+| `qms_qty_inspected` | Float | `compute="_compute_qms_qty_inspected"`, `store=True`, `string="Pieces Inspected"`, help: the sample size when entered, otherwise the inspection's quantity |
+| `qms_qty_defective` | Float | `string="Defective Pieces"`, help: pieces with at least one defect; one piece with two defects counts once |
+| `qms_reinspection` | Boolean | `string="Re-inspection"`, help: a check of reworked pieces; kept out of first-time figures so they are not counted twice |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_compute_qms_qty_inspected` | `@api.depends("qty", "qms_qty_sampled")` | `qms_qty_sampled` when it is above 0, otherwise `qty` |
+| `action_confirm` | — | `self._qms_check_capture()`, then `super()` |
+| `_qms_check_capture` | — | for each inspection whose `qms_qty_defective` exceeds `qms_qty_inspected`, raise `UserError`: `"%(inspection)s: defective pieces (%(defective)s) cannot exceed pieces inspected (%(inspected)s)."` |
+
+**Pieces inspected is computed, not a default.** OCA rewrites `qty` after creation — validating a
+picking resets it on the picking's inspections (`quality_control_stock_oca/models/stock_picking.py:68-69`,
+`qc_inspection.py:70-73`), and the per-lot path writes it after creating each inspection
+(`stock_move.py:71-76`). An editable copy of `qty` would lose the inspector's sample to such a
+rewrite; a default taken at creation would go stale. Computed from an entered sample size, it
+follows `qty` until someone samples and keeps the sample after. A sample of 0 is no sample.
+
+**Checked at confirmation, not by a constraint.** Odoo validates the constraints of a stored
+compute whenever it is recomputed (`odoo/odoo/models.py:5300-5305`), so `@api.constrains` on
+`qms_qty_inspected` would run when OCA rewrites `qty` during picking validation, and a quality
+rule could block a receipt. `action_confirm` guards every confirmed inspection, which is what
+the report reads. The check runs before OCA's own. With `qms_fabric_inspection` installed its
+roll check runs first; a roll inspection has no defective pieces, so this one passes there.
+
+**The skipped-measurement residue** (*Populate Defect*, below) reaches the report too: an
+unmeasured quantitative line fails, and the report counts it one defect (reporting design §6).
+This step does not extend the inspection's own validation.
 
 ### `qc.inspection` — `models/qc_inspection.py` (step 3)
 
@@ -482,8 +540,10 @@ reviewed in both.
 
 | XML id | Inherits | Position | Content |
 |---|---|---|---|
-| `qc_inspection_form_view` | `quality_control_oca.qc_inspection_form_view` | field `valid_values` after (inside the embedded `inspection_lines` list, `views/qc_inspection_view.xml:143`) | `qms_defect_code_id` then `qms_qty_failed`, both `optional="show"` |
-| `qc_inspection_line_tree_view` | `quality_control_oca.qc_inspection_line_tree_view` | field `valid_values` after (`:398`) | the same two columns |
+| `qc_inspection_form_view` | `quality_control_oca.qc_inspection_form_view` | field `valid_values` after (inside the embedded `inspection_lines` list, `views/qc_inspection_view.xml:143`) | `qms_defect_code_id` then `qms_qty_failed`, both `optional="show"`; from step 7 `qms_severity_id` between them, `optional="show"` |
+| `qc_inspection_line_tree_view` | `quality_control_oca.qc_inspection_line_tree_view` | field `valid_values` after (`:398`) | the same three columns |
+| `qc_inspection_form_view` (step 7, same record) | `quality_control_oca.qc_inspection_form_view` | field `qty` after (the header's left group, `views/qc_inspection_view.xml:82`) | `qms_qty_sampled`, `qms_qty_inspected`, `qms_qty_defective`, `qms_reinspection`; all but the computed one `readonly="state in ('waiting', 'success', 'failed', 'canceled')"` |
+| `qc_inspection_line_tree_view` (step 7) | — | — | the line list gains a *Defect Code* group-by and filter for free once the field is stored; nothing to add |
 
 The column sits between *Valid values* and *Success?* — what counts as correct, what the
 defect is, whether it passed. The standalone list is the more useful of the two: it is
@@ -612,12 +672,12 @@ that product from the test; and a nonconformity carrying `qc_inspection_id` plus
 | `test_gate_closed_once_items_exist` | it is false once the nonconformity holds an item, and false outside the Analysis stage |
 | `test_gate_requires_quality_control_group` | as a management-system user **without** `group_quality_control_user`: reading the nonconformity's `description` succeeds — the positive control, without which the test could pass for the wrong reason — and reading `qms_can_populate_defect` raises `AccessError`, which is the prerequisite the view's `groups` exists to respect |
 | `test_view_hides_gate_without_quality_control` | `get_view` on the nonconformity form returns an arch containing `qms_can_populate_defect` for a user who has the quality-control group and not containing it for one who does not. The test above proves the field is dangerous; only this one proves the view keeps it away, which is what stops the form raising on load — and it is what a `groups` list of two groups silently failed to do |
-| `test_code_follows_checklist_edit` | moving the answer's code to another defect changes what the line resolves, since the field is not stored |
+| `test_code_frozen_after_checklist_edit` | from step 7, replacing `test_code_follows_checklist_edit`: the line's code is read — the snapshot is computed at that read (`addons/CLAUDE.md`, ORM) — then the answer's code moved to another defect; read back from the database, the line keeps its code. Until step 7 the test asserted the opposite |
 | `test_populate_creates_one_item_per_line` | two failed lines give two items, in line order, with `sequence` 10 and 20 |
 | `test_populate_carries_note_and_severity` | an item's `note` is the question's name and its `severity_id` is the defect code's default — the cross-module check that an item created in code still gets a severity |
 | `test_populate_carries_quantity` | quantities set on the two coded lines arrive as the matching items' `qty_affected`, and a quantity typed on a line that resolves no code produces no item to carry it |
 | `test_populate_skips_uncoded_lines` | a failed line whose answer carries no code produces no item |
-| `test_populate_nothing_notifies` | with no line resolving a code, no item is created and the return value is a `display_notification` |
+| `test_populate_nothing_notifies` | with no line resolving a code, no item is created and the return value is a `display_notification`. From step 7 the coded lines are made to pass — the correct answer, a measurement of 15 — leaving only the uncoded failure; until then the test cleared the checklist's codes, which no longer reaches lines already answered |
 | `test_populate_without_inspection` | on a nonconformity with no inspection the method creates nothing and notifies, so it is safe even though the button is hidden there |
 
 The three gate tests set the inspection's state by writing it, not by calling
@@ -667,9 +727,34 @@ fixtures create a product, an inspection and nonconformities. Every test reads t
 | `test_button_for_user_outside_settings` | step 6; a user holding *Internal User*, *Quality control · User* and *Management system · User* gets the action, its context carrying `default_qc_inspection_id`. The control: the same user reading the action record `mgmtsystem_nonconformity.open_mgmtsystem_nonconformity_list` raises `AccessError` — the read OCA's method makes |
 | `test_button_ignores_other_company` | step 6; a second company is created; that user belongs to the first only, and the inspection's one nonconformity to the second: the action opens a new form — `res_id` `False` — rather than a record the user cannot read. The test that a superuser call of OCA's method would fail |
 
+## Tests — `tests/test_qms_capture.py` (step 7)
+
+`TestCapture(TransactionCase)`, `@tagged("post_install", "-at_install")`: the fixtures create a
+product. Codes use `unique_code_prefix()`.
+
+Fixtures: a quality group with leaf codes *Torn*, carrying a default severity *Major*, and *Out of
+tolerance*; a `qc.test` with a qualitative question whose failing answer carries *Torn* and a
+quantitative question in 10–20 carrying *Out of tolerance*; a product; `_inspection(qty)` creates an
+inspection on the product from that test, its lines prepared from the test
+(`_prepare_inspection_lines`), in *ready*, the qualitative answered correctly and the measurement
+15.
+
+| Test | Asserts |
+|---|---|
+| `test_severity_snapshot` | a line answered with the failing answer carries *Major*; after *Torn*'s default severity is changed, read back from the database, it still does |
+| `test_code_kept_when_question_deleted` | a quantitative line measured at 5 carries *Out of tolerance*; after the question is deleted, its `test_line` is empty and, read back from the database, its code is kept — the reason `test_line` is not a dependency |
+| `test_code_follows_answer` | moving a line from the failing answer to the correct one empties its code, and back fills it — the snapshot still follows the line's own answer |
+| `test_inspected_follows_qty` | with no sample, pieces inspected is `qty`, and follows a write of `qty`; with a sample of 5 it is 5, and stays 5 when `qty` is written again; clearing the sample returns it to `qty` |
+| `test_confirm_refuses_defective_over_inspected` | with a sample of 5 and 6 defective pieces on a lot of 100, `action_confirm` raises `UserError` — the check reads pieces inspected, not `qty`; with 5 defective it confirms |
+
+**Checked in the UI:** the four fields under the quantity on the inspection form, pieces inspected
+following the quantity until a sample is typed, the fields read-only once confirmed, the refusal on
+confirming more defective than inspected pieces; the severity column on the lines; the *Inspection
+Lines* list grouped by defect code.
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | Records which defect a failed inspection answer or an out-of-tolerance measurement represents, so a nonconformity raised from the inspection can be analysed from it |
-| `readme/USAGE.md` (steps 2, 4) | Two sections. **Checklists**: a qualitative question carries a defect code on each answer, a quantitative one on the question; both offer leaf codes of the quality domain, and the inspection lines show which defect each failed line records and how many units it affected. **Populate Defect**: visible on a nonconformity in Analysis whose source inspection has been confirmed and which holds no items yet, it adds one item per recorded defect with the question in the note and the failed quantity carried over; it never deletes, so repopulating means deleting the items by hand first; object part and cause are left for the analyst. The button needs the Quality control / User group, since it reads the inspection. Step 4 adds a third line: raising a nonconformity from an inspection carries the inspection, its product, name and company onto the new record, and the product is what scopes the catalog dropdowns |
+| `readme/USAGE.md` (steps 2, 4, 7) | Two sections. **Checklists**: a qualitative question carries a defect code on each answer, a quantitative one on the question; both offer leaf codes of the quality domain, and the inspection lines show which defect each failed line records and how many units it affected. **Populate Defect**: visible on a nonconformity in Analysis whose source inspection has been confirmed and which holds no items yet, it adds one item per recorded defect with the question in the note and the failed quantity carried over; it never deletes, so repopulating means deleting the items by hand first; object part and cause are left for the analyst. The button needs the Quality control / User group, since it reads the inspection. Step 4 adds a third line: raising a nonconformity from an inspection carries the inspection, its product, name and company onto the new record, and the product is what scopes the catalog dropdowns Step 7 adds a third section, **Counting**: enter the sample size when fewer pieces are checked than the lot — pieces inspected then follows it, otherwise the inspection's quantity; enter the defective pieces, each counted once however many defects it has, never more than pieces inspected, which confirmation checks; tick *Re-inspection* on a check of reworked pieces. A line's defect code and severity are taken when it is answered and kept, so editing the checklist later does not change past inspections |

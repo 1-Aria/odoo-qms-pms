@@ -47,3 +47,15 @@ action, which opens that inspection when clicked. The inspection's **Actions** b
 counts every action it led to: raised on the inspection directly, listed in the action plan of
 a nonconformity raised from it, or set as that nonconformity's immediate action. An action
 reachable two ways is counted once.
+
+## Counting
+
+Under the inspection's quantity, enter the **Sample Size** when fewer pieces are checked than
+the lot; **Pieces Inspected** then follows it, and otherwise follows the inspection's quantity.
+Enter the **Defective Pieces** — each counted once, however many defects it has — never more
+than pieces inspected, which confirmation checks. Tick **Re-inspection** on a check of reworked
+pieces, so they are kept out of first-time figures.
+
+A line's defect code and severity are taken when the line is answered and kept: editing the
+checklist later does not change past inspections, and deleting a question does not erase what
+its lines recorded.
