@@ -6,12 +6,20 @@ models persist and lock. Nothing here ever puts a token, a secret or a raw
 response body into a returned text or a log line.
 """
 
+import json
+
 import requests
 
 from odoo.tools import config
 
 OA_TOKEN_URL = "https://oauth.zaloapp.com/v4/oa/access_token"
 REFRESH_TOKEN_INVALID = -14020
+SEND_URLS = {
+    "user": "https://openapi.zalo.me/v3.0/oa/message/cs",
+    "group": "https://openapi.zalo.me/v3.0/oa/group/message",
+}
+RECIPIENT_KEYS = {"user": "user_id", "group": "group_id"}
+ACCESS_TOKEN_EXPIRED = -216
 # When a response has no expires_in: 25 hours, as observed (the reference's
 # Caveats; the original script's "1 hour" was wrong).
 DEFAULT_EXPIRES_IN = 90000
@@ -111,3 +119,74 @@ def refresh_tokens(app_id, app_secret, refresh_token):
         app_secret,
         {"refresh_token": refresh_token, "grant_type": "refresh_token"},
     )
+
+
+def send_text(access_token, recipient_type, recipient_id, text):
+    """Send a text to a group chat or a 1:1 chat.
+
+    The answer falls into one of four kinds (the reference, Error reference):
+
+    - "sent": HTTP 200 and error 0, the only success;
+    - "expired": HTTP 401, or error -216 -- refresh once, retry once;
+    - "retry": a network error, a body that is not JSON, HTTP 500 or more;
+    - "failed": any other Zalo error, such as -224 -- do not retry.
+
+    :return: {"status": kind, "error": text or False, "response": the body as
+        JSON text, or False}. A send response carries no token, so its body is
+        kept for the log; the error text never holds the access token.
+    """
+    try:
+        response = requests.post(
+            SEND_URLS[recipient_type],
+            json={
+                "recipient": {RECIPIENT_KEYS[recipient_type]: recipient_id},
+                "message": {"text": text},
+            },
+            headers={"access_token": access_token},
+            timeout=TIMEOUT,
+        )
+    except requests.RequestException as error:
+        return {
+            "status": "retry",
+            "error": f"network error: {type(error).__name__}",
+            "response": False,
+        }
+    status = response.status_code
+    if status == 401:
+        return {
+            "status": "expired",
+            "error": "access token expired or invalid",
+            "response": False,
+        }
+    try:
+        data = response.json()
+    except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        return {
+            "status": "retry",
+            "error": f"unexpected response (HTTP {status})",
+            "response": False,
+        }
+    body = json.dumps(data, ensure_ascii=False)
+    code = _error_code(data.get("error"))
+    if status == 200 and code == 0:
+        return {"status": "sent", "error": False, "response": body}
+    if code == ACCESS_TOKEN_EXPIRED:
+        return {
+            "status": "expired",
+            "error": "access token expired or invalid",
+            "response": body,
+        }
+    if status >= 500:
+        return {
+            "status": "retry",
+            "error": f"unexpected response (HTTP {status})",
+            "response": body,
+        }
+    detail = data.get("message") or ""
+    return {
+        "status": "failed",
+        "error": f"Zalo error {code}: {detail}".strip(),
+        "response": body,
+    }

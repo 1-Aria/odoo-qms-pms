@@ -11,8 +11,8 @@ Reference.md`. Plan: §8.
 | # | Scope | Status | Result |
 |---|---|---|---|
 | 1 | The instance's app from `odoo.conf`; `zalo.token` per app; the token half of the Zalo client; the refresh under the row lock with its commit; the refresh cron and the health alert; the token list and form | done | 2026-10-07, two runs. First: 8 of 22 passed; the 14 token tests errored after each test, on a class-level `patch.dict` that `TransactionCase`'s attribute check cannot read (`odoo/odoo/tests/common.py:1117-1122`), now started per test in `setUp`. Second: `-u`, `exit=0`, 22 tests, 0 failures. The instance's app configured through a YAML block in `compose.yml.template` — a `\n` in `.env` stayed literal. UI checked: the configured app's row recognised, *Refresh now* waking the cron and `last_error` reporting the missing refresh token, the alert user offered among administrators only, another app's row muted without the button; no live refresh, the Apps Script still holding app A |
-| 2 | The send queue: `zalo.destination`, `zalo.message`, the send half of the client with refresh-on-expiry — its refresh under step 1's savepoint, a serialization failure leaving the message queued — the send cron committing per message, the redirect, `_queue()` | specced | |
-| 3 | `zalo.template` and the "Send Zalo message" server action, with the isolation rule for queueing | planned | |
+| 2 | The send queue: `zalo.destination`, `zalo.message`, the send half of the client with refresh-on-expiry — its refresh under step 1's savepoint, a serialization failure leaving the message queued — the send cron committing per message, the redirect, `_queue()` | done | 2026-10-07, two runs. First: 47 of 48 passed; `test_queue_flushes_the_callers_writes_first` patched `flush_all` outside `assertRaises`, whose own flushing savepoint (`odoo/odoo/tests/common.py:489`) met it first — now patched inside. Second: `-u`, `exit=0`, 48 tests, 0 failures. UI checked with a borrowed access token and no refresh token (design, phase 1): a message to a test group delivered and shown *Sent* with Zalo's response; one to a bogus ID failed with Zalo's error and re-queued by *Retry* |
+| 3 | `zalo.template` and the "Send Zalo message" server action, with the isolation rule for queueing; the message's source template | specced | |
 | 4 | Routes: `/zalo/authorize`, `/zalo/callback`, `/zalo/send` with the *Zalo sender* group | planned | |
 | 5 | Receiving: `zalo.event`, `/zalo/webhook`, event processing | planned | target state |
 
@@ -23,7 +23,9 @@ Reference.md`. Plan: §8.
 | 1 | *Rules* 1: "the refresh cron and the send fallback both call the same `_refresh()`"; Phase 2 step 3: "trigger one refresh from Odoo" | the token form's *Refresh now* sets `refresh_requested` and wakes the refresh cron; it does not refresh in the request | *Rules* 2: Zalo is called from crons only. A refresh committed inside a user request would break that rule for the one place an administrator touches it |
 | 2 | §"Models" lists the pending authorization's state and verifier on `zalo.token` | added in step 4, with the routes that use them | Nothing reads them before |
 | 3 | §"Models" gives `zalo.message` a source template | added in step 3, with `zalo.template` | The model does not exist before |
+| 7 | §"Server action type": a template field and destination fields, as SMS has; SMS translates its template body | the template's body is **not** translated (`translate=False`); its name is | A translated body is stored per language and rendered in the language of whoever runs the action — the automation's superuser. Edited in a Vietnamese session, the Vietnamese text changes while the English one, the one actually rendered, stays old, and the notification silently keeps the previous wording. The recipients are chats, with no language to render for. The name stays translatable, as every name field in this project does |
 | 4 | §"Models" does not record where a redirected message went | `sent_to` on the message: the recipient Zalo was actually given, set on every sent message | The design keeps the intended recipient in the log; with a redirect, the log should also say where the message really went |
+| 6 | *Sending path*: "network errors and failed refreshes are retried a few times by the cron" | each retry waits `attempts × RETRY_DELAY` (5 minutes), through `next_attempt_at`; only due messages are sent | Odoo's cron runner calls a job again, up to ten times in one run, while it reports work done and work remaining (`odoo/odoo/addons/base/models/ir_cron.py:419-454`). A retried message is still queued, so without a wait one run would spend all five attempts in seconds during a Zalo outage, failing every message before Zalo came back. Found reading the runner while writing the code |
 | 5 | The design does not say what a malformed `zalo_redirect_recipient` does | the message fails, naming the setting; it is never sent to its intended recipient | The redirect exists to keep a test instance out of real chats. Falling back to the real recipient on a typo would defeat it |
 
 ## Decisions
@@ -39,11 +41,16 @@ Reference.md`. Plan: §8.
 | D7 | **The health alert is an activity on the token row,** of type `mail.mail_activity_data_warning`, for `alert_user_id`, scheduled when the last successful refresh is older than two days and no such activity is open — so it is raised once, not every hour. The row inherits `mail.thread` and `mail.activity.mixin` for it; no token field is tracked |
 | D8 | **Tokens are editable on the form, masked.** Phase 2 copies the Apps Script's refresh token into the row, and phase 1 tests sends with a borrowed access token, so both fields are typed by hand — by system administrators only (D9) — with `widget="password"` |
 | D10 | **Every queued message wakes the send cron** (step 2): `zalo.message.create()` calls `_trigger()` on it for queued records, so a message created by `_queue()`, by a server action (step 3), by a route (step 4) or by hand on the form goes out within seconds by the same path |
-| D11 | **`_queue()` never raises** (design §"Isolation from Odoo", rule 1). It creates inside a savepoint; on any error the savepoint is rolled back, the error logged, and a *failed* message written with what is known; if even that fails, it logs and returns an empty recordset. A missing recipient or text is not an exception but a failed message. For it to hold, `recipient_id`, `recipient_type` and `text` are not `required` on the model — a failed message records whatever it had. It creates as superuser, so a caller needs no access to the log |
+| D11 | **`_queue()` never raises** (design §"Isolation from Odoo", rule 1). It creates inside a savepoint; on any error the savepoint is rolled back, the error logged, and a *failed* message written with what is known; if even that fails, it logs and returns an empty recordset. A missing recipient or text is not an exception but a failed message. For it to hold, `recipient_id`, `recipient_type` and `text` are not `required` on the model — a failed message records whatever it had. It creates as superuser, so a caller needs no access to the log. **It flushes first, outside the guard** (`self.env.flush_all()` before the `try`): `cr.savepoint()` flushes the caller's pending writes when it is created (`odoo/odoo/sql_db.py:123-126`), so a savepoint opened inside the `try` would catch a failure in the *caller's* own writes, in a transaction already aborted — the failed message could not be written either, and the caller would later see *current transaction is aborted* instead of their own error. Flushed first, the caller's error surfaces as it would without `_queue()`, and only the module's own work is guarded. Step 3's server action follows the same rule; the cron's savepoints are unaffected |
 | D12 | **The send cron never raises and commits per message** (design rules 2 and *Sending path*). Each message's result is written in its own savepoint and, outside tests, committed before the next (D5's flag) — core's mail and SMS queues do the same (`sms/models/sms_sms.py:147-149`) — so a crash mid-batch cannot resend a message Zalo accepted. An unexpected error on one message is logged and counted as a failed attempt on it; the cron goes on. The refresh-on-expiry runs **outside** any savepoint, since `_refresh()` commits (D5) |
 | D13 | **Results fall into four kinds** (reference, *Error reference*): *sent* — HTTP 200 and `error` 0; *expired* — HTTP 401 or `error` −216, refreshed once and retried once; *retryable* — a network error, a body that is not JSON, an HTTP status of 500 or more, a failed refresh, or still *expired* after the refresh: the attempt is counted and the message stays queued until `MAX_ATTEMPTS` (5), then fails; *permanent* — any other Zalo error, such as −224: failed at once, Zalo's body kept |
 | D14 | **The redirect is read from `odoo.conf` at send time** (design §"Models"): `zalo_redirect_recipient` as `group:<id>` or `user:<id>`. Set, every message goes there, its text prefixed `[→ <intended recipient>] `, where the intended recipient is the destination's name or `<type>:<id>`; the message keeps its intended recipient, and `sent_to` records the real one. Malformed, the message fails (divergence 5) |
 | D15 | **Batches through Odoo 18's cron progress:** the send cron takes `BATCH_SIZE` (50) queued messages, oldest first, and reports `_notify_progress(done=…, remaining=…)` (`odoo/odoo/addons/base/models/ir_cron.py:734`); the cron runner calls the job again while work remains, committing between calls |
+| D18 | **The template is SMS's** (step 3): `zalo.template` inherits `mail.render.mixin` with `_unrestricted_rendering = True`, as `sms.template` does (`sms/models/sms_template.py:10-13`), so a template uses the full inline-template syntax and the mixin restricts creating or editing a dynamic one to `mail.group_mail_template_editor` (`mail/models/mail_render_mixin.py:95-110`). It renders with `_render_field("body", res_ids)` (`:707`), one call for all the action's records |
+| D19 | **Queueing from a template never raises, and flushes first** (design §"Isolation from Odoo", rule 1; D11): `zalo.message._queue_from_template()` flushes the caller's writes, then renders inside a savepoint. A rendering error — a typo in a placeholder, a field that no longer exists — becomes a *failed* message per record and destination, carrying the error and the source record; the save that triggered the rule goes through. An automation rule re-raises its actions' errors (`base_automation/models/base_automation.py:737-742`), and SMS's action has no such guard (`sms/models/ir_actions_server.py:72-89`) |
+| D20 | **The action skips recomputes**, as SMS does: `_is_recompute()` (`mail/models/ir_actions_server.py:201`) is true when an on-update rule fires only because a computed field was recomputed, and the action then queues nothing |
+| D21 | **The template's model must be the action's,** a constraint as SMS's `_check_sms_template_model` (`sms/models/ir_actions_server.py:62-66`): rendering a template against records of another model can only fail. The view filters the template by the action's model as well |
+| D17 | **A retry waits** (divergence 6): `next_attempt_at` = now + `attempts × RETRY_DELAY` — 5, 10, 15, 20 minutes — and the send cron and its `remaining` count read only messages that are due (`next_attempt_at` empty or past). An outage of about 50 minutes costs no message; a sent, failed or retried-by-hand message clears it |
 | D16 | **Old messages are removed by `@api.autovacuum`** (design §"Scheduled actions and cleanup"): sent and failed messages older than `RETENTION_DAYS` (30). Queued ones are never removed |
 | D9 | **Access is system administrators only:** `base.group_system` holds the model's only access row, and the token fields also carry `groups="base.group_system"` (design §"Models"). The menu is under *Settings → Technical* (`base.menu_custom`) |
 
@@ -59,11 +66,15 @@ zalo_oa/
 │   ├── __init__.py
 │   ├── zalo_token.py
 │   ├── zalo_destination.py                             # 2
-│   └── zalo_message.py                                 # 2
+│   ├── zalo_message.py                                 # 2
+│   ├── zalo_template.py                                # 3
+│   └── ir_actions_server.py                            # 3
 ├── data/ir_cron.xml
 ├── security/ir.model.access.csv
 ├── views/zalo_token_views.xml, zalo_destination_views.xml, zalo_message_views.xml   # 1, 2, 2
+│         zalo_template_views.xml, ir_actions_server_views.xml                         # 3, 3
 ├── tests/__init__.py, test_zalo_client.py, test_zalo_token.py, test_zalo_message.py  # 1, 1, 2
+│         test_zalo_template.py                                                        # 3
 └── readme/ DESCRIPTION.md, USAGE.md, CONFIGURE.md
 ```
 
@@ -79,7 +90,7 @@ zalo_oa/
 | `license` | `AGPL-3` |
 | `category` | `Productivity` |
 | `depends` | `mail`, `base_automation` — the second for step 3's server action, declared now so the dependency never changes under an installed module |
-| `data` | `security/ir.model.access.csv`, `data/ir_cron.xml`, `views/zalo_token_views.xml`, `views/zalo_destination_views.xml` (step 2), `views/zalo_message_views.xml` (step 2) |
+| `data` | `security/ir.model.access.csv`, `data/ir_cron.xml`, `views/zalo_token_views.xml`, `views/zalo_destination_views.xml` (step 2), `views/zalo_message_views.xml` (step 2), `views/zalo_template_views.xml` (step 3), `views/ir_actions_server_views.xml` (step 3) |
 | `installable` | `True` |
 
 `requests` is in Odoo's own requirements; no external dependency is declared.
@@ -90,8 +101,8 @@ zalo_oa/
 |---|---|
 | `__init__.py` | `from . import tools`, `from . import models` |
 | `tools/__init__.py` | `from . import zalo_client` |
-| `models/__init__.py` | `from . import zalo_token`, `from . import zalo_destination`, `from . import zalo_message` (step 2) |
-| `tests/__init__.py` | `from . import test_zalo_client`, `from . import test_zalo_token`, `from . import test_zalo_message` (step 2) |
+| `models/__init__.py` | `from . import zalo_token`, `from . import zalo_destination`, `from . import zalo_message` (step 2), `from . import zalo_template`, `from . import ir_actions_server` (step 3) |
+| `tests/__init__.py` | `from . import test_zalo_client`, `from . import test_zalo_token`, `from . import test_zalo_message` (step 2), `from . import test_zalo_template` (step 3) |
 
 ## Configuration — `get_zalo_config()` in `tools/zalo_client.py`
 
@@ -240,35 +251,41 @@ restored onto test").
 | `text` | Text | — not `required` (D11) |
 | `state` | Selection | `[("queued", "Queued"), ("sent", "Sent"), ("failed", "Failed")]`, `required=True`, `default="queued"`, `index=True` |
 | `attempts` | Integer | `readonly=True` |
+| `next_attempt_at` | Datetime | `string="Next Attempt"`, `readonly=True`, `index=True`, help: set after a retryable failure; the message is not sent before it (D17) |
 | `last_error` | Text | `readonly=True` |
 | `zalo_response` | Text | `string="Zalo Response"`, `readonly=True` |
 | `sent_at` | Datetime | `readonly=True` |
 | `sent_to` | Char | `readonly=True`, help: the recipient Zalo was given, as `<type>:<id>` — another than the intended one when a redirect is configured (divergence 4) |
 | `res_model` | Char | `string="Source Model"`, `index=True` |
 | `res_id` | Many2oneReference | `model_field="res_model"`, `string="Source Record"` |
+| `template_id` | Many2one → `zalo.template` | step 3; `ondelete="set null"`, `readonly=True` (divergence 3) |
 
 | Constant | Value |
 |---|---|
 | `MAX_ATTEMPTS` | 5 |
 | `BATCH_SIZE` | 50 |
 | `RETENTION_DAYS` | 30 |
+| `RETRY_DELAY` | 5 minutes (D17) |
 
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_compute_display_name` | `@api.depends("destination_id", "recipient_type", "recipient_id")` | the destination's name, or `<type>:<id>` |
 | `create` | `@api.model_create_multi` | `super()`, then `_trigger()` on the send cron when any created record is queued (D10) |
-| `_queue` | `@api.model` | `_queue(text, recipient_type=None, recipient_id=None, destination=None, record=None)`: never raises (D11). The destination, when given, supplies type and ID; an archived destination, or no recipient or no text, gives a failed message saying so. Creates as superuser with `res_model`/`res_id` from `record`. Returns the message, or an empty recordset |
+| `_queue` | `@api.model` | `_queue(text, recipient_type=None, recipient_id=None, destination=None, record=None)`: never raises (D11). The destination, when given, supplies type and ID; an archived destination, or no recipient or no text, gives a failed message saying so. Creates as superuser with `res_model`/`res_id` from `record`. Returns the message, or an empty recordset. Step 3 adds `template=None`, kept as `template_id`, and `error=None`: given, the message is created *failed* with that error, whatever else it has |
+| `_queue_from_template` | `@api.model` | step 3; `_queue_from_template(template, records, destinations)`: never raises (D19). `self.env.flush_all()`, then in `try:` and a savepoint, `template._render_field("body", records.ids)`; on any exception, log it and keep its text as the error for every record. Then one `_queue()` per record and destination — the rendered text, or the error — with `template` and `record`. Nothing when there are no records or no destinations |
 | `_redirect` | `@api.model` | parses `zalo_redirect_recipient`: `False` when unset; `(type, id)` when `group:<id>` or `user:<id>`; raises `ValueError` when malformed (D14) |
+| `_due_domain` | `@api.model` | queued, and `next_attempt_at` empty or past (D17) |
+| `_write_result` | — | `ensure_one`; writes one send's outcome in a savepoint of its own — step 4 of `_send` |
 | `_send` | — | `ensure_one`; one message, below |
 | `_cron_send` | `@api.model` | the send cron, below; never raises (D12) |
-| `action_retry` | — | failed messages back to queued, `attempts` 0, `last_error` cleared; wakes the send cron |
+| `action_retry` | — | failed messages back to queued, `attempts` 0, `last_error` and `next_attempt_at` cleared; wakes the send cron |
 | `_gc_old_messages` | `@api.autovacuum` | unlinks sent and failed messages whose `create_date` is older than `RETENTION_DAYS` (D16) |
 
 **`_cron_send()`** (D12, D15): with no configured app, or no current token with an access token,
-return — the messages stay queued. Otherwise take the oldest `BATCH_SIZE` queued messages; for each,
+return — the messages stay queued. Otherwise take the oldest `BATCH_SIZE` due messages (`_due_domain`); for each,
 `try: message._send(token)` and, on an unexpected exception, log it and count a failed attempt in a
 savepoint; after each message, commit when `_zalo_auto_commit()`. Then
-`self.env["ir.cron"]._notify_progress(done=<processed>, remaining=<queued left>)`. The whole body is
+`self.env["ir.cron"]._notify_progress(done=<processed>, remaining=<due left>)`. The whole body is
 inside `try`/`except Exception` that logs, so the cron always finishes.
 
 **`_send(token)`**:
@@ -283,11 +300,51 @@ inside `try`/`except Exception` that logs, so the cron always finishes.
    `last_error`.
 4. Write the result in a savepoint: *sent* — `state` sent, `sent_at` now, `sent_to`, `zalo_response`,
    `last_error` cleared; *retry* — `attempts` + 1, `last_error`, and `state` failed once `attempts`
-   reaches `MAX_ATTEMPTS`; *failed* — `state` failed, `attempts` + 1, `last_error`, `zalo_response`.
+   reaches `MAX_ATTEMPTS`, otherwise `next_attempt_at` = now + `attempts × RETRY_DELAY`; *failed* —
+   `state` failed, `attempts` + 1, `last_error`, `zalo_response`. Sent and failed clear
+   `next_attempt_at`.
 
 A serialization failure inside `_refresh()` returns `True` (step 1, D3) while this transaction still
 reads the old token, so the retry is *expired* again and counts as *retry*: the message stays queued,
-and the next run sends with the new pair (design §"Module design", step 2).
+and the next run sends with the new pair (design §"Module design", step 2). It costs one of the five
+attempts — accepted: the collision is rare, and a separate *refreshed elsewhere* result would add a
+branch for it.
+
+### `zalo.template` — `models/zalo_template.py` (step 3)
+
+`_name = "zalo.template"`, `_description = "Zalo Template"`, `_inherit = ["mail.render.mixin"]`,
+`_unrestricted_rendering = True` (D18), `_order = "name"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `name` | Char | `required=True`, `translate=True` |
+| `model_id` | Many2one → `ir.model` | `string="Applies to"`, `required=True`, `ondelete="cascade"`, `domain=[("transient", "=", False)]` |
+| `model` | Char | `related="model_id.model"`, `store=True`, `index=True`, `string="Model"` |
+| `body` | Text | `required=True`, **not** translated (divergence 7), help: the message, with placeholders such as `{{ object.name }}` for the record's fields; plain text, not HTML |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_compute_render_model` | `@api.depends("model")` | `render_model` = `model` — the mixin's hook, as SMS overrides it (`sms/models/sms_template.py:36-39`) |
+
+### `ir.actions.server` — `models/ir_actions_server.py` (step 3)
+
+`_inherit = "ir.actions.server"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `state` | Selection | `selection_add=[("zalo", "Send Zalo Message")]`, `ondelete={"zalo": "cascade"}` — SMS's shape (`sms/models/ir_actions_server.py:13-15`) |
+| `zalo_template_id` | Many2one → `zalo.template` | `string="Zalo Template"`, `ondelete="set null"` |
+| `zalo_destination_ids` | Many2many → `zalo.destination` | `relation="ir_act_server_zalo_destination_rel"`, `string="Zalo Destinations"` |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_check_zalo_template_model` | `@api.constrains("model_id", "zalo_template_id")` | `ValidationError` when the template's model is not the action's (D21) |
+| `_run_action_zalo_multi` | — | `eval_context=None`: nothing when there is no template, no destination, or `_is_recompute()` (D20); otherwise the records of `eval_context["records"]` or `["record"]` to `zalo.message._queue_from_template(self.zalo_template_id, records, self.zalo_destination_ids)`. Returns `False`, as SMS's does |
+
+The server action runs as whatever user the automation runs it with — `base_automation` runs its
+actions through `sudo()` (`base_automation/models/base_automation.py:737`) — and queueing creates as
+superuser in any case (D11), so no access to templates or messages is needed by the user whose save
+triggered it.
 
 ## Data — `data/ir_cron.xml`
 
@@ -307,6 +364,7 @@ Loaded with `noupdate="1"`, so an administrator's change to the cadence survives
 | `access_zalo_token_system` | `model_zalo_token` | `base.group_system` | 1 | 1 | 1 | 1 |
 | `access_zalo_destination_system` | `model_zalo_destination` | `base.group_system` | 1 | 1 | 1 | 1 |
 | `access_zalo_message_system` | `model_zalo_message` | `base.group_system` | 1 | 1 | 1 | 1 |
+| `access_zalo_template_system` | `model_zalo_template` | `base.group_system` | 1 | 1 | 1 | 1 |
 
 Destinations and the message log are configuration and audit, for administrators. Queueing needs no
 access: `_queue()` creates as superuser (D11).
@@ -342,6 +400,24 @@ configuration exists to prevent.
 | `zalo_message_view_search` | search | `text`, `recipient_id`, `destination_id`; filters *Queued*, *Sent*, *Failed*; group-by state, destination |
 | `zalo_message_action` | `ir.actions.act_window` | *Zalo Messages*, `zalo.message`, `list,form` |
 | `menu_zalo_message` | menu | *Messages*, parent `menu_zalo_root`, sequence 30 |
+
+## Views — `views/zalo_template_views.xml` (step 3)
+
+| XML id | Type | Content |
+|---|---|---|
+| `zalo_template_view_list` | list | `name`, `model_id` |
+| `zalo_template_view_form` | form | `name`, `model_id` (`options="{'no_create': True}"`), `body` (plain text, `placeholder` *New request {{ object.name }} on {{ object.equipment_id.name }}*) |
+| `zalo_template_view_search` | search | `name`, `model_id`; group-by model |
+| `zalo_template_action` | `ir.actions.act_window` | *Zalo Templates*, `zalo.template`, `list,form` |
+| `menu_zalo_template` | menu | *Templates*, parent `menu_zalo_root`, sequence 25 |
+
+## Views — `views/ir_actions_server_views.xml` (step 3)
+
+| XML id | Inherits | Position | Content |
+|---|---|---|---|
+| `ir_actions_server_view_form` | `base.view_server_action_form` | field `link_field_id` after — SMS's anchor (`sms/views/ir_actions_server_views.xml:9`) | `zalo_template_id` (`domain="[('model_id', '=', model_id)]"`, `context="{'default_model_id': model_id}"`, `invisible="state != 'zalo'"`, `required="state == 'zalo'"`), `zalo_destination_ids` (`widget="many2many_tags"`, same `invisible` and `required`) |
+
+The message form (step 2) gains `template_id`, read-only, beside the source record.
 
 ## Tests
 
@@ -422,18 +498,20 @@ a group destination. `send_text` is patched at `odoo.addons.zalo_oa.models.zalo_
 | `test_queue_wakes_the_cron` | `_queue()` creates a queued message and an `ir.cron.trigger` for the send cron |
 | `test_queue_from_destination` | a destination supplies the type and ID; the source record is kept as `res_model`/`res_id` |
 | `test_queue_never_raises` | no recipient, no text, or an archived destination each give a failed message saying why, and no exception; with `create` itself patched to raise, `_queue()` returns an empty recordset and raises nothing (D11) |
+| `test_queue_flushes_the_callers_writes_first` | with `flush_all` patched to raise, `_queue()` lets that error propagate rather than catching it — the caller's own error is the caller's (D11) |
 | `test_cron_sends` | a queued message is sent: `state` sent, `sent_at`, `sent_to` the destination, `zalo_response` kept, the call carrying `T`'s access token |
 | `test_cron_without_app` | with no app configured, nothing is called and the message stays queued |
 | `test_cron_ignores_other_apps_token` | with only another app's token row, nothing is called |
 | `test_expired_refreshes_and_retries` | an *expired* answer, then a successful refresh, then *sent*: the message is sent with the new access token, and the refresh was asked with the old one |
 | `test_expired_after_refresh_stays_queued` | *expired* twice around a successful refresh: queued, `attempts` 1 |
 | `test_failed_refresh_stays_queued` | *expired*, then a failed refresh: queued, `attempts` 1, the token's error in `last_error` |
-| `test_retry_until_max_attempts` | *retry* five times over five runs: failed after the fifth, `attempts` 5 |
+| `test_retry_waits_for_its_turn` | after a *retry* the message has a future `next_attempt_at`, and a second run at once sends nothing (D17) |
+| `test_retry_until_max_attempts` | *retry* five times over five runs, the message made due before each: failed after the fifth, `attempts` 5 |
 | `test_permanent_error_fails_at_once` | a *failed* answer fails the message on the first run, Zalo's body kept |
 | `test_redirect` | with `zalo_redirect_recipient = group:G`, the message goes to group `G`, its text starting `[→ <destination name>] `, `sent_to` `group:G`, and the message still names its destination |
 | `test_malformed_redirect_fails` | with `zalo_redirect_recipient = bogus`, the message fails naming the setting and nothing is called (divergence 5) |
 | `test_cron_never_raises` | `send_text` raising `RuntimeError` counts a failed attempt on the message; the cron returns normally (D12) |
-| `test_batch_progress` | with `BATCH_SIZE` patched to 2 and three queued messages, one run sends two and reports `_notify_progress(done=2, remaining=1)` (D15) |
+| `test_batch_progress` | with `BATCH_SIZE` patched to 2 and three queued messages, one run sends two and calls `_notify_progress(done=2, remaining=1)` — observed by patching it on the `ir.cron` class, since it returns at once without the runner's `ir_cron_progress_id` in the context (`odoo/odoo/addons/base/models/ir_cron.py:742-743`) (D15) |
 | `test_retry_action` | `action_retry` on a failed message makes it queued with `attempts` 0 and no error |
 | `test_old_messages_vacuumed` | a sent and a failed message created 31 days ago are removed by `_gc_old_messages`; a queued one of the same age, and a sent one of yesterday, are kept (D16) |
 | `test_log_for_administrators_only` | an internal user outside *Settings* reads a partner — the positive control — and reading a message raises `AccessError`; `_queue()` called as that user still queues |
@@ -446,10 +524,35 @@ message queued by hand to a test group, with a **borrowed access token** pasted 
 a bad ID failing with Zalo's error and *Retry* re-queuing it; with `zalo_redirect_recipient` set, a
 message to another destination arriving in the redirect chat, prefixed with its intended recipient.
 
+### `tests/test_zalo_template.py` (step 3)
+
+`TestZaloTemplate(TransactionCase)`, `@tagged("post_install", "-at_install")`: the fixtures create
+partners. Templates and actions are on `res.partner`: two destinations; a template *New partner
+{{ object.name }}*; a broken template *{{ object.nmae }}*; a server action of state `zalo` with the first
+template and both destinations.
+
+| Test | Asserts |
+|---|---|
+| `test_render` | the template renders *New partner Ann* for a partner named Ann |
+| `test_action_queues_per_record_and_destination` | the action run on two partners queues four messages, each with the rendered text, its destination, the partner as source record and the template |
+| `test_action_without_destinations` | with no destination the action queues nothing and raises nothing |
+| `test_template_model_must_match` | a template on `zalo.destination` set on a `res.partner` action raises `ValidationError` (D21) |
+| `test_broken_template_does_not_block_save` | with an automation rule on partner creation running an action with the broken template, creating a partner **succeeds**, and a failed message per destination carries the rendering error and the partner as source (D19) — the isolation rule's own test |
+| `test_automation_queues_on_save` | with the same rule on the working template, creating a partner named Bob queues *New partner Bob* to both destinations |
+| `test_queue_from_template_flushes_first` | with `flush_all` patched to raise, inside `assertRaises`, the error propagates — the caller's own error is the caller's (D19) |
+
+`zalo.message`'s logger is muted where a rendering error is logged.
+
+**Checked in the UI** (step 3): *Templates* under *Settings → Technical → Zalo*; a template on
+*Maintenance Request*; an automation rule on request creation with the action *Send Zalo Message*, the
+template offered only for the rule's model, destinations as tags; a new request delivered to the test
+group with its fields filled in; a template with a mistyped placeholder failing as a message, the
+request saving normally.
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | Connects the instance to a Zalo Official Account through its own Zalo app: Odoo holds the app's tokens and refreshes them, and — from later steps — sends notifications from automation rules and templates |
 | `readme/CONFIGURE.md` | Name the instance's Zalo app in `odoo.conf` — `zalo_app_id`, `zalo_app_secret` (and later `zalo_oa_secret`, `zalo_redirect_recipient`). On this instance through `ADDITIONAL_ODOO_RC`, built in `compose.yml.template` as a YAML `|-` block of `key = ${VARIABLE}` lines indented further than the key, the values in `.env` as plain single-line variables — a `\n` inside a `.env` value is not turned into a newline here. Without an app ID the module does nothing. Each instance has its own app; a token row for another app, as left by a database restore, is ignored |
-| `readme/USAGE.md` | Under *Settings → Technical → Zalo → Tokens* (developer mode), create the row for the configured app and paste its refresh token, or authorize it (step 4). The refresh cron runs hourly and refreshes when fewer than six hours remain; *Refresh now* asks it to refresh at its next run, within seconds. Set an alert user — a system administrator — to be told when the token has not been refreshed for two days. **Do not put a refresh token in Odoo while the Apps Script still refreshes it:** Odoo's cron will rotate it, and the Apps Script's replies stop. Step 2 adds: *Destinations*, named group chats and users; *Messages*, the queue and log — a message can be queued by hand, failed ones retried; messages go out within seconds, and a test instance's `zalo_redirect_recipient` sends every one to its test chat instead |
+| `readme/USAGE.md` | Under *Settings → Technical → Zalo → Tokens* (developer mode), create the row for the configured app and paste its refresh token, or authorize it (step 4). The refresh cron runs hourly and refreshes when fewer than six hours remain; *Refresh now* asks it to refresh at its next run, within seconds. Set an alert user — a system administrator — to be told when the token has not been refreshed for two days. **Do not put a refresh token in Odoo while the Apps Script still refreshes it:** Odoo's cron will rotate it, and the Apps Script's replies stop. Step 2 adds: *Destinations*, named group chats and users; *Messages*, the queue and log — a message can be queued by hand, failed ones retried; messages go out within seconds, and a test instance's `zalo_redirect_recipient` sends every one to its test chat instead Step 3 adds: *Templates*, message text with `{{ object.field }}` placeholders for one model; an automation rule sends with the server action *Send Zalo Message*, a template and destinations. A template that fails to render becomes a failed message; the record still saves |

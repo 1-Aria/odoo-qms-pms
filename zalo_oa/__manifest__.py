@@ -16,6 +16,8 @@
         "security/ir.model.access.csv",
         "data/ir_cron.xml",
         "views/zalo_token_views.xml",
+        "views/zalo_destination_views.xml",
+        "views/zalo_message_views.xml",
     ],
     "installable": True,
 }

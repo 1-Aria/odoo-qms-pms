@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <record id="zalo_destination_view_list" model="ir.ui.view">
+        <field name="name">zalo.destination.list</field>
+        <field name="model">zalo.destination</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="name" />
+                <field name="recipient_type" />
+                <field name="zalo_id" />
+                <field name="active" widget="boolean_toggle" />
+            </list>
+        </field>
+    </record>
+
+    <record id="zalo_destination_view_search" model="ir.ui.view">
+        <field name="name">zalo.destination.search</field>
+        <field name="model">zalo.destination</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="zalo_id" />
+                <filter
+                    name="archived"
+                    string="Archived"
+                    domain="[('active', '=', False)]"
+                />
+            </search>
+        </field>
+    </record>
+
+    <record id="zalo_destination_action" model="ir.actions.act_window">
+        <field name="name">Zalo Destinations</field>
+        <field name="res_model">zalo.destination</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <menuitem
+        id="menu_zalo_destination"
+        name="Destinations"
+        parent="menu_zalo_root"
+        action="zalo_destination_action"
+        sequence="20"
+    />
+
+</odoo>

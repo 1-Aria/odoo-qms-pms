@@ -1,2 +1,4 @@
 "id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
 "access_zalo_token_system","zalo.token.system","model_zalo_token","base.group_system",1,1,1,1
+"access_zalo_destination_system","zalo.destination.system","model_zalo_destination","base.group_system",1,1,1,1
+"access_zalo_message_system","zalo.message.system","model_zalo_message","base.group_system",1,1,1,1
