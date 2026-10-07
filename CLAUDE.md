@@ -272,6 +272,10 @@ the module doc named.
   block — never with `startClassPatcher`: after every test Odoo reads `.target` from each active
   patch, which `patch.dict` lacks, and every test errors (`odoo/odoo/tests/common.py:1117-1122`).
   (`zalo_oa`, step 1)
+- A test that creates a `base.automation` must call `self.env["base.automation"]._unregister_hook()`
+  in `tearDown`: the rule patches `create`, `write` and `_compute_field_value` onto the model class,
+  the rollback does not undo it, and Odoo's after-test attribute check fails every later test
+  (`base_automation/tests/test_automation.py:12-14`). (`zalo_oa`, step 3)
 
 **ORM**
 - `@api.constrains` runs only when its fields are in the create/write values, so it cannot

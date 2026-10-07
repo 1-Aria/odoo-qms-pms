@@ -18,6 +18,8 @@
         "views/zalo_token_views.xml",
         "views/zalo_destination_views.xml",
         "views/zalo_message_views.xml",
+        "views/zalo_template_views.xml",
+        "views/ir_actions_server_views.xml",
     ],
     "installable": True,
 }

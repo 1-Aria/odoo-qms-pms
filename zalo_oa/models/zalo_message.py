@@ -68,6 +68,11 @@ class ZaloMessage(models.Model):
     res_id = fields.Many2oneReference(
         model_field="res_model", string="Source Record"
     )
+    template_id = fields.Many2one(
+        comodel_name="zalo.template",
+        ondelete="set null",
+        readonly=True,
+    )
 
     @api.depends("destination_id", "recipient_type", "recipient_id")
     def _compute_display_name(self):
@@ -96,6 +101,8 @@ class ZaloMessage(models.Model):
         recipient_id=None,
         destination=None,
         record=None,
+        template=None,
+        error=None,
     ):
         """Queue a message. Never raises.
 
@@ -109,6 +116,8 @@ class ZaloMessage(models.Model):
         of the caller's own write caught here would leave an aborted
         transaction and hide the caller's error.
 
+        :param error: given, the message is created failed with it -- a
+            template that could not be rendered, for one.
         :return: the message, or an empty recordset.
         """
         self.env.flush_all()
@@ -116,7 +125,7 @@ class ZaloMessage(models.Model):
         failure = False
         try:
             vals = messages._queue_values(
-                text, recipient_type, recipient_id, destination, record
+                text, recipient_type, recipient_id, destination, record, template, error
             )
             with self.env.cr.savepoint():
                 return messages.create(vals).sudo(False)
@@ -137,13 +146,15 @@ class ZaloMessage(models.Model):
             return self.browse()
 
     @api.model
-    def _queue_values(self, text, recipient_type, recipient_id, destination, record):
+    def _queue_values(
+        self, text, recipient_type, recipient_id, destination, record, template, error
+    ):
         vals = {
             "text": text or False,
             "res_model": record._name if record else False,
             "res_id": record.id if record else False,
+            "template_id": template.id if template else False,
         }
-        error = False
         if destination:
             destination = destination.sudo()
             vals.update(
@@ -151,7 +162,7 @@ class ZaloMessage(models.Model):
                 recipient_type=destination.recipient_type,
                 recipient_id=destination.zalo_id,
             )
-            if not destination.active:
+            if not destination.active and not error:
                 error = self.env._("The destination %s is archived.", destination.name)
         else:
             vals.update(
@@ -168,6 +179,47 @@ class ZaloMessage(models.Model):
         if error:
             vals.update(state="failed", last_error=error)
         return vals
+
+    @api.model
+    def _queue_from_template(self, template, records, destinations):
+        """Render a template for each record and queue it to each destination.
+
+        Never raises (the design's Isolation from Odoo, rule 1): a rendering
+        error -- a mistyped placeholder, a removed field -- becomes a failed
+        message per record and destination, and the save that triggered the
+        rule goes through.
+
+        The caller's writes are flushed first, outside the guard, as in
+        _queue.
+
+        The template is read and rendered as superuser, so it renders the same
+        whether an automation runs the action, through sudo, or a user does.
+        """
+        if not records or not destinations:
+            return self.browse()
+        self.env.flush_all()
+        template = template.sudo()
+        texts, failure = {}, False
+        try:
+            with self.env.cr.savepoint():
+                texts = template._render_field("body", records.ids)
+        except Exception as error:
+            _logger.exception("Zalo: could not render template %s", template.id)
+            failure = self.env._(
+                "The template could not be rendered: %(error)s",
+                error=f"{type(error).__name__}: {error}",
+            )
+        messages = self.browse()
+        for record in records:
+            for destination in destinations:
+                messages |= self._queue(
+                    texts.get(record.id) or False,
+                    destination=destination,
+                    record=record,
+                    template=template,
+                    error=failure,
+                )
+        return messages
 
     # -- sending --------------------------------------------------------------
 

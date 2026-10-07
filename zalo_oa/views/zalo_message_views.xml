@@ -63,6 +63,7 @@
                             <field name="sent_to" />
                             <field name="res_model" />
                             <field name="res_id" />
+                            <field name="template_id" />
                         </group>
                     </group>
                     <field name="text" readonly="state != 'queued'" />

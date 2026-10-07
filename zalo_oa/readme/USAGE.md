@@ -16,3 +16,13 @@ failed one sent again with *Retry*. Sent and failed messages are removed after 3
 
 On a test instance, `zalo_redirect_recipient` in `odoo.conf` (`group:<id>` or `user:<id>`) sends every
 message to that one chat instead, its text naming the intended recipient.
+
+**Templates** hold the message text for one model, with placeholders such as
+`{{ object.name }}` for the record's fields. To send from an automation rule, give it the action
+*Send Zalo Message* with a template for the rule's model and one or more destinations. A template
+that fails to render — a mistyped placeholder, a removed field — becomes a failed message in
+*Messages*; the record that triggered the rule still saves.
+
+**An *On save* rule needs *When updating* fields.** With none it sends on every save and every
+recompute, duplicates within one save included. To send when a record is created, watch
+**Created on**; to send on a stage change, watch **Stage**.

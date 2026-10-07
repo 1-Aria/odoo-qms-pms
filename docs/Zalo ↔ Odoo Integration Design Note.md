@@ -229,13 +229,27 @@ A notification is an automation rule plus a Zalo template, built in the UI. Thes
 
 | Notification | Model | Automation rule trigger | Template example | Destination |
 | --- | --- | --- | --- | --- |
-| New request | `maintenance.request` | On creation | `New request {{ object.name }} on {{ object.equipment_id.name }}` | Maintenance group |
-| Request paused | `maintenance.request` | On update of `stage_id`, filter `sla_live_state = 'paused'` | `{{ object.name }} paused: {{ object.equipment_id.name }}` | Maintenance group |
+| New request | `maintenance.request` | On save, *When updating*: Created on (`create_date`) | `New request {{ object.name }} on {{ object.equipment_id.name }}` | Maintenance group |
+| Request paused | `maintenance.request` | On save, *When updating*: Stage (`stage_id`), filter `sla_live_state = 'paused'` | `{{ object.name }} paused: {{ object.equipment_id.name }}` | Maintenance group |
 | SLA breached | `maintenance.request.sla` | Time-based on `deadline`, delay 0, filter `state = 'running'` | `SLA breached: {{ object.sla_id.name }} on {{ object.request_id.name }}, technician {{ object.request_id.user_id.name }}` | Maintenance manager |
 
 The fields come from `maintenance_sla`: `sla_live_state` on the request is searchable, so it can serve as an automation filter; the breach rule runs on the SLA record, so a *Response* breach and a *Restore* breach are separate messages. This is also the escalation by Automated Actions that the SLA design's §7 anticipated.
 
 Time-based triggers are checked by Odoo's automation cron, not instantly, so a breach message arrives up to one check interval late.
+
+**An *On save* rule needs *When updating* fields.** With none, every field is watched: the rule fires on
+the create, on every later write and on every stored-field recompute — the last ones within the same
+save, since `base_automation` patches `create`, `write` and `_compute_field_value` and its once-only
+guard lives in one call chain's context (`base_automation/models/base_automation.py:697-714, 776-860`).
+A new request was notified twice at `zalo_oa` step 3's UI check, and every later edit would have
+notified again; SMS and email actions behave the same. *On creation* is deprecated in Odoo 18 and
+hidden from the trigger list. So:
+
+- **when a record is created:** *On save*, watching **Created on** (`create_date`). A create counts every
+  watched field as modified (`:751-753`), and `create_date` never changes, so the rule fires once per
+  new record;
+- **when a field changes:** *On save*, watching that field — **Stage** for a pause — plus a filter. Writes
+  that leave it unchanged do not fire.
 
 ### Inbound commands (target state)
 
