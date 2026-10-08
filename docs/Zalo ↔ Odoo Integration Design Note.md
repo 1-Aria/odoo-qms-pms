@@ -83,8 +83,10 @@ The instance's `odoo.conf` names its app. On this instance the file is generated
 The restore copies production's `zalo.token` row, destinations, automation rules and any queued messages. With the configuration above:
 
 1. **Production's tokens are safe.** The copied row belongs to production's app, which test's `odoo.conf` does not name, so test never sends with it nor refreshes it.
-2. **Test re-authorizes once.** Its own token row was replaced by the restore; an administrator runs *Authorize* on test and approves in Zalo — about a minute.
-3. **Test's messages stay in the test chat.** Test's `odoo.conf` sets `zalo_redirect_recipient`, so production's destinations and automation rules, now running on test data, reach only that chat.
+2. **Test sends nothing.** From phase 5 test has no app configured (§"Phase 5"), so production's destinations and automation rules, now running on test data, only queue messages; their rendered text stays readable in the log. Nothing needs re-authorizing.
+3. **Test's configuration survives the restore.** It lives in test's `.env`, not in the database. App A's keys must never be put back on test while it holds a restored production database: its refresh cron would rotate production's token.
+
+`zalo_redirect_recipient` remains for an instance that should send for real without reaching real chats — a test instance given an app of its own, app B, if real sends on test are wanted later.
 
 The Apps Script posts to whichever instance its Script Properties name. A restore also copies production's users and their API keys, so a key created on production authenticates against the restored test too: revoke it on whichever side should not accept it.
 
@@ -93,7 +95,7 @@ The Apps Script posts to whichever instance its Script Properties name. A restor
 | Phase | Test instance `odoo.conf` | Production `odoo.conf` | Apps Script posts to |
 | --- | --- | --- | --- |
 | Interim | app A — the current one — no redirect: test sends for itself and for the Apps Script, to real chats | — | test |
-| Production live | app B, a new app linked to the same OA, with the redirect to a test chat | app A; its callback and webhook URLs move to the production domain | production |
+| Production live | no app: test queues and sends nothing | app A; its callback URL moves to the production domain, its webhook stays with the Apps Script in v1 | production |
 
 App A stays with production because it is already linked and configured. Either assignment works; it is configuration only.
 
@@ -301,15 +303,21 @@ Done Oct 8, 2026, as a module rather than in the UI: `zalo_oa_garment` (`docs/mo
 
 ### Phase 5: production live
 
-In this order, so app A never has two refreshers:
+Decided Oct 8, 2026: once production is live, **the test instance runs with no Zalo app** — no app B. Production takes app A; test's `.env` loses its Zalo keys. Test then neither refreshes nor sends (§"Instances, apps and configuration": no app configured, no Zalo), so restoring production onto test is harmless: production's token row arrives and is never read, and test's configuration lives in its `.env`, which a restore does not touch. Messages on test stay queued, their rendered text readable in the log, so template changes can still be checked there; queued messages are never cleaned up, and a restore clears them. **App A's keys must never go back on test while it holds a restored production database:** its refresh cron would rotate production's token. If real sends on test are wanted later, app B with the redirect remains possible.
 
-1. Create app B in the Zalo console and link it to the OA; register the test instance's callback (and webhook, if receiving is live) on it.
-2. Switch the test instance's `.env` to app B and set `zalo_redirect_recipient` to a test chat; restart. Test stops using app A.
-3. Put app A's keys in production's `.env`; move app A's callback and webhook URLs to the production domain; run `/zalo/authorize` on production.
-4. Point the Apps Script at production's `/zalo/send` with a production API key.
-5. Run `/zalo/authorize` on test for app B.
+Prepare production first, without Zalo keys: `zalo_oa` and `zalo_oa_garment` with their dependencies; the destinations for the real chats, attached to the rules' actions; the technical user and its persistent API key, created by an administrator; the token row's alert user.
 
-After every later restore of production onto test: step 5 again.
+Then, in quiet hours and in this order, so app A never has two refreshers and no chat reply is lost:
+
+1. Point the Apps Script at production's `/zalo/send` with production's API key. Production has no token yet, so it queues the replies, using none of their retry attempts.
+2. Remove app A's keys from test's `.env`, and recreate the container. Test stops refreshing.
+3. Add app A's keys to production's `.env`, and restart.
+4. Move app A's callback URL to the production domain in the Zalo console; *Authorize* on production, then *Refresh now*. The queued replies go out within seconds.
+5. Check a send each way, and production's own refresh the next day.
+
+Production always authorizes, even when its database starts as a copy of test's: test may refresh once more before step 2, which leaves the copied pair dead. The webhook stays with the Apps Script for all of v1.
+
+After a restore of production onto test, nothing is needed for Zalo; the restore brings production's technical user and its API key too, which then also authenticates against test — test only queues, and the key reads nothing else.
 
 ## Place in the project
 
@@ -317,9 +325,8 @@ After every later restore of production onto test: step 5 again.
 
 ## Open questions
 
-- **Several apps on one OA.** Assumed possible; confirmed when app B is linked in phase 5. If it is not, the test instance runs with no app configured after production goes live.
-- **Recipient IDs across apps.** Group and user IDs are expected to belong to the OA, not the app — the webhook reports `sender.id` separately from `user_id_by_app` — so production's destinations keep working on app A and the redirect recipient works on app B. One send from app B to a known group confirms it.
-- **A fresh authorization and the existing pair.** Whether authorizing an app again invalidates its current token pair. Phase 5 sidesteps it: test leaves app A before production authorizes it.
+- **Several apps on one OA, and recipient IDs across apps.** Open only if a test app B is ever added: whether a second app can be linked to the OA, and whether group and user IDs belong to the OA rather than the app — the webhook reports `sender.id` separately from `user_id_by_app`. Phase 5 needs neither: test runs with no app.
+- **A fresh authorization and the existing pair.** Whether authorizing an app again invalidates its current token pair. Phase 5 does not depend on it: test leaves app A before production authorizes, and production always authorizes rather than reuse a copied pair.
 - **Commands.** Do the chat commands move to Odoo one to one, or get redesigned around maintenance requests?
 - **Signature formula.** Taken from community sources; logged before enforced.
 
@@ -336,4 +343,4 @@ After every later restore of production onto test: step 5 again.
 | Cleanup cron | `@api.autovacuum` | Core's idiom |
 | — | §"Isolation from Odoo": queueing never raises, the crons never fail | An automation rule re-raises its actions' errors, and Odoo deactivates a cron that keeps failing |
 | Phase 0 planned; 1:1 an open question | Phase 0 done, group and 1:1 delivered | Tested Oct 2026 |
-| Cutover from the Apps Script only | Phases 2 (to test) and 5 (production live, app B for test) | The test instance takes over first |
+| Cutover from the Apps Script only | Phases 2 (to test) and 5 (production live, test with no app) | The test instance takes over first; once production is live, a restore onto test must not be able to touch production's token |
