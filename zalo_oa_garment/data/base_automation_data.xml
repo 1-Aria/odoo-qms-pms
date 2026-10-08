@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<!-- The rules and their "Send Zalo Message" actions, without destinations: an
+     action with none queues nothing, so nothing is sent until a site adds its
+     own chats. Each rule is On save with its watched fields and filter set
+     explicitly, or time-based: the specific triggers compute a filter of their
+     own, which would drop the corrective condition. The two rules naming
+     maintenance_sla_garment's stages are created by post_init_hook. -->
+<odoo noupdate="1">
+
+    <!-- 1. New corrective request. A create counts every watched field as
+         changed, and Created on never changes afterwards: once per request. -->
+    <record id="rule_request_new" model="base.automation">
+        <field name="name">New maintenance request</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="trigger">on_create_or_write</field>
+        <field
+            name="trigger_field_ids"
+            eval="[(6, 0, [ref('maintenance.field_maintenance_request__create_date')])]"
+        />
+        <field name="filter_domain">[('maintenance_type', '=', 'corrective')]</field>
+    </record>
+    <record id="action_request_new" model="ir.actions.server">
+        <field name="name">New maintenance request</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="state">zalo</field>
+        <field name="usage">base_automation</field>
+        <field name="base_automation_id" ref="rule_request_new" />
+        <field name="zalo_template_id" ref="template_request_new" />
+    </record>
+
+    <!-- 4. Technician assigned: Responsible (user_id, the field named
+         Technician) set on a corrective request, also by a reassignment. -->
+    <record id="rule_request_assigned" model="base.automation">
+        <field name="name">Technician assigned</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="trigger">on_create_or_write</field>
+        <field
+            name="trigger_field_ids"
+            eval="[(6, 0, [ref('maintenance.field_maintenance_request__user_id')])]"
+        />
+        <field
+            name="filter_domain"
+        >[('maintenance_type', '=', 'corrective'), ('user_id', '!=', False)]</field>
+    </record>
+    <record id="action_request_assigned" model="ir.actions.server">
+        <field name="name">Technician assigned</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="state">zalo</field>
+        <field name="usage">base_automation</field>
+        <field name="base_automation_id" ref="rule_request_assigned" />
+        <field name="zalo_template_id" ref="template_request_assigned" />
+    </record>
+
+    <!-- 5 and 6. SLA at risk and breached, a minute after the moment: a delay
+         of 0 would leave the automation cron at its 4-hour default
+         (base_automation.py:637-639). -->
+    <record id="rule_sla_at_risk" model="base.automation">
+        <field name="name">SLA at risk</field>
+        <field name="model_id" ref="maintenance_sla.model_maintenance_request_sla" />
+        <field name="trigger">on_time</field>
+        <field
+            name="trg_date_id"
+            ref="maintenance_sla.field_maintenance_request_sla__risk_at"
+        />
+        <field name="trg_date_range">1</field>
+        <field name="trg_date_range_type">minutes</field>
+        <field name="filter_domain">[('state', '=', 'running')]</field>
+    </record>
+    <record id="action_sla_at_risk" model="ir.actions.server">
+        <field name="name">SLA at risk</field>
+        <field name="model_id" ref="maintenance_sla.model_maintenance_request_sla" />
+        <field name="state">zalo</field>
+        <field name="usage">base_automation</field>
+        <field name="base_automation_id" ref="rule_sla_at_risk" />
+        <field name="zalo_template_id" ref="template_sla_at_risk" />
+    </record>
+
+    <record id="rule_sla_breached" model="base.automation">
+        <field name="name">SLA breached</field>
+        <field name="model_id" ref="maintenance_sla.model_maintenance_request_sla" />
+        <field name="trigger">on_time</field>
+        <field
+            name="trg_date_id"
+            ref="maintenance_sla.field_maintenance_request_sla__deadline"
+        />
+        <field name="trg_date_range">1</field>
+        <field name="trg_date_range_type">minutes</field>
+        <field name="filter_domain">[('state', '=', 'running')]</field>
+    </record>
+    <record id="action_sla_breached" model="ir.actions.server">
+        <field name="name">SLA breached</field>
+        <field name="model_id" ref="maintenance_sla.model_maintenance_request_sla" />
+        <field name="state">zalo</field>
+        <field name="usage">base_automation</field>
+        <field name="base_automation_id" ref="rule_sla_breached" />
+        <field name="zalo_template_id" ref="template_sla_breached" />
+    </record>
+
+    <!-- 7. New inspection, one message each: every inspection comes from its
+         own create(), at whatever timing its trigger says. -->
+    <record id="rule_inspection_new" model="base.automation">
+        <field name="name">New inspection</field>
+        <field name="model_id" ref="quality_control_oca.model_qc_inspection" />
+        <field name="trigger">on_create_or_write</field>
+        <field
+            name="trigger_field_ids"
+            eval="[(6, 0, [ref('quality_control_oca.field_qc_inspection__create_date')])]"
+        />
+    </record>
+    <record id="action_inspection_new" model="ir.actions.server">
+        <field name="name">New inspection</field>
+        <field name="model_id" ref="quality_control_oca.model_qc_inspection" />
+        <field name="state">zalo</field>
+        <field name="usage">base_automation</field>
+        <field name="base_automation_id" ref="rule_inspection_new" />
+        <field name="zalo_template_id" ref="template_inspection_new" />
+    </record>
+
+    <!-- 8. Inspection awaiting approval, then failed: Confirm of a failing
+         inspection sets waiting, the supervisor's Approve failed
+         (quality_control_oca qc_inspection.py:145-165). -->
+    <record id="rule_inspection_failed" model="base.automation">
+        <field name="name">Inspection not passed</field>
+        <field name="model_id" ref="quality_control_oca.model_qc_inspection" />
+        <field name="trigger">on_create_or_write</field>
+        <field
+            name="trigger_field_ids"
+            eval="[(6, 0, [ref('quality_control_oca.field_qc_inspection__state')])]"
+        />
+        <field name="filter_domain">[('state', 'in', ['waiting', 'failed'])]</field>
+    </record>
+    <record id="action_inspection_failed" model="ir.actions.server">
+        <field name="name">Inspection not passed</field>
+        <field name="model_id" ref="quality_control_oca.model_qc_inspection" />
+        <field name="state">zalo</field>
+        <field name="usage">base_automation</field>
+        <field name="base_automation_id" ref="rule_inspection_failed" />
+        <field name="zalo_template_id" ref="template_inspection_failed" />
+    </record>
+
+</odoo>

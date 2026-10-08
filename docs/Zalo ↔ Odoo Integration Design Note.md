@@ -267,25 +267,27 @@ Messages were sent from the Odoo container with an access token borrowed from th
 
 ### Phase 1: build the module
 
-- [ ] Token model per app, Zalo client port, refresh under the row lock with its commit
-- [ ] Message queue and log, send-queue cron with `_trigger()` and a commit per message
-- [ ] `/zalo/authorize`, `/zalo/callback` and `/zalo/send` (bearer) routes; the *Zalo sender* group, the technical user and its API key
-- [ ] App A's keys in the test instance's `.env`, through `ADDITIONAL_ODOO_RC`
-- [ ] Test sends to a test destination, with a borrowed access token only
-- [ ] **No refresh token in Odoo yet.** Do not put a refresh token in Odoo while the Apps Script still refreshes it: Odoo's refresh cron rotates any refresh token it finds, and the Apps Script then fails with `-14020`. The live refresh is first checked at phase 2, step 3
+- [x] Token model per app, Zalo client port, refresh under the row lock with its commit
+- [x] Message queue and log, send-queue cron with `_trigger()` and a commit per message
+- [x] `/zalo/authorize`, `/zalo/callback` and `/zalo/send` (bearer) routes; the *Zalo sender* group, the technical user and its API key
+- [x] App A's keys in the test instance's `.env`, through `ADDITIONAL_ODOO_RC`
+- [x] Test sends to a test destination, with a borrowed access token only
+- [x] **No refresh token in Odoo yet.** Do not put a refresh token in Odoo while the Apps Script still refreshes it: Odoo's refresh cron rotates any refresh token it finds, and the Apps Script then fails with `-14020`. The live refresh is first checked at phase 2, step 3
 
 ### Phase 2: token handover to the test instance
 
-In this order:
+Done Oct 8, 2026, in this order — the callback URL first, since *Authorize* needs it:
 
-1. Deploy the Apps Script change: `sendGMFMessage` and `sendCSMessage` post `{recipient_type, recipient, text}` to the test instance's `/zalo/send` with the technical user's API key as a bearer token; the refresh functions are removed, not just unused; the Odoo URL and API key live in Script Properties. Replies fail until step 3 is done.
-2. Copy the current refresh token from the Apps Script's User Properties into app A's `zalo.token` row, or run `/zalo/authorize` instead.
-3. Trigger one refresh from Odoo and confirm a send arrives.
-4. Point app A's callback URL in the Zalo console at `https://odoo.quangphuong.net/zalo/callback`.
+1. Point app A's callback URL in the Zalo console at `https://odoo.quangphuong.net/zalo/callback`.
+2. Deploy the Apps Script change: `sendGMFMessage` and `sendCSMessage` post `{recipient_type, recipient, text}` to the test instance's `/zalo/send` with the technical user's API key as a bearer token; the refresh functions are removed, not just unused; the Odoo URL and API key live in Script Properties. Replies queue in Odoo from here, and go out once Odoo holds a valid token.
+3. *Authorize* on app A's `zalo.token` row, approved at Zalo — instead of copying the Apps Script's refresh token: no secret copied by hand, and the callback's first pair saved.
+4. *Refresh now*, and a send from each side: Odoo rotated the pair, and messages from the Apps Script and from Odoo arrived.
+5. To confirm on Oct 9: the refresh cron's own refresh, once fewer than six hours remain.
+6. Clear the app secret and the old tokens from the Apps Script's Script and User Properties — moved here from phase 4, since v1 keeps the script and it no longer needs them.
 
 ### Phase 3: notifications
 
-Build the templates, destinations and automation rules from the section above, starting with new requests.
+Done Oct 8, 2026, as a module rather than in the UI: `zalo_oa_garment` (`docs/modules/zalo_oa_garment.md`) ships the templates and automation rules as `noupdate` data, so test and production carry the same ones, and each instance adds its own destinations. It covers eight notifications in Vietnamese — new corrective request, paused, restored, technician assigned, SLA at risk, SLA breached, new inspection, inspection awaiting approval or failed — and departs from the section above where the module doc's divergences say: the breach rule fires 1 minute after the deadline, and *paused* filters on the waiting stages.
 
 ### Phase 4: receiving and retirement
 
@@ -294,7 +296,7 @@ Build the templates, destinations and automation rules from the section above, s
 - [ ] The Apps Script's overdue checks and maintenance reminders replaced in Odoo, or dropped on purpose
 - [ ] Webhook URL switched to Odoo in the Zalo console
 - [ ] Apps Script triggers deleted and the web app undeployed
-- [ ] App secret, old tokens and the Firebase private key cleared from Script and User Properties
+- [ ] The Firebase private key cleared from Script Properties (the app secret and old tokens: phase 2, step 6)
 - [ ] The technical user's API key revoked in Odoo
 
 ### Phase 5: production live

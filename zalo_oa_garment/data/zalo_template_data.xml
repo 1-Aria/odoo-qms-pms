@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<!-- Bodies in Vietnamese, the language the chats read; a body is not
+     translated. Each body's lines are flush left, so no indentation enters the
+     message. The priority is mapped to its Vietnamese label in the template: a
+     selection renders as its stored value otherwise. -->
+<odoo noupdate="1">
+
+    <record id="template_request_new" model="zalo.template">
+        <field name="name">New maintenance request</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="body">Yêu cầu bảo trì mới {{ object.code }}
+Thiết bị: {{ object.equipment_id.name or '-' }} ({{ object.equipment_id.serial_no or '-' }})
+Vị trí: {{ object.equipment_id.location_id.display_name or '-' }}
+Mức ưu tiên: {{ {'0': 'Rất thấp', '1': 'Thấp', '2': 'Bình thường', '3': 'Cao'}.get(object.priority, '-') }}</field>
+    </record>
+
+    <record id="template_request_paused" model="zalo.template">
+        <field name="name">Maintenance request paused</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="body">{{ object.code }} tạm dừng: {{ object.stage_id.name }}
+Người phụ trách: {{ object.user_id.name or '-' }}</field>
+    </record>
+
+    <record id="template_request_restored" model="zalo.template">
+        <field name="name">Maintenance request restored</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="body">{{ object.code }} đã khắc phục, chờ xác nhận
+Người yêu cầu: {{ object.employee_id.name or object.create_uid.name }}
+Người phụ trách: {{ object.user_id.name or '-' }}</field>
+    </record>
+
+    <record id="template_request_assigned" model="zalo.template">
+        <field name="name">Technician assigned</field>
+        <field name="model_id" ref="maintenance.model_maintenance_request" />
+        <field name="body">{{ object.code }} đã giao cho {{ object.user_id.name }}
+Thiết bị: {{ object.equipment_id.name or '-' }}
+Mức ưu tiên: {{ {'0': 'Rất thấp', '1': 'Thấp', '2': 'Bình thường', '3': 'Cao'}.get(object.priority, '-') }}</field>
+    </record>
+
+    <record id="template_sla_at_risk" model="zalo.template">
+        <field name="name">SLA at risk</field>
+        <field name="model_id" ref="maintenance_sla.model_maintenance_request_sla" />
+        <field name="body">SLA sắp trễ hạn: {{ object.sla_id.name }} – {{ object.request_id.code }}
+Mức ưu tiên: {{ {'0': 'Rất thấp', '1': 'Thấp', '2': 'Bình thường', '3': 'Cao'}.get(object.request_id.priority, '-') }}
+Người phụ trách: {{ object.request_id.user_id.name or '-' }}</field>
+    </record>
+
+    <record id="template_sla_breached" model="zalo.template">
+        <field name="name">SLA breached</field>
+        <field name="model_id" ref="maintenance_sla.model_maintenance_request_sla" />
+        <field name="body">SLA đã trễ hạn: {{ object.sla_id.name }} – {{ object.request_id.code }}
+Mức ưu tiên: {{ {'0': 'Rất thấp', '1': 'Thấp', '2': 'Bình thường', '3': 'Cao'}.get(object.request_id.priority, '-') }}
+Người phụ trách: {{ object.request_id.user_id.name or '-' }}</field>
+    </record>
+
+    <record id="template_inspection_new" model="zalo.template">
+        <field name="name">New inspection</field>
+        <field name="model_id" ref="quality_control_oca.model_qc_inspection" />
+        <field name="body">Phiếu kiểm tra mới {{ object.name }}
+Bài kiểm tra: {{ object.test.name or '-' }}
+Tham chiếu: {{ object.object_id.display_name if object.object_id else '-' }}
+Sản phẩm: {{ object.product_id.display_name or '-' }}
+Số lượng: {{ '%g' % object.qty }}</field>
+    </record>
+
+    <record id="template_inspection_failed" model="zalo.template">
+        <field name="name">Inspection not passed</field>
+        <field name="model_id" ref="quality_control_oca.model_qc_inspection" />
+        <field name="body">Phiếu kiểm tra {{ object.name }} {{ 'chờ duyệt' if object.state == 'waiting' else 'không đạt' }}
+Bài kiểm tra: {{ object.test.name or '-' }}
+Tham chiếu: {{ object.object_id.display_name if object.object_id else '-' }}
+Sản phẩm: {{ object.product_id.display_name or '-' }}
+Người phụ trách: {{ object.user.name or '-' }}</field>
+    </record>
+
+</odoo>
