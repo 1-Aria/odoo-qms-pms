@@ -8,6 +8,8 @@ This note designs the Zalo integration for Odoo 18 CE. It covers only the Odoo-s
 
 **Revision.** Reviewed against the Odoo source and this instance's configuration. The main change: each Odoo instance names **its own Zalo app** in `odoo.conf`, and tokens are stored per app, so a production database restored onto the test instance can neither use nor kill production's tokens, and an optional redirect keeps a test instance's messages out of real chats. The refresh runs inside the cron with an immediate commit, sends commit one by one, the queue takes raw recipients, and the Settings model is gone. §"Changes from the first draft" lists them.
 
+**v1 (Oct 8, 2026).** v1 ships the interim architecture as its steady state: Odoo owns the tokens and sends, and the Apps Script keeps receiving the webhook and running its commands, replying through `/zalo/send`. Receiving in Odoo — the receiving path, `zalo.event`, `/zalo/webhook` — and phase 4, which retires the Apps Script, come after v1; their spec is `zalo_oa` step 5, deferred (`docs/modules/zalo_oa.md`). Phases 2, 3 and 5 are unchanged.
+
 | Decision | Choice | Why |
 | --- | --- | --- |
 | Token owner | One Odoo instance per Zalo app, the only system that refreshes that app's tokens | Refresh tokens are single-use; two refreshers break each other |

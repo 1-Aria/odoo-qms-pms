@@ -1,8 +1,8 @@
 # zalo_oa
 
 Zalo Official Account integration: the instance's Zalo app and its tokens, a send queue, templates
-and a "Send Zalo message" server action, the routes for authorization and the interim Apps Script,
-and later the webhook.
+and a "Send Zalo message" server action, the routes for authorization and the interim Apps Script.
+v1 sends only; receiving the webhook (step 5) is specced and deferred.
 Design: `docs/Zalo ↔ Odoo Integration Design Note.md`; the Zalo API: `docs/Zalo OA Integration
 Reference.md`. Plan: §8.
 
@@ -14,7 +14,7 @@ Reference.md`. Plan: §8.
 | 2 | The send queue: `zalo.destination`, `zalo.message`, the send half of the client with refresh-on-expiry — its refresh under step 1's savepoint, a serialization failure leaving the message queued — the send cron committing per message, the redirect, `_queue()` | done | 2026-10-07, two runs. First: 47 of 48 passed; `test_queue_flushes_the_callers_writes_first` patched `flush_all` outside `assertRaises`, whose own flushing savepoint (`odoo/odoo/tests/common.py:489`) met it first — now patched inside. Second: `-u`, `exit=0`, 48 tests, 0 failures. UI checked with a borrowed access token and no refresh token (design, phase 1): a message to a test group delivered and shown *Sent* with Zalo's response; one to a bogus ID failed with Zalo's error and re-queued by *Retry* |
 | 3 | `zalo.template` and the "Send Zalo message" server action, with the isolation rule for queueing; the message's source template | done | 2026-10-07, two runs. First: the template tests failed after the first one created an automation rule, its patches on the model class surviving the rollback — now unregistered in `tearDown`, as core's tests do; and a test built on a mistaken review, that a savepoint's rollback discards the caller's tracking, was dropped with the plain savepoint it motivated — `cr.flush()` runs the precommit hooks first. Second: `-u`, `exit=0`, 56 tests, 0 failures. UI checked with a borrowed access token: a template on maintenance requests, an automation rule sending it, a new request delivered with its fields filled in, a mistyped placeholder failing as a message while the request saved. The rule first sent twice per save — an *On save* rule with no watched fields fires on every write and recompute in the save; fixed by configuration, watching *Created on*, no code changed |
 | 4 | Routes: `/zalo/authorize`, `/zalo/callback`, `/zalo/send` with the *Zalo sender* group; the pending authorization on `zalo.token` | done | 2026-10-08, two runs. First: `-u` committed the step, but the post-install run aborted before any of its tests — the route tests were an `HttpCase`, before which Odoo pregenerates every asset bundle (`odoo/odoo/service/server.py:1437-1440`), and this image strips core's test assets (`images/odoo/Dockerfile:49`); only the 27 at-install tests ran, and passed. `/zalo/send`'s body moved into `zalo.message._queue_from_request`, tested as the technical user in a `TransactionCase`; its read-back as superuser had been found while writing the route — the technical user cannot read the log. Second: `-u`, `exit=0`, 73 tests, 0 failures. UI checked: *Authorize* redirecting to Zalo's permission page with the instance's callback URL, not approved — app A stays with the Apps Script until phase 2; `/zalo/callback` with an unknown state answering the plain-text refusal; the technical user created with its persistent key; `curl` to `/zalo/send` — no key 401, an administrator's key 403, a body that is not JSON 400, a valid one 200 and the message delivered to the group; a read of `res.partner` over XML-RPC with the technical user's key refused. The approval and the first pair wait for phase 2 |
-| 5 | Receiving: `zalo.event`, `/zalo/webhook`, event processing | planned | target state |
+| 5 | Receiving: `zalo.event`, `/zalo/webhook` with the signature check, the processing cron, handlers as an extension point | deferred | 2026-10-08: not in v1. v1 ships send-only — the design's interim architecture, the Apps Script receiving the webhook and replying through `/zalo/send` — until the design's phase 4. The spec below stands, unbuilt; when it resumes, its open points (D30, D33) are settled and it is checked against the code again |
 
 ## Divergences from the design
 
@@ -27,6 +27,8 @@ Reference.md`. Plan: §8.
 | 4 | §"Models" does not record where a redirected message went | `sent_to` on the message: the recipient Zalo was actually given, set on every sent message | The design keeps the intended recipient in the log; with a redirect, the log should also say where the message really went |
 | 6 | *Sending path*: "network errors and failed refreshes are retried a few times by the cron" | each retry waits `attempts × RETRY_DELAY` (5 minutes), through `next_attempt_at`; only due messages are sent | Odoo's cron runner calls a job again, up to ten times in one run, while it reports work done and work remaining (`odoo/odoo/addons/base/models/ir_cron.py:419-454`). A retried message is still queued, so without a wait one run would spend all five attempts in seconds during a Zalo outage, failing every message before Zalo came back. Found reading the runner while writing the code |
 | 5 | The design does not say what a malformed `zalo_redirect_recipient` does | the message fails, naming the setting; it is never sent to its intended recipient | The redirect exists to keep a test instance out of real chats. Falling back to the real recipient on a typo would defeat it |
+| 8 | §"Receiving path" 1: "mismatches are logged, not rejected, until real events are seen to pass" | every event with a `msg_id` is stored, with `signature_valid`; the processing cron **never dispatches an unverified event** — it is *ignored*, saying why (D30) | The webhook is a public URL: anyone can post an event. Storing every one keeps the log the design wants, to confirm the formula against real events; withholding unverified ones from handlers means no handler, added later, ever acts on a forged one |
+| 9 | §"Models" lists `zalo.event`'s fields | adds `signature_valid`, `event_time` and `last_error` | The signature's result is what divergence 8 reads; the event's own time and a handler's error are kept for the log |
 
 ## Decisions
 
@@ -56,6 +58,14 @@ Reference.md`. Plan: §8.
 | D25 | **The code exchange is the one Zalo call in a request** (design *Rules* 2): `/zalo/callback` is answered by Zalo's redirect of an administrator's browser, so it cannot wait for a cron. It writes the first pair on the row; the request's own commit saves it. A failure is shown on the page and written to `last_error`. **The row is locked before Zalo is called** (`_lock_row()`): a request runs inside Odoo's retry on serialization failures (`odoo/odoo/http.py:2167`, `odoo/odoo/service/model.py:141-198`), so a conflict found only when the pair is flushed would run the route again and reuse a code Zalo has already redeemed, losing the pair it issued. The lock meets any conflict first, before the call, and holds off any other writer until the commit — the reference exchanges under its refresh lock too (`docs/zalo_client.js:191`). The refresh cron does write the row meanwhile: a row created by `_authorize_start` has no `expires_at`, so the cron tries to refresh it and writes `last_error`. **A matching `state` is cleared whatever follows,** so it is used once; a state that does not match leaves the pending authorization alone, since the callback is public and anyone could otherwise cancel an administrator's authorization in progress |
 | D26 | **`/zalo/send` is one model method behind a thin route** (step 4): `zalo.message._queue_from_request(payload)` returns the HTTP status and the JSON answer, so it is tested without HTTP — an `HttpCase` cannot run on this image (*Tests*). It answers 403 when the calling user lacks *Zalo sender*; 400 for a payload that is not a JSON object, a `recipient_type` other than `user` or `group`, or a `recipient` or `text` that is not a non-empty string — the caller gets its mistake, not a failed message; otherwise it calls `_queue()`, which creates as superuser (D11), and answers 200 with `ok` = whether the message is queued, since `_queue()` falls back to a failed message rather than raise. The message is **read back as superuser**: the technical user cannot read the log, and reading its state as that user raises `AccessError`. Bearer authentication is Odoo's (`odoo/odoo/addons/base/models/ir_http.py:204-243`): a missing or invalid key answers 401 before the route runs |
 | D27 | **The *Zalo sender* group grants nothing else** (design §"Routes"): no access row names it. It is checked by the route alone; the message is created as superuser. **It is held by a technical user with no other group** — no user type, no password — whose one API key is persistent and created once by an administrator, through sudo, as that user; an administrator revokes it. So the key reads and writes nothing in Odoo, over RPC either: this instance has no read access row without a group. The alternatives fail: bearer authentication takes only a global key (`odoo/odoo/addons/base/models/ir_http.py:228-229`), which also authenticates RPC (`odoo/odoo/addons/base/models/res_users.py:2306-2320`), so an internal user's key reads what any employee reads; and a key created by a user who is not an administrator expires within the longest `api_key_duration` of its groups, 90 days for *Internal User* and 1 day without one (`res_users.py:2422-2432`, `base/security/base_groups.xml:27`), after which the autovacuum deletes it (`res_users.py:2462-2470`) and the Apps Script stops replying with nothing in Odoo saying why. Sudo lifts the limit (`res_users.py:2426-2427`). The user form requires a user type (`res_users.py:2119-2122`), so the user is not edited there |
+| D28 | **Receiving is one model method behind a thin route** (step 5): `zalo.event._receive(body, signature)` returns the HTTP status, so it is tested without HTTP — no `HttpCase` runs on this image (*Tests*). The route passes the raw body (`request.httprequest.get_data()`) and the `X-ZEvent-Signature` header, as superuser |
+| D29 | **The signature as the reference has it** (reference, *Handling rules* 1; `docs/zalo_client.js` `verifyWebhookSignature`): SHA-256 hex of the **configured** `app_id`, the raw body exactly as received, the body's `timestamp` as text, and `zalo_oa_secret`; the header's optional `mac=` prefix stripped, compared lowercase with `hmac.compare_digest` on bytes. The configured app, not the body's: an event signed for another app does not verify. No OA secret, no header or no `timestamp`: not verified |
+| D30 | **Logged, never dispatched unverified** (divergence 8): a mismatch is logged at WARNING and stored with `signature_valid` false; the cron marks such an event *ignored* — *signature not verified* — and calls no handler |
+| D31 | **Deduplicated by `msg_id`** (design §"Receiving path" 2): a search first; a new event is created in a savepoint, and an `IntegrityError` from the unique constraint — a concurrent delivery of the same event — counts as a duplicate. That race also logs PostgreSQL's refusal at ERROR (`odoo/odoo/sql_db.py:374`); accepted, since Zalo's redeliveries follow an unanswered first one rather than race it. An event without a `msg_id` is dropped |
+| D32 | **The webhook answers 200 to any JSON object** — stored, duplicate, without `msg_id`, unverified, or on an instance with no configured app, where nothing is stored (*No app, no Zalo*) — so Zalo does not redeliver; a body that is not a JSON object answers 400. A stored event wakes the processing cron (`_trigger()`), as a queued message does (D10) |
+| D33 | **Handlers are a mapping, not a lookup by name:** `_event_handlers()` returns `{event_name: method name}`, empty in this module — the commands' design is deferred (design §"Inbound commands"); a module adding one extends the mapping. The event name comes from a public request, so it never selects a method by itself. An event without a handler is *ignored* |
+| D34 | **The processing cron is the send cron's shape** (D12, D15): oldest received events first, `BATCH_SIZE` per run, each in its own savepoint and committed outside tests (`_zalo_auto_commit()`), `_notify_progress`; it never raises. A handler's exception marks the event *failed* with the error; no retry |
+| D35 | **Old events are removed by `@api.autovacuum`**, as messages are (D16): processed, ignored and failed events older than `RETENTION_DAYS` (30); received ones never |
 | D17 | **A retry waits** (divergence 6): `next_attempt_at` = now + `attempts × RETRY_DELAY` — 5, 10, 15, 20 minutes — and the send cron and its `remaining` count read only messages that are due (`next_attempt_at` empty or past). An outage of about 50 minutes costs no message; a sent, failed or retried-by-hand message clears it |
 | D16 | **Old messages are removed by `@api.autovacuum`** (design §"Scheduled actions and cleanup"): sent and failed messages older than `RETENTION_DAYS` (30). Queued ones are never removed |
 | D9 | **Access is system administrators only:** `base.group_system` holds the model's only access row, and the token fields also carry `groups="base.group_system"` (design §"Models"). The menu is under *Settings → Technical* (`base.menu_custom`) |
@@ -74,7 +84,8 @@ zalo_oa/
 │   ├── zalo_destination.py                             # 2
 │   ├── zalo_message.py                                 # 2
 │   ├── zalo_template.py                                # 3
-│   └── ir_actions_server.py                            # 3
+│   ├── ir_actions_server.py                            # 3
+│   └── zalo_event.py                                   # 5
 ├── controllers/
 │   ├── __init__.py                                     # 4
 │   └── main.py                                         # 4
@@ -82,9 +93,11 @@ zalo_oa/
 ├── security/ir.model.access.csv, zalo_security.xml     # 1, 4
 ├── views/zalo_token_views.xml, zalo_destination_views.xml, zalo_message_views.xml   # 1, 2, 2
 │         zalo_template_views.xml, ir_actions_server_views.xml                         # 3, 3
+│         zalo_event_views.xml                                                         # 5
 ├── tests/__init__.py, test_zalo_client.py, test_zalo_token.py, test_zalo_message.py  # 1, 1, 2
 │         test_zalo_template.py                                                        # 3
 │         test_zalo_authorize.py, test_zalo_send.py                                    # 4, 4
+│         test_zalo_event.py                                                           # 5
 └── readme/ DESCRIPTION.md, USAGE.md, CONFIGURE.md
 ```
 
@@ -100,7 +113,7 @@ zalo_oa/
 | `license` | `AGPL-3` |
 | `category` | `Productivity` |
 | `depends` | `mail`, `base_automation` — the second for step 3's server action, declared now so the dependency never changes under an installed module |
-| `data` | `security/zalo_security.xml` (step 4, first), `security/ir.model.access.csv`, `data/ir_cron.xml`, `views/zalo_token_views.xml`, `views/zalo_destination_views.xml` (step 2), `views/zalo_message_views.xml` (step 2), `views/zalo_template_views.xml` (step 3), `views/ir_actions_server_views.xml` (step 3) |
+| `data` | `security/zalo_security.xml` (step 4, first), `security/ir.model.access.csv`, `data/ir_cron.xml`, `views/zalo_token_views.xml`, `views/zalo_destination_views.xml` (step 2), `views/zalo_message_views.xml` (step 2), `views/zalo_template_views.xml` (step 3), `views/ir_actions_server_views.xml` (step 3), `views/zalo_event_views.xml` (step 5) |
 | `installable` | `True` |
 
 `requests` is in Odoo's own requirements; no external dependency is declared.
@@ -112,8 +125,8 @@ zalo_oa/
 | `__init__.py` | `from . import tools`, `from . import models`, `from . import controllers` (step 4) |
 | `controllers/__init__.py` | `from . import main` (step 4) |
 | `tools/__init__.py` | `from . import zalo_client` |
-| `models/__init__.py` | `from . import zalo_token`, `from . import zalo_destination`, `from . import zalo_message` (step 2), `from . import zalo_template`, `from . import ir_actions_server` (step 3) |
-| `tests/__init__.py` | `from . import test_zalo_client`, `from . import test_zalo_token`, `from . import test_zalo_message` (step 2), `from . import test_zalo_template` (step 3), `from . import test_zalo_authorize`, `from . import test_zalo_send` (step 4) |
+| `models/__init__.py` | `from . import zalo_token`, `from . import zalo_destination`, `from . import zalo_message` (step 2), `from . import zalo_template`, `from . import ir_actions_server` (step 3), `from . import zalo_event` (step 5) |
+| `tests/__init__.py` | `from . import test_zalo_client`, `from . import test_zalo_token`, `from . import test_zalo_message` (step 2), `from . import test_zalo_template` (step 3), `from . import test_zalo_authorize`, `from . import test_zalo_send` (step 4), `from . import test_zalo_event` (step 5) |
 
 ## Configuration — `get_zalo_config()` in `tools/zalo_client.py`
 
@@ -143,6 +156,7 @@ Each value is stripped; a missing or empty key gives `False`. **No `app_id`, no 
 | `exchange_code(app_id, app_secret, code, code_verifier)` | step 4; `request_tokens(…, {"code": code, "grant_type": "authorization_code", "code_verifier": code_verifier})` |
 | `pkce_pair()` | step 4; `(code_verifier, code_challenge)` per D23 |
 | `permission_url(app_id, redirect_uri, code_challenge, state)` | step 4; `OA_PERMISSION_URL` with those four as query parameters, URL-encoded |
+| `signature_valid(app_id, oa_secret, body, timestamp, signature)` | step 5; D29. `body` the raw bytes; `False` when any input is missing, never raises |
 
 **Failures it reports** (reference, *Refresh request*, *Error reference*): a network exception
 (`requests.RequestException`) as `"network error: <exception class>"`; a body that is not JSON as
@@ -384,6 +398,59 @@ actions through `sudo()` (`base_automation/models/base_automation.py:737`) — a
 superuser in any case (D11), so no access to templates or messages is needed by the user whose save
 triggered it.
 
+### `zalo.event` — `models/zalo_event.py` (step 5)
+
+`_name = "zalo.event"`, `_description = "Zalo Event"`, `_order = "id desc"`, `_rec_name = "msg_id"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `msg_id` | Char | `string="Message ID"`, `required=True`, `readonly=True` |
+| `event_name` | Char | `readonly=True`, `index=True` |
+| `sender_id` | Char | `string="Sender"`, `readonly=True`, help: `sender.id` — the user to reply to in a 1:1 chat |
+| `recipient_id` | Char | `string="Recipient"`, `readonly=True`, help: `recipient.id` — the group to reply to for a group message, the OA for a 1:1 one |
+| `text` | Text | `readonly=True` — `message.text` |
+| `event_time` | Datetime | `readonly=True` — the body's `timestamp`, epoch milliseconds, in UTC; empty when unreadable |
+| `body` | Text | `readonly=True` — the raw body as received |
+| `signature_valid` | Boolean | `readonly=True` (D29) |
+| `state` | Selection | `[("received", "Received"), ("processed", "Processed"), ("ignored", "Ignored"), ("failed", "Failed")]`, `required=True`, `default="received"`, `index=True`, `readonly=True` |
+| `last_error` | Text | `readonly=True` — why it was ignored or failed |
+
+| SQL constraint | Definition | Message |
+|---|---|---|
+| `msg_id_unique` | `unique(msg_id)` | `This Zalo event was already received.` |
+
+| Constant | Value |
+|---|---|
+| `BATCH_SIZE` | 50 |
+| `RETENTION_DAYS` | 30 |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_receive` | `@api.model` | `_receive(body, signature)` → HTTP status, below (D28) |
+| `_event_handlers` | `@api.model` | `{}` — the extension point (D33) |
+| `_process` | — | `ensure_one`; one event, below |
+| `_cron_process` | `@api.model` | the processing cron (D34); never raises |
+| `_gc_old_events` | `@api.autovacuum` | unlinks processed, ignored and failed events whose `create_date` is older than `RETENTION_DAYS` (D35) |
+
+**`_receive(body, signature)`** (D29–D32), as superuser:
+
+1. No configured app: 200, nothing stored.
+2. `body` decoded as UTF-8 and parsed as JSON; an error, or anything but an object: 400.
+3. `message.msg_id` missing or empty: 200, nothing stored.
+4. An event with that `msg_id` exists: 200.
+5. `signature_valid(app_id, oa_secret, body, payload["timestamp"], signature)`; false, a WARNING naming the `msg_id`.
+6. Create — `msg_id`, `event_name`, `sender_id`, `recipient_id`, `text`, `event_time`, `body`,
+   `signature_valid` — in a savepoint; an `IntegrityError` there: 200, a duplicate. Otherwise
+   `_trigger()` on the processing cron; 200.
+
+**`_process()`** (D30, D33): not `signature_valid` — *ignored*, `last_error` *Signature not verified.*;
+no handler for `event_name` — *ignored*, *No handler for this event.*; otherwise the handler method,
+called on the event, inside a savepoint — *processed*, or *failed* with the exception's text.
+
+**`_cron_process()`**: the oldest `BATCH_SIZE` received events; for each, `_process()`, then a commit
+when `_zalo_auto_commit()`; then `_notify_progress(done=…, remaining=<received left>)`. The whole body
+inside `try`/`except Exception` that logs.
+
 ### Group — `security/zalo_security.xml` (step 4)
 
 | XML id | Content |
@@ -399,6 +466,7 @@ triggered it.
 | `/zalo/authorize` | `type="http"`, `auth="user"`, `methods=["GET"]` | not a system administrator: 403. Otherwise `_authorize_start(<base URL>/zalo/callback)` and `request.redirect(<the returned URL>, local=False)` — the default `local=True` strips scheme and host and would redirect within Odoo (`odoo/odoo/http.py:1942-1947`); a `UserError` is answered as a `text/plain` page |
 | `/zalo/callback` | `type="http"`, `auth="public"`, `methods=["GET"]`, `csrf=False`, `save_session=False` | `_authorize_finish(state, code)` as superuser with the query's `state` and `code`; a short `text/plain` page saying whether the app was authorized, and why not — plain, since the reason may carry Zalo's text. Never a token on the page |
 | `/zalo/send` | `type="http"`, `auth="bearer"`, `methods=["POST"]`, `csrf=False`, `save_session=False` | the body by `request.get_json_data()`, `None` when it raises `ValueError` — not JSON; then `_queue_from_request(payload)` as the key's user, answered with `make_json_response(result, status=status)` (D26) |
+| `/zalo/webhook` | `type="http"`, `auth="public"`, `methods=["POST"]`, `csrf=False`, `save_session=False` | step 5; `zalo.event._receive(request.httprequest.get_data(), <X-ZEvent-Signature header>)` as superuser; a JSON answer `{"ok": <status is 200>}` with that status (D28, D32) |
 
 The payload of `/zalo/send`: `{"recipient_type": "user" | "group", "recipient": "<Zalo ID>", "text": "…"}`
 (design, phase 2 step 1).
@@ -411,6 +479,8 @@ The payload of `/zalo/send`: `{"recipient_type": "user" | "group", "recipient": 
 
 | `ir_cron_zalo_send` | step 2; `name` *Zalo: send queued messages*, `model_id` `model_zalo_message`, `state` `code`, `code` `model._cron_send()`, `interval_number` 5, `interval_type` `minutes`, `active` `True`, `user_id` `base.user_root` — the catch-up; each queued message also wakes it (D10) |
 
+| `ir_cron_zalo_event` | step 5; `name` *Zalo: process received events*, `model_id` `model_zalo_event`, `state` `code`, `code` `model._cron_process()`, `interval_number` 5, `interval_type` `minutes`, `active` `True`, `user_id` `base.user_root` — the catch-up; each stored event also wakes it (D32) |
+
 Loaded with `noupdate="1"`, so an administrator's change to the cadence survives upgrades (design,
 *Rules* 5).
 
@@ -422,6 +492,7 @@ Loaded with `noupdate="1"`, so an administrator's change to the cadence survives
 | `access_zalo_destination_system` | `model_zalo_destination` | `base.group_system` | 1 | 1 | 1 | 1 |
 | `access_zalo_message_system` | `model_zalo_message` | `base.group_system` | 1 | 1 | 1 | 1 |
 | `access_zalo_template_system` | `model_zalo_template` | `base.group_system` | 1 | 1 | 1 | 1 |
+| `access_zalo_event_system` | `model_zalo_event` | `base.group_system` | 1 | 1 | 1 | 1 |
 
 Destinations and the message log are configuration and audit, for administrators. Queueing needs no
 access: `_queue()` creates as superuser (D11).
@@ -475,6 +546,16 @@ configuration exists to prevent.
 | `ir_actions_server_view_form` | `base.view_server_action_form` | field `link_field_id` after — SMS's anchor (`sms/views/ir_actions_server_views.xml:9`) | `zalo_template_id` (`domain="[('model_id', '=', model_id)]"`, `context="{'default_model_id': model_id}"`, `invisible="state != 'zalo'"`, `required="state == 'zalo'"`), `zalo_destination_ids` (`widget="many2many_tags"`, same `invisible` and `required`) |
 
 The message form (step 2) gains `template_id`, read-only, beside the source record.
+
+## Views — `views/zalo_event_views.xml` (step 5)
+
+| XML id | Type | Content |
+|---|---|---|
+| `zalo_event_view_list` | list | `create="0"`: `create_date`, `event_name`, `sender_id`, `recipient_id`, `text`, `signature_valid`, `state` (`widget="badge"`, `decoration-success` processed, `decoration-danger` failed, `decoration-muted` ignored, `decoration-info` received), `last_error` (`optional="hide"`) |
+| `zalo_event_view_form` | form | `create="0"`, `edit="0"`: header `state` (`widget="statusbar"`); sheet: `msg_id`, `event_name`, `event_time`, `sender_id`, `recipient_id`, `signature_valid`, `text`, `last_error`, `body` |
+| `zalo_event_view_search` | search | `msg_id`, `event_name`, `sender_id`, `recipient_id`, `text`; filters *Received*, *Processed*, *Ignored*, *Failed*, *Signature not verified* (`signature_valid = False`); group-by state, event name |
+| `zalo_event_action` | `ir.actions.act_window` | *Zalo Events*, `zalo.event`, `list,form` |
+| `menu_zalo_event` | menu | *Events*, parent `menu_zalo_root`, sequence 40 |
 
 ## Tests
 
@@ -659,10 +740,44 @@ the Apps Script's refresh token — the admin's approval returning to `/zalo/cal
 holding a pair. **Not before phase 2:** authorizing app A while the Apps Script still refreshes it may
 invalidate the script's pair (design, open questions).
 
+### `tests/test_zalo_event.py` (step 5)
+
+`TestZaloEvent(TransactionCase)`, `at_install`: no core records. The configuration — app `T`, its
+secret and an OA secret — is patched per test in `setUp`. Bodies are built as bytes and signed in the
+test with D29's formula; `_event_handlers` and the handler are patched on the model class.
+
+| Test | Asserts |
+|---|---|
+| `test_signature` | `signature_valid` is true for the formula's digest, with and without a `mac=` prefix and in upper case; false for another digest, another app ID, a body changed by one byte, and with no OA secret, no header or no timestamp |
+| `test_receive_stores_the_event` | a signed `user_send_group_text` body answers 200 and stores one received event with its `msg_id`, name, sender, recipient, text, time, raw body and `signature_valid` true; the processing cron has a trigger |
+| `test_unverified_event_is_stored` | a wrong signature answers 200 and stores the event with `signature_valid` false |
+| `test_duplicate_is_dropped` | the same body twice answers 200 twice and stores one event |
+| `test_without_msg_id` | a body without `message.msg_id` answers 200 and stores nothing |
+| `test_not_json` | a body that is not JSON, and a JSON list, answer 400 and store nothing |
+| `test_without_app` | with no app configured, a signed body answers 200 and stores nothing |
+| `test_one_event_per_msg_id` | a second event with the same `msg_id` raises `IntegrityError` |
+| `test_unhandled_event_is_ignored` | with no handler, the cron marks a verified event ignored, saying so |
+| `test_handler_processes_verified_event` | with a handler mapped to the event's name, the cron calls it once on the event and marks it processed |
+| `test_unverified_event_is_not_dispatched` | with the same handler, an unverified event is ignored, *Signature not verified.*, and the handler is not called (D30) |
+| `test_handler_failure` | a handler raising `RuntimeError` marks its event failed with the error; the next event is still processed, and the cron returns normally (D34) |
+| `test_old_events_vacuumed` | processed, ignored and failed events created 31 days ago are removed by `_gc_old_events`; a received one of the same age, and a processed one of yesterday, are kept (D35) |
+
+`test_one_event_per_msg_id` carries `@mute_logger("odoo.sql_db")` and a savepoint; `zalo.event`'s logger
+is muted where a mismatch or a handler error is logged; `create_date` is backdated with SQL for the vacuum
+test.
+
+**Checked in the UI** (step 5): `zalo_oa_secret` configured; *Events* under *Settings → Technical →
+Zalo*; `curl` to `/zalo/webhook` with a body signed by D29's formula — 200, the event stored with its
+signature verified, then *ignored* for want of a handler; the same body again — one event; a wrong
+signature — stored, not verified; a body that is not JSON — 400. **Real events only from the design's
+phase 4** (or on app B): the app's one webhook URL belongs to the Apps Script until then, and moving it
+stops the chat commands. The signature formula is confirmed against the first real events, read in the
+log (divergence 8).
+
 ## Readme
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Connects the instance to a Zalo Official Account through its own Zalo app: Odoo holds the app's tokens and refreshes them, and — from later steps — sends notifications from automation rules and templates |
-| `readme/CONFIGURE.md` | Name the instance's Zalo app in `odoo.conf` — `zalo_app_id`, `zalo_app_secret` (and later `zalo_oa_secret`, `zalo_redirect_recipient`). On this instance through `ADDITIONAL_ODOO_RC`, built in `compose.yml.template` as a YAML `|-` block of `key = ${VARIABLE}` lines indented further than the key, the values in `.env` as plain single-line variables — a `\n` inside a `.env` value is not turned into a newline here. Without an app ID the module does nothing. Each instance has its own app; a token row for another app, as left by a database restore, is ignored. Step 4 adds: register `<base URL>/zalo/callback` as the app's callback URL in the Zalo console; for `/zalo/send`, a technical user with *Zalo sender* as its only group — no user type, no password — whose one persistent API key an administrator creates once and revokes when needed. The user is not edited in the user form, which requires a user type |
-| `readme/USAGE.md` | Under *Settings → Technical → Zalo → Tokens* (developer mode), create the row for the configured app and paste its refresh token, or authorize it (step 4). The refresh cron runs hourly and refreshes when fewer than six hours remain; *Refresh now* asks it to refresh at its next run, within seconds. Set an alert user — a system administrator — to be told when the token has not been refreshed for two days. **Do not put a refresh token in Odoo while the Apps Script still refreshes it:** Odoo's cron will rotate it, and the Apps Script's replies stop. Step 2 adds: *Destinations*, named group chats and users; *Messages*, the queue and log — a message can be queued by hand, failed ones retried; messages go out within seconds, and a test instance's `zalo_redirect_recipient` sends every one to its test chat instead Step 3 adds: *Templates*, message text with `{{ object.field }}` placeholders for one model; an automation rule sends with the server action *Send Zalo Message*, a template and destinations. A template that fails to render becomes a failed message; the record still saves An *On save* rule needs *When updating* fields — with none it sends on every save and every recompute, duplicates included; watch *Created on* to send on creation, *Stage* for a stage change Step 4 adds: *Authorize* on the token row, which sends an administrator to Zalo and back to get the app's first token pair, within ten minutes; and `/zalo/send`, for the Apps Script: `POST` `{recipient_type, recipient, text}` as JSON with `Authorization: Bearer <the technical user's key>` (CONFIGURE), answered `{ok, id}` — a 400 names a malformed payload, a 401 a missing or revoked key |
+| `readme/DESCRIPTION.md` | Sends Zalo Official Account messages through the instance's own Zalo app: Odoo holds and refreshes the app's tokens, queues every message and sends it within seconds, and renders templates from automation rules, so any model can notify a group chat or user; a route lets an external system — the Apps Script that receives the OA's chat events — send its replies through Odoo. This version only sends: it does not receive Zalo's webhook events. Step 5 would remove that last sentence |
+| `readme/CONFIGURE.md` | Name the instance's Zalo app in `odoo.conf` — `zalo_app_id`, `zalo_app_secret`, and on a test instance `zalo_redirect_recipient`. On this instance through `ADDITIONAL_ODOO_RC`, built in `compose.yml.template` as a YAML `|-` block of `key = ${VARIABLE}` lines indented further than the key, the values in `.env` as plain single-line variables — a `\n` inside a `.env` value is not turned into a newline here. Without an app ID the module does nothing. Each instance has its own app; a token row for another app, as left by a database restore, is ignored. Step 4 adds: register `<base URL>/zalo/callback` as the app's callback URL in the Zalo console; for `/zalo/send`, a technical user with *Zalo sender* as its only group — no user type, no password — whose one persistent API key an administrator creates once and revokes when needed. The user is not edited in the user form, which requires a user type. Step 5 adds: `zalo_oa_secret` — the OA secret key from the console's webhook settings, not the app secret; at the design's phase 4, when the URL moves from the Apps Script, the webhook URL `<base URL>/zalo/webhook`, its domain verified in the console, and the `user_send_text` and `user_send_group_text` events enabled |
+| `readme/USAGE.md` | Under *Settings → Technical → Zalo → Tokens* (developer mode), create the row for the configured app, then either authorize it (*Authorize*, step 4) or paste its refresh token. The refresh cron runs hourly and refreshes when fewer than six hours remain; *Refresh now* asks it to refresh at its next run, within seconds. Set an alert user — a system administrator — to be told when the token has not been refreshed for two days. **Do not authorize the app, or put its refresh token in Odoo, while the Apps Script still refreshes it:** Odoo's cron will rotate the token, and a new authorization may end the Apps Script's pair; its replies then stop. Step 2 adds: *Destinations*, named group chats and users; *Messages*, the queue and log — a message can be queued by hand, failed ones retried; messages go out within seconds, and a test instance's `zalo_redirect_recipient` sends every one to its test chat instead Step 3 adds: *Templates*, message text with `{{ object.field }}` placeholders for one model; an automation rule sends with the server action *Send Zalo Message*, a template and destinations. A template that fails to render becomes a failed message; the record still saves An *On save* rule needs *When updating* fields — with none it sends on every save and every recompute, duplicates included; watch *Created on* to send on creation, *Stage* for a stage change Step 4 adds: *Authorize* on the token row, which sends an administrator to Zalo and back to get the app's first token pair, within ten minutes; and `/zalo/send`, for the Apps Script: `POST` `{recipient_type, recipient, text}` as JSON with `Authorization: Bearer <the technical user's key>` (CONFIGURE), answered `{ok, id}` — a 400 names a malformed payload, a 401 a missing or revoked key. Step 5 adds: *Events*, the log of what Zalo posted to `/zalo/webhook`, each received once by its message ID and kept 30 days. An event whose signature did not verify is stored but never acted on. This module acts on no event yet: each is *ignored*, saying why, until a module adds a handler |

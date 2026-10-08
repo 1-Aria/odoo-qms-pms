@@ -22,9 +22,9 @@ ZALO_APP_SECRET=...
 ```
 
 Render `compose.yml` from the template, recreate the container, and check that `odoo.conf` has one
-`zalo_…` key per line. A `\n` inside a `.env` value is not turned into a newline here. Later steps
-add `zalo_oa_secret` and `zalo_redirect_recipient`: one more line in the block, one more variable in
-`.env`.
+`zalo_…` key per line. A `\n` inside a `.env` value is not turned into a newline here. On a test
+instance, add `zalo_redirect_recipient` (see Usage) the same way: one more line in the block, one
+more variable in `.env`.
 
 Without an app ID the module does nothing. Each instance has its own app; a token row for another
 app, as a database restore leaves it, is ignored.
