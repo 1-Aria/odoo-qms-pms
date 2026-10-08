@@ -26,3 +26,12 @@ that fails to render — a mistyped placeholder, a removed field — becomes a f
 **An *On save* rule needs *When updating* fields.** With none it sends on every save and every
 recompute, duplicates within one save included. To send when a record is created, watch
 **Created on**; to send on a stage change, watch **Stage**.
+
+***Authorize*** on the configured app's token sends an administrator to Zalo to grant the app
+permission, and back to Odoo, which saves the app's first token pair — also the way to recover when
+the refresh token is lost. Finish within ten minutes, or start again.
+
+**`/zalo/send`** queues a message for the Apps Script: `POST` a JSON body
+`{"recipient_type": "user" | "group", "recipient": "<Zalo ID>", "text": "…"}` with
+`Authorization: Bearer <the technical user's key>`. It answers `{"ok": true, "id": …}`; a 400 names a
+malformed payload, a 401 a missing or revoked key.

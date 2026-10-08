@@ -13,7 +13,7 @@ Reference.md`. Plan: §8.
 | 1 | The instance's app from `odoo.conf`; `zalo.token` per app; the token half of the Zalo client; the refresh under the row lock with its commit; the refresh cron and the health alert; the token list and form | done | 2026-10-07, two runs. First: 8 of 22 passed; the 14 token tests errored after each test, on a class-level `patch.dict` that `TransactionCase`'s attribute check cannot read (`odoo/odoo/tests/common.py:1117-1122`), now started per test in `setUp`. Second: `-u`, `exit=0`, 22 tests, 0 failures. The instance's app configured through a YAML block in `compose.yml.template` — a `\n` in `.env` stayed literal. UI checked: the configured app's row recognised, *Refresh now* waking the cron and `last_error` reporting the missing refresh token, the alert user offered among administrators only, another app's row muted without the button; no live refresh, the Apps Script still holding app A |
 | 2 | The send queue: `zalo.destination`, `zalo.message`, the send half of the client with refresh-on-expiry — its refresh under step 1's savepoint, a serialization failure leaving the message queued — the send cron committing per message, the redirect, `_queue()` | done | 2026-10-07, two runs. First: 47 of 48 passed; `test_queue_flushes_the_callers_writes_first` patched `flush_all` outside `assertRaises`, whose own flushing savepoint (`odoo/odoo/tests/common.py:489`) met it first — now patched inside. Second: `-u`, `exit=0`, 48 tests, 0 failures. UI checked with a borrowed access token and no refresh token (design, phase 1): a message to a test group delivered and shown *Sent* with Zalo's response; one to a bogus ID failed with Zalo's error and re-queued by *Retry* |
 | 3 | `zalo.template` and the "Send Zalo message" server action, with the isolation rule for queueing; the message's source template | done | 2026-10-07, two runs. First: the template tests failed after the first one created an automation rule, its patches on the model class surviving the rollback — now unregistered in `tearDown`, as core's tests do; and a test built on a mistaken review, that a savepoint's rollback discards the caller's tracking, was dropped with the plain savepoint it motivated — `cr.flush()` runs the precommit hooks first. Second: `-u`, `exit=0`, 56 tests, 0 failures. UI checked with a borrowed access token: a template on maintenance requests, an automation rule sending it, a new request delivered with its fields filled in, a mistyped placeholder failing as a message while the request saved. The rule first sent twice per save — an *On save* rule with no watched fields fires on every write and recompute in the save; fixed by configuration, watching *Created on*, no code changed |
-| 4 | Routes: `/zalo/authorize`, `/zalo/callback`, `/zalo/send` with the *Zalo sender* group | planned | |
+| 4 | Routes: `/zalo/authorize`, `/zalo/callback`, `/zalo/send` with the *Zalo sender* group; the pending authorization on `zalo.token` | done | 2026-10-08, two runs. First: `-u` committed the step, but the post-install run aborted before any of its tests — the route tests were an `HttpCase`, before which Odoo pregenerates every asset bundle (`odoo/odoo/service/server.py:1437-1440`), and this image strips core's test assets (`images/odoo/Dockerfile:49`); only the 27 at-install tests ran, and passed. `/zalo/send`'s body moved into `zalo.message._queue_from_request`, tested as the technical user in a `TransactionCase`; its read-back as superuser had been found while writing the route — the technical user cannot read the log. Second: `-u`, `exit=0`, 73 tests, 0 failures. UI checked: *Authorize* redirecting to Zalo's permission page with the instance's callback URL, not approved — app A stays with the Apps Script until phase 2; `/zalo/callback` with an unknown state answering the plain-text refusal; the technical user created with its persistent key; `curl` to `/zalo/send` — no key 401, an administrator's key 403, a body that is not JSON 400, a valid one 200 and the message delivered to the group; a read of `res.partner` over XML-RPC with the technical user's key refused. The approval and the first pair wait for phase 2 |
 | 5 | Receiving: `zalo.event`, `/zalo/webhook`, event processing | planned | target state |
 
 ## Divergences from the design
@@ -50,6 +50,12 @@ Reference.md`. Plan: §8.
 | D19 | **Queueing from a template never raises, and flushes first** (design §"Isolation from Odoo", rule 1; D11): `zalo.message._queue_from_template()` flushes the caller's writes, then renders inside a savepoint. The caller's tracking is safe: `cr.flush()` runs the precommit hooks (`odoo/odoo/sql_db.py:156-167`) and a savepoint flushes before it opens, so the rollback of a failed render clears only hooks added inside it (a plain savepoint was specced for this on a review that missed the flush; the first run showed the hooks already run). The template is read and rendered **as superuser**, so an administrator's template renders the same whether an automation runs the action, through `sudo()` (`base_automation/models/base_automation.py:737`), or a user runs it from a record's *Action* menu. A rendering error — a typo in a placeholder, a field that no longer exists — becomes a *failed* message per record and destination, carrying the error and the source record; the save that triggered the rule goes through. An automation rule re-raises its actions' errors (`base_automation/models/base_automation.py:737-742`), and SMS's action has no such guard (`sms/models/ir_actions_server.py:72-89`) |
 | D20 | **The action skips recomputes**, as SMS does: `_is_recompute()` (`mail/models/ir_actions_server.py:201`) is true when an on-update rule fires only because a computed field was recomputed, and the action then queues nothing |
 | D21 | **The template's model must be the action's,** a constraint as SMS's `_check_sms_template_model` (`sms/models/ir_actions_server.py:62-66`): rendering a template against records of another model can only fail. The view filters the template by the action's model as well |
+| D22 | **Authorization is two model methods behind thin routes** (step 4): `zalo.token._authorize_start(redirect_uri)` and `_authorize_finish(state, code)`. The routes only read the request and answer; the logic is tested without HTTP |
+| D23 | **PKCE as the reference has it** (reference, *Initial authorization*): a `code_verifier` of 64 random URL-safe characters (`secrets.token_urlsafe(48)`), `code_challenge` = base64url of its SHA-256 without padding, a `state` of `secrets.token_urlsafe(32)`. Both are kept on the configured app's token row with the time; the row is created when missing. A pending authorization expires after **10 minutes**, and `state` is compared with `hmac.compare_digest` on the UTF-8 bytes: given two `str`, it raises `TypeError` when either holds a non-ASCII character, and the callback is public |
+| D24 | **The callback URL is the instance's own:** `<web.base.url>/zalo/callback`, through `get_base_url()`, the URL registered in the Zalo console (design §"Routes"). `/zalo/authorize` passes it, and the code exchange is made on the same configured app |
+| D25 | **The code exchange is the one Zalo call in a request** (design *Rules* 2): `/zalo/callback` is answered by Zalo's redirect of an administrator's browser, so it cannot wait for a cron. It writes the first pair on the row; the request's own commit saves it. A failure is shown on the page and written to `last_error`. **The row is locked before Zalo is called** (`_lock_row()`): a request runs inside Odoo's retry on serialization failures (`odoo/odoo/http.py:2167`, `odoo/odoo/service/model.py:141-198`), so a conflict found only when the pair is flushed would run the route again and reuse a code Zalo has already redeemed, losing the pair it issued. The lock meets any conflict first, before the call, and holds off any other writer until the commit — the reference exchanges under its refresh lock too (`docs/zalo_client.js:191`). The refresh cron does write the row meanwhile: a row created by `_authorize_start` has no `expires_at`, so the cron tries to refresh it and writes `last_error`. **A matching `state` is cleared whatever follows,** so it is used once; a state that does not match leaves the pending authorization alone, since the callback is public and anyone could otherwise cancel an administrator's authorization in progress |
+| D26 | **`/zalo/send` is one model method behind a thin route** (step 4): `zalo.message._queue_from_request(payload)` returns the HTTP status and the JSON answer, so it is tested without HTTP — an `HttpCase` cannot run on this image (*Tests*). It answers 403 when the calling user lacks *Zalo sender*; 400 for a payload that is not a JSON object, a `recipient_type` other than `user` or `group`, or a `recipient` or `text` that is not a non-empty string — the caller gets its mistake, not a failed message; otherwise it calls `_queue()`, which creates as superuser (D11), and answers 200 with `ok` = whether the message is queued, since `_queue()` falls back to a failed message rather than raise. The message is **read back as superuser**: the technical user cannot read the log, and reading its state as that user raises `AccessError`. Bearer authentication is Odoo's (`odoo/odoo/addons/base/models/ir_http.py:204-243`): a missing or invalid key answers 401 before the route runs |
+| D27 | **The *Zalo sender* group grants nothing else** (design §"Routes"): no access row names it. It is checked by the route alone; the message is created as superuser. **It is held by a technical user with no other group** — no user type, no password — whose one API key is persistent and created once by an administrator, through sudo, as that user; an administrator revokes it. So the key reads and writes nothing in Odoo, over RPC either: this instance has no read access row without a group. The alternatives fail: bearer authentication takes only a global key (`odoo/odoo/addons/base/models/ir_http.py:228-229`), which also authenticates RPC (`odoo/odoo/addons/base/models/res_users.py:2306-2320`), so an internal user's key reads what any employee reads; and a key created by a user who is not an administrator expires within the longest `api_key_duration` of its groups, 90 days for *Internal User* and 1 day without one (`res_users.py:2422-2432`, `base/security/base_groups.xml:27`), after which the autovacuum deletes it (`res_users.py:2462-2470`) and the Apps Script stops replying with nothing in Odoo saying why. Sudo lifts the limit (`res_users.py:2426-2427`). The user form requires a user type (`res_users.py:2119-2122`), so the user is not edited there |
 | D17 | **A retry waits** (divergence 6): `next_attempt_at` = now + `attempts × RETRY_DELAY` — 5, 10, 15, 20 minutes — and the send cron and its `remaining` count read only messages that are due (`next_attempt_at` empty or past). An outage of about 50 minutes costs no message; a sent, failed or retried-by-hand message clears it |
 | D16 | **Old messages are removed by `@api.autovacuum`** (design §"Scheduled actions and cleanup"): sent and failed messages older than `RETENTION_DAYS` (30). Queued ones are never removed |
 | D9 | **Access is system administrators only:** `base.group_system` holds the model's only access row, and the token fields also carry `groups="base.group_system"` (design §"Models"). The menu is under *Settings → Technical* (`base.menu_custom`) |
@@ -69,12 +75,16 @@ zalo_oa/
 │   ├── zalo_message.py                                 # 2
 │   ├── zalo_template.py                                # 3
 │   └── ir_actions_server.py                            # 3
+├── controllers/
+│   ├── __init__.py                                     # 4
+│   └── main.py                                         # 4
 ├── data/ir_cron.xml
-├── security/ir.model.access.csv
+├── security/ir.model.access.csv, zalo_security.xml     # 1, 4
 ├── views/zalo_token_views.xml, zalo_destination_views.xml, zalo_message_views.xml   # 1, 2, 2
 │         zalo_template_views.xml, ir_actions_server_views.xml                         # 3, 3
 ├── tests/__init__.py, test_zalo_client.py, test_zalo_token.py, test_zalo_message.py  # 1, 1, 2
 │         test_zalo_template.py                                                        # 3
+│         test_zalo_authorize.py, test_zalo_send.py                                    # 4, 4
 └── readme/ DESCRIPTION.md, USAGE.md, CONFIGURE.md
 ```
 
@@ -90,7 +100,7 @@ zalo_oa/
 | `license` | `AGPL-3` |
 | `category` | `Productivity` |
 | `depends` | `mail`, `base_automation` — the second for step 3's server action, declared now so the dependency never changes under an installed module |
-| `data` | `security/ir.model.access.csv`, `data/ir_cron.xml`, `views/zalo_token_views.xml`, `views/zalo_destination_views.xml` (step 2), `views/zalo_message_views.xml` (step 2), `views/zalo_template_views.xml` (step 3), `views/ir_actions_server_views.xml` (step 3) |
+| `data` | `security/zalo_security.xml` (step 4, first), `security/ir.model.access.csv`, `data/ir_cron.xml`, `views/zalo_token_views.xml`, `views/zalo_destination_views.xml` (step 2), `views/zalo_message_views.xml` (step 2), `views/zalo_template_views.xml` (step 3), `views/ir_actions_server_views.xml` (step 3) |
 | `installable` | `True` |
 
 `requests` is in Odoo's own requirements; no external dependency is declared.
@@ -99,10 +109,11 @@ zalo_oa/
 
 | File | Content |
 |---|---|
-| `__init__.py` | `from . import tools`, `from . import models` |
+| `__init__.py` | `from . import tools`, `from . import models`, `from . import controllers` (step 4) |
+| `controllers/__init__.py` | `from . import main` (step 4) |
 | `tools/__init__.py` | `from . import zalo_client` |
 | `models/__init__.py` | `from . import zalo_token`, `from . import zalo_destination`, `from . import zalo_message` (step 2), `from . import zalo_template`, `from . import ir_actions_server` (step 3) |
-| `tests/__init__.py` | `from . import test_zalo_client`, `from . import test_zalo_token`, `from . import test_zalo_message` (step 2), `from . import test_zalo_template` (step 3) |
+| `tests/__init__.py` | `from . import test_zalo_client`, `from . import test_zalo_token`, `from . import test_zalo_message` (step 2), `from . import test_zalo_template` (step 3), `from . import test_zalo_authorize`, `from . import test_zalo_send` (step 4) |
 
 ## Configuration — `get_zalo_config()` in `tools/zalo_client.py`
 
@@ -128,6 +139,10 @@ Each value is stripped; a missing or empty key gives `False`. **No `app_id`, no 
 | `TIMEOUT` | `20` seconds |
 | `request_tokens(app_id, app_secret, fields)` | `requests.post(OA_TOKEN_URL, data=dict(fields, app_id=app_id), headers={"secret_key": app_secret}, timeout=TIMEOUT)` — form-encoded by `data`. Returns `{"ok": True, "access_token", "refresh_token", "expires_in"}` when the status is 200 and the body has both tokens and no `error`; otherwise `{"ok": False, "error": <text>}` |
 | `refresh_tokens(app_id, app_secret, refresh_token)` | `request_tokens(…, {"refresh_token": refresh_token, "grant_type": "refresh_token"})` |
+| `OA_PERMISSION_URL` | step 4; `"https://oauth.zaloapp.com/v4/oa/permission"` |
+| `exchange_code(app_id, app_secret, code, code_verifier)` | step 4; `request_tokens(…, {"code": code, "grant_type": "authorization_code", "code_verifier": code_verifier})` |
+| `pkce_pair()` | step 4; `(code_verifier, code_challenge)` per D23 |
+| `permission_url(app_id, redirect_uri, code_challenge, state)` | step 4; `OA_PERMISSION_URL` with those four as query parameters, URL-encoded |
 
 **Failures it reports** (reference, *Refresh request*, *Error reference*): a network exception
 (`requests.RequestException`) as `"network error: <exception class>"`; a body that is not JSON as
@@ -168,6 +183,9 @@ same rule as the token half — never the access token.
 | `refresh_requested` | Boolean | `copy=False`, help: set by *Refresh now*; the next run of the refresh cron refreshes whatever the expiry |
 | `alert_user_id` | Many2one → `res.users` | `string="Alert User"`, `domain` users in `base.group_system` (a lambda reading the group's id), help: a system administrator, told when the token has not been refreshed for two days — only they can open the token the alert points at (D9) |
 | `is_configured_app` | Boolean | `compute="_compute_is_configured_app"`, not stored, `string="This Instance's App"` |
+| `auth_state` | Char | step 4; `groups="base.group_system"`, `copy=False` (divergence 2) |
+| `auth_code_verifier` | Char | step 4; `groups="base.group_system"`, `copy=False` |
+| `auth_requested_at` | Datetime | step 4; `copy=False` |
 
 | SQL constraint | Definition | Message |
 |---|---|---|
@@ -183,6 +201,9 @@ same rule as the token half — never the access token.
 | `action_refresh_now` | — | `ensure_one`; writes `refresh_requested=True` and calls `_trigger()` on the refresh cron (divergence 1) |
 | `_cron_refresh` | `@api.model` | the cron's entry point, below; never raises (D6) |
 | `_check_health` | — | `ensure_one`; the alert (D7), below |
+| `_authorize_start` | `@api.model` | step 4; `_authorize_start(redirect_uri)`: with no configured app or app secret, `UserError`. Otherwise the configured app's row, created when missing; a new PKCE pair and `state` written on it with the time (D23); returns `permission_url(…)` |
+| `_authorize_finish` | `@api.model` | step 4; `_authorize_finish(state, code)`, below. Returns `(ok, message)` |
+| `action_authorize` | — | step 4; `ensure_one`; an `ir.actions.act_url` to `/zalo/authorize`, `target` `self` |
 
 **`_refresh(stale_access_token)`** (D3, D4, D5):
 
@@ -223,6 +244,22 @@ hour, and the Apps Script then fails with `-14020` (design, phase 1).
 **2 days**, and the row has no open activity of type `mail.mail_activity_data_warning` for that user,
 `activity_schedule("mail.mail_activity_data_warning", user_id=alert_user_id, summary="Zalo token not
 refreshed", note=…)` naming the last refresh and the last error.
+
+**`_authorize_finish(state, code)`** (step 4; D23, D25) — each refusal returns `(False, <text saying
+why>)` and calls nothing:
+
+1. No configured app or app secret, or no row for it: refused.
+2. `_lock_row()`; invalidate the row's cache and re-read it. A serialization failure here propagates,
+   so the request is retried before Zalo is called (D25).
+3. No pending authorization, or `state` empty or different (`hmac.compare_digest` on bytes): refused,
+   **nothing written**.
+4. The state matches: clear `auth_state`, `auth_code_verifier` and `auth_requested_at` — whatever
+   follows.
+5. Requested more than 10 minutes ago, or `code` empty — the administrator declined at Zalo: refused.
+6. `exchange_code(app_id, app_secret, code, verifier)`. Success: write `access_token`,
+   `refresh_token`, `expires_at` = now + `expires_in` seconds, `last_refresh_at` = now, `last_error` =
+   `False` — `(True, …)`. Failure: write `last_error` with the client's text, the stored pair kept —
+   `(False, <the client's text>)`.
 
 **Only the configured app's row is ever refreshed.** A row of another app — copied by a restore —
 is never read by `_get_current()`, so the cron leaves it alone (design §"A production database
@@ -273,6 +310,7 @@ restored onto test").
 | `create` | `@api.model_create_multi` | `super()`, then `_trigger()` on the send cron when any created record is queued (D10) |
 | `_queue` | `@api.model` | `_queue(text, recipient_type=None, recipient_id=None, destination=None, record=None)`: never raises (D11). The destination, when given, supplies type and ID; an archived destination, or no recipient or no text, gives a failed message saying so. Creates as superuser with `res_model`/`res_id` from `record`. Returns the message, or an empty recordset. Step 3 adds `template=None`, kept as `template_id`, and `error=None`: given, the message is created *failed* with that error, whatever else it has |
 | `_queue_from_template` | `@api.model` | step 3; `_queue_from_template(template, records, destinations)`: never raises (D19). `self.env.flush_all()`, then in `try:` and a savepoint, `template.sudo()._render_field("body", records.ids)` (D19); on any exception, log it and keep its text as the error for every record. Then one `_queue()` per record and destination — the rendered text, or the error — with `template` and `record`. Nothing when there are no records or no destinations |
+| `_queue_from_request` | `@api.model` | step 4; `_queue_from_request(payload)` → `(status, result)`, the body of `/zalo/send` (D26): the user without `zalo_oa.group_zalo_sender`, `(403, {"ok": false, "error": …})`; a payload refused by the module function `_payload_error(payload)` — its error text, or `False` — `(400, {"ok": false, "error": …})`; otherwise `_queue(text, recipient_type=…, recipient_id=recipient)`, the message read as superuser, `(200, {"ok": <queued>, "id": <id or false>})`, with `error` — the message's `last_error` — when not queued |
 | `_redirect` | `@api.model` | parses `zalo_redirect_recipient`: `False` when unset; `(type, id)` when `group:<id>` or `user:<id>`; raises `ValueError` when malformed (D14) |
 | `_due_domain` | `@api.model` | queued, and `next_attempt_at` empty or past (D17) |
 | `_write_result` | — | `ensure_one`; writes one send's outcome in a savepoint of its own — step 4 of `_send` |
@@ -346,6 +384,25 @@ actions through `sudo()` (`base_automation/models/base_automation.py:737`) — a
 superuser in any case (D11), so no access to templates or messages is needed by the user whose save
 triggered it.
 
+### Group — `security/zalo_security.xml` (step 4)
+
+| XML id | Content |
+|---|---|
+| `group_zalo_sender` | `res.groups`, *Zalo sender*, comment: may call `/zalo/send`; grants no access to any record. Held by a technical user with no other group, whose API key an administrator creates (D27) |
+
+### Routes — `controllers/main.py` (step 4)
+
+`ZaloController(http.Controller)`.
+
+| Route | Decorator | Behaviour |
+|---|---|---|
+| `/zalo/authorize` | `type="http"`, `auth="user"`, `methods=["GET"]` | not a system administrator: 403. Otherwise `_authorize_start(<base URL>/zalo/callback)` and `request.redirect(<the returned URL>, local=False)` — the default `local=True` strips scheme and host and would redirect within Odoo (`odoo/odoo/http.py:1942-1947`); a `UserError` is answered as a `text/plain` page |
+| `/zalo/callback` | `type="http"`, `auth="public"`, `methods=["GET"]`, `csrf=False`, `save_session=False` | `_authorize_finish(state, code)` as superuser with the query's `state` and `code`; a short `text/plain` page saying whether the app was authorized, and why not — plain, since the reason may carry Zalo's text. Never a token on the page |
+| `/zalo/send` | `type="http"`, `auth="bearer"`, `methods=["POST"]`, `csrf=False`, `save_session=False` | the body by `request.get_json_data()`, `None` when it raises `ValueError` — not JSON; then `_queue_from_request(payload)` as the key's user, answered with `make_json_response(result, status=status)` (D26) |
+
+The payload of `/zalo/send`: `{"recipient_type": "user" | "group", "recipient": "<Zalo ID>", "text": "…"}`
+(design, phase 2 step 1).
+
 ## Data — `data/ir_cron.xml`
 
 | XML id | Content |
@@ -374,7 +431,7 @@ access: `_queue()` creates as superuser (D11).
 | XML id | Type | Content |
 |---|---|---|
 | `zalo_token_view_list` | list | `app_id`, `is_configured_app`, `expires_at`, `last_refresh_at`, `alert_user_id`; `decoration-muted="not is_configured_app"` |
-| `zalo_token_view_form` | form | header: button `action_refresh_now`, `string="Refresh now"`, `type="object"`, `invisible="not is_configured_app"`; sheet: `app_id`, `is_configured_app`, `access_token` and `refresh_token` (`widget="password"`, D8), `expires_at`, `last_refresh_at`, `refresh_requested`, `alert_user_id`, `last_error`; chatter |
+| `zalo_token_view_form` | form | header: button `action_refresh_now`, `string="Refresh now"`, `type="object"`, `invisible="not is_configured_app"`; from step 4 button `action_authorize`, `string="Authorize"`, same `invisible`; sheet: `app_id`, `is_configured_app`, `access_token` and `refresh_token` (`widget="password"`, D8), `expires_at`, `last_refresh_at`, `refresh_requested`, `alert_user_id`, `last_error`; chatter |
 | `zalo_token_action` | `ir.actions.act_window` | *Zalo Tokens*, `zalo.token`, `list,form` |
 | `menu_zalo_root` | menu | *Zalo*, parent `base.menu_custom`, sequence 90 |
 | `menu_zalo_token` | menu | *Tokens*, parent `menu_zalo_root`, action `zalo_token_action`, sequence 10 |
@@ -553,10 +610,59 @@ template offered only for the rule's model, destinations as tags; a new request 
 group with its fields filled in; a template with a mistyped placeholder failing as a message, the
 request saving normally.
 
+### `tests/test_zalo_authorize.py` (step 4)
+
+`TestZaloAuthorize(TransactionCase)`, `at_install`: no core records. Configuration patched per test in
+`setUp` (app `T`, its secret); `exchange_code` patched at `odoo.addons.zalo_oa.models.zalo_token.exchange_code`.
+
+| Test | Asserts |
+|---|---|
+| `test_pkce_pair` | the verifier is 64 URL-safe characters and the challenge is base64url of its SHA-256, without padding |
+| `test_permission_url` | the URL carries `app_id`, `redirect_uri`, `code_challenge` and `state` |
+| `test_start_creates_the_row` | with no row for `T`, `_authorize_start` creates it and stores a state, a verifier and the time; the URL's challenge matches the stored verifier |
+| `test_start_without_app` | with no app configured, `UserError` |
+| `test_finish_saves_the_pair` | a matching state within ten minutes exchanges the code with the stored verifier and writes the pair; the pending authorization is cleared |
+| `test_finish_wrong_state` | a different state calls nothing, writes no token, and leaves the pending authorization in place (D25) |
+| `test_finish_non_ascii_state` | a state of `é` is refused like any other wrong one, without raising (D23) |
+| `test_finish_expired` | a state eleven minutes old is refused, nothing called, and the pending authorization cleared |
+| `test_finish_without_code` | a matching state with an empty code is refused, nothing called, and the pending authorization cleared |
+| `test_finish_without_app` | with no app configured, refused and nothing called |
+| `test_finish_locks_before_exchange` | with `_lock_row` patched to raise `SerializationFailure`, the error propagates and nothing is called (D25) |
+| `test_finish_failed_exchange` | a failed exchange writes `last_error`, keeps any existing pair, and clears the pending authorization |
+| `test_state_used_once` | a second `_authorize_finish` with the same state is refused |
+
+### `tests/test_zalo_send.py` (step 4)
+
+`TestZaloSend(TransactionCase)`, `@tagged("post_install", "-at_install")`: the fixtures create users —
+the technical user, with `group_zalo_sender` as its only group (D27), and an internal user without it.
+`_queue_from_request` is called **as the technical user** (`with_user`), as the route calls it.
+
+| Test | Asserts |
+|---|---|
+| `test_send_queues` | a valid payload answers 200 with `ok` true and an id, and that message is queued with the recipient and text — the positive control |
+| `test_send_without_group` | as the internal user, 403, and nothing is queued |
+| `test_send_bad_payload` | no body (`None`), a list, a `recipient_type` of `channel`, a numeric `recipient`, an empty `text` and a missing `text` each answer 400, and nothing is queued (D26) |
+| `test_send_reports_a_failed_queue` | with `_queue_values` patched to raise, 200 with `ok` false, an id and the error: the failed message is read back for a user who cannot read the log |
+
+**No `HttpCase`:** on this image the post-install run pregenerates every asset bundle before a suite
+holding one (`odoo/odoo/service/server.py:1437-1440`), and core's test assets are stripped at build
+(`images/odoo/Dockerfile:49`), so the run aborts. The routes stay thin, and their HTTP wiring is checked
+in the UI.
+
+**Checked in the UI** (step 4): *Authorize* on the configured app's row redirecting to Zalo's permission
+page, its `redirect_uri` the instance's `/zalo/callback`; `/zalo/callback?state=x&code=y` answering a
+plain-text refusal; the technical user, created with its key by an administrator, and `curl` to
+`/zalo/send` — no key 401, the key of an internal user without *Zalo sender* 403, a malformed payload
+400, a valid one 200 and the message arriving; a read of `res.partner` over XML-RPC with the technical
+user's key refused. For app B once it exists — or for app A at the design's phase 2 instead of copying
+the Apps Script's refresh token — the admin's approval returning to `/zalo/callback` and the row
+holding a pair. **Not before phase 2:** authorizing app A while the Apps Script still refreshes it may
+invalidate the script's pair (design, open questions).
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | Connects the instance to a Zalo Official Account through its own Zalo app: Odoo holds the app's tokens and refreshes them, and — from later steps — sends notifications from automation rules and templates |
-| `readme/CONFIGURE.md` | Name the instance's Zalo app in `odoo.conf` — `zalo_app_id`, `zalo_app_secret` (and later `zalo_oa_secret`, `zalo_redirect_recipient`). On this instance through `ADDITIONAL_ODOO_RC`, built in `compose.yml.template` as a YAML `|-` block of `key = ${VARIABLE}` lines indented further than the key, the values in `.env` as plain single-line variables — a `\n` inside a `.env` value is not turned into a newline here. Without an app ID the module does nothing. Each instance has its own app; a token row for another app, as left by a database restore, is ignored |
-| `readme/USAGE.md` | Under *Settings → Technical → Zalo → Tokens* (developer mode), create the row for the configured app and paste its refresh token, or authorize it (step 4). The refresh cron runs hourly and refreshes when fewer than six hours remain; *Refresh now* asks it to refresh at its next run, within seconds. Set an alert user — a system administrator — to be told when the token has not been refreshed for two days. **Do not put a refresh token in Odoo while the Apps Script still refreshes it:** Odoo's cron will rotate it, and the Apps Script's replies stop. Step 2 adds: *Destinations*, named group chats and users; *Messages*, the queue and log — a message can be queued by hand, failed ones retried; messages go out within seconds, and a test instance's `zalo_redirect_recipient` sends every one to its test chat instead Step 3 adds: *Templates*, message text with `{{ object.field }}` placeholders for one model; an automation rule sends with the server action *Send Zalo Message*, a template and destinations. A template that fails to render becomes a failed message; the record still saves An *On save* rule needs *When updating* fields — with none it sends on every save and every recompute, duplicates included; watch *Created on* to send on creation, *Stage* for a stage change |
+| `readme/CONFIGURE.md` | Name the instance's Zalo app in `odoo.conf` — `zalo_app_id`, `zalo_app_secret` (and later `zalo_oa_secret`, `zalo_redirect_recipient`). On this instance through `ADDITIONAL_ODOO_RC`, built in `compose.yml.template` as a YAML `|-` block of `key = ${VARIABLE}` lines indented further than the key, the values in `.env` as plain single-line variables — a `\n` inside a `.env` value is not turned into a newline here. Without an app ID the module does nothing. Each instance has its own app; a token row for another app, as left by a database restore, is ignored. Step 4 adds: register `<base URL>/zalo/callback` as the app's callback URL in the Zalo console; for `/zalo/send`, a technical user with *Zalo sender* as its only group — no user type, no password — whose one persistent API key an administrator creates once and revokes when needed. The user is not edited in the user form, which requires a user type |
+| `readme/USAGE.md` | Under *Settings → Technical → Zalo → Tokens* (developer mode), create the row for the configured app and paste its refresh token, or authorize it (step 4). The refresh cron runs hourly and refreshes when fewer than six hours remain; *Refresh now* asks it to refresh at its next run, within seconds. Set an alert user — a system administrator — to be told when the token has not been refreshed for two days. **Do not put a refresh token in Odoo while the Apps Script still refreshes it:** Odoo's cron will rotate it, and the Apps Script's replies stop. Step 2 adds: *Destinations*, named group chats and users; *Messages*, the queue and log — a message can be queued by hand, failed ones retried; messages go out within seconds, and a test instance's `zalo_redirect_recipient` sends every one to its test chat instead Step 3 adds: *Templates*, message text with `{{ object.field }}` placeholders for one model; an automation rule sends with the server action *Send Zalo Message*, a template and destinations. A template that fails to render becomes a failed message; the record still saves An *On save* rule needs *When updating* fields — with none it sends on every save and every recompute, duplicates included; watch *Created on* to send on creation, *Stage* for a stage change Step 4 adds: *Authorize* on the token row, which sends an administrator to Zalo and back to get the app's first token pair, within ten minutes; and `/zalo/send`, for the Apps Script: `POST` `{recipient_type, recipient, text}` as JSON with `Authorization: Bearer <the technical user's key>` (CONFIGURE), answered `{ok, id}` — a 400 names a malformed payload, a 401 a missing or revoked key |

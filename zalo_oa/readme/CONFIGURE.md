@@ -28,3 +28,12 @@ add `zalo_oa_secret` and `zalo_redirect_recipient`: one more line in the block, 
 
 Without an app ID the module does nothing. Each instance has its own app; a token row for another
 app, as a database restore leaves it, is ignored.
+
+**Authorization.** In the Zalo console, register `<base URL>/zalo/callback` as the app's Official
+Account Callback URL — on this instance `https://odoo.quangphuong.net/zalo/callback`.
+
+**The Apps Script's sender.** `/zalo/send` takes the API key of a technical user whose only group is
+*Zalo sender*: no user type and no password, so the key reads and writes nothing else in Odoo. An
+administrator creates the user and its one persistent key once, and revokes the key when needed. A key
+created in a user's own preferences expires within 90 days, and the Apps Script would then stop
+replying. Do not edit this user in the user form, which requires a user type.

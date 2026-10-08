@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+
+    <!-- Checked by /zalo/send alone: no access row names it. -->
+    <record id="group_zalo_sender" model="res.groups">
+        <field name="name">Zalo sender</field>
+        <field name="comment">May call /zalo/send; grants no access to any record. Held by a technical user with no other group, whose API key an administrator creates.</field>
+    </record>
+
+</odoo>

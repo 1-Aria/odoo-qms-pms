@@ -6,13 +6,18 @@ models persist and lock. Nothing here ever puts a token, a secret or a raw
 response body into a returned text or a log line.
 """
 
+import base64
+import hashlib
 import json
+import secrets
+from urllib.parse import urlencode
 
 import requests
 
 from odoo.tools import config
 
 OA_TOKEN_URL = "https://oauth.zaloapp.com/v4/oa/access_token"
+OA_PERMISSION_URL = "https://oauth.zaloapp.com/v4/oa/permission"
 REFRESH_TOKEN_INVALID = -14020
 SEND_URLS = {
     "user": "https://openapi.zalo.me/v3.0/oa/message/cs",
@@ -119,6 +124,48 @@ def refresh_tokens(app_id, app_secret, refresh_token):
         app_secret,
         {"refresh_token": refresh_token, "grant_type": "refresh_token"},
     )
+
+
+def exchange_code(app_id, app_secret, code, code_verifier):
+    """Exchange the callback's code for the app's first token pair.
+
+    The last step of the initial authorization (the reference, Initial
+    authorization); the answer has the shape of a refresh's.
+    """
+    return request_tokens(
+        app_id,
+        app_secret,
+        {
+            "code": code,
+            "grant_type": "authorization_code",
+            "code_verifier": code_verifier,
+        },
+    )
+
+
+def pkce_pair():
+    """A new (code_verifier, code_challenge) for the initial authorization.
+
+    The verifier is 64 random URL-safe characters; the challenge is the
+    base64url of its SHA-256, without padding, as Zalo expects.
+    """
+    code_verifier = secrets.token_urlsafe(48)
+    digest = hashlib.sha256(code_verifier.encode()).digest()
+    code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    return code_verifier, code_challenge
+
+
+def permission_url(app_id, redirect_uri, code_challenge, state):
+    """The page where an OA administrator grants the app its permission."""
+    query = urlencode(
+        {
+            "app_id": app_id,
+            "redirect_uri": redirect_uri,
+            "code_challenge": code_challenge,
+            "state": state,
+        }
+    )
+    return f"{OA_PERMISSION_URL}?{query}"
 
 
 def send_text(access_token, recipient_type, recipient_id, text):

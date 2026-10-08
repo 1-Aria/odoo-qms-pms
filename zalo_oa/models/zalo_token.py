@@ -1,14 +1,23 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+import hmac
 import logging
+import secrets
 import threading
 from datetime import timedelta
 
 from psycopg2.errors import SerializationFailure
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
-from ..tools.zalo_client import get_zalo_config, refresh_tokens
+from ..tools.zalo_client import (
+    exchange_code,
+    get_zalo_config,
+    permission_url,
+    pkce_pair,
+    refresh_tokens,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -18,6 +27,8 @@ REFRESH_MARGIN = timedelta(hours=6)
 # Alert when the last successful refresh is older than this, while the
 # refresh token (about three months) still has months left.
 HEALTH_LIMIT = timedelta(days=2)
+# A pending authorization older than this is refused at the callback.
+AUTHORIZATION_TIMEOUT = timedelta(minutes=10)
 
 
 class ZaloToken(models.Model):
@@ -59,6 +70,10 @@ class ZaloToken(models.Model):
         string="This Instance's App",
         compute="_compute_is_configured_app",
     )
+    # The pending authorization, between /zalo/authorize and /zalo/callback.
+    auth_state = fields.Char(groups="base.group_system", copy=False)
+    auth_code_verifier = fields.Char(groups="base.group_system", copy=False)
+    auth_requested_at = fields.Datetime(copy=False)
 
     _sql_constraints = [
         (
@@ -195,6 +210,122 @@ class ZaloToken(models.Model):
             _logger.exception("Zalo: token refresh failed for app %s", token.app_id)
             token.invalidate_recordset()
             token.last_error = f"{type(error).__name__}: {error}"
+
+    # -- initial authorization ----------------------------------------------
+
+    @api.model
+    def _authorize_start(self, redirect_uri):
+        """Start the initial authorization; return Zalo's permission URL.
+
+        A new PKCE pair and state are kept on the configured app's row, which
+        is created when missing, until the callback.
+        """
+        config = get_zalo_config()
+        if not config["app_id"] or not config["app_secret"]:
+            raise UserError(
+                self.env._(
+                    "No Zalo app is configured on this instance: set zalo_app_id "
+                    "and zalo_app_secret in odoo.conf."
+                )
+            )
+        token = self._get_current() or self.create({"app_id": config["app_id"]})
+        code_verifier, code_challenge = pkce_pair()
+        state = secrets.token_urlsafe(32)
+        token.write(
+            {
+                "auth_state": state,
+                "auth_code_verifier": code_verifier,
+                "auth_requested_at": fields.Datetime.now(),
+            }
+        )
+        return permission_url(config["app_id"], redirect_uri, code_challenge, state)
+
+    @api.model
+    def _authorize_finish(self, state, code):
+        """Finish the initial authorization at the callback.
+
+        The one Zalo call made in a request. The row is locked first: the
+        request runs inside Odoo's retry on serialization failures
+        (http.py:2167), and a conflict found only at the final flush would run
+        this again with a code Zalo has already redeemed, losing the pair it
+        issued. A serialization failure at the lock propagates, so the retry
+        comes before the call.
+
+        A matching state is cleared whatever follows, so it is used once; one
+        that does not match leaves the pending authorization alone, since
+        anyone can call the callback.
+
+        :return: (ok, message) -- the message never holds a token.
+        """
+        config = get_zalo_config()
+        token = self._get_current()
+        if not token or not config["app_secret"]:
+            return False, self.env._(
+                "No Zalo app is configured on this instance, or it has no token row."
+            )
+        token._lock_row()
+        token.invalidate_recordset()
+        # Compared as bytes: compare_digest raises on non-ASCII str.
+        if not (
+            state
+            and token.auth_state
+            and hmac.compare_digest(state.encode(), token.auth_state.encode())
+        ):
+            return False, self.env._(
+                "No authorization is waiting for this request. Start again with "
+                "Authorize on the token."
+            )
+        code_verifier, requested_at = token.auth_code_verifier, token.auth_requested_at
+        token.write(
+            {
+                "auth_state": False,
+                "auth_code_verifier": False,
+                "auth_requested_at": False,
+            }
+        )
+        if (
+            not requested_at
+            or fields.Datetime.now() - requested_at > AUTHORIZATION_TIMEOUT
+        ):
+            return False, self.env._(
+                "The authorization was started more than 10 minutes ago. Start "
+                "again with Authorize on the token."
+            )
+        if not code:
+            return False, self.env._(
+                "Zalo returned no authorization code: the permission was not granted."
+            )
+        response = exchange_code(
+            token.app_id, config["app_secret"], code, code_verifier
+        )
+        if not response["ok"]:
+            # The stored pair stays, whatever it is worth.
+            token.last_error = response["error"]
+            return False, response["error"]
+        now = fields.Datetime.now()
+        token.write(
+            {
+                "access_token": response["access_token"],
+                "refresh_token": response["refresh_token"],
+                "expires_at": now + timedelta(seconds=response["expires_in"]),
+                "last_refresh_at": now,
+                "last_error": False,
+            }
+        )
+        return True, self.env._(
+            "The Zalo app %s is authorized: Odoo holds its token pair and "
+            "refreshes it.",
+            token.app_id,
+        )
+
+    def action_authorize(self):
+        """Send the administrator to Zalo, through /zalo/authorize."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/zalo/authorize",
+            "target": "self",
+        }
 
     def _check_health(self):
         """Tell the alert user, once, when the token has stopped refreshing."""

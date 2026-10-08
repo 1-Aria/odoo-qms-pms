@@ -276,6 +276,13 @@ the module doc named.
   in `tearDown`: the rule patches `create`, `write` and `_compute_field_value` onto the model class,
   the rollback does not undo it, and Odoo's after-test attribute check fails every later test
   (`base_automation/tests/test_automation.py:12-14`). (`zalo_oa`, step 3)
+- No `HttpCase` or tour can run on this image. Before a post-install suite that holds an `HttpCase`,
+  Odoo pregenerates every asset bundle (`odoo/odoo/service/server.py:1437-1440`), and the image's build
+  deletes every subfolder of each `tests/` folder (`images/odoo/Dockerfile:49`), so core's test bundles
+  name missing files and the whole post-install run aborts. The at-install tests have passed by then, so
+  their count alone looks green: check the post-install count too. Core runs from the image's
+  `/opt/odoo`, so `../odoo` still holds the deleted files. Put route logic in a model method tested by a
+  `TransactionCase`, keep the route thin, and check its HTTP wiring with `curl`. (`zalo_oa`, step 4)
 
 **ORM**
 - `@api.constrains` runs only when its fields are in the create/write values, so it cannot

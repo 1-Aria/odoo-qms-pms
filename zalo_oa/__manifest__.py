@@ -13,6 +13,7 @@
     # dependency never changes under an installed module.
     "depends": ["mail", "base_automation"],
     "data": [
+        "security/zalo_security.xml",
         "security/ir.model.access.csv",
         "data/ir_cron.xml",
         "views/zalo_token_views.xml",

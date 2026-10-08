@@ -22,6 +22,19 @@ RETENTION_DAYS = 30
 RETRY_DELAY = timedelta(minutes=5)
 
 
+def _payload_error(payload):
+    """What is wrong with a /zalo/send body, or False."""
+    if not isinstance(payload, dict):
+        return "The body must be a JSON object."
+    if payload.get("recipient_type") not in dict(RECIPIENT_TYPES):
+        return "recipient_type must be 'user' or 'group'."
+    for key in ("recipient", "text"):
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            return f"{key} must be a non-empty string."
+    return False
+
+
 class ZaloMessage(models.Model):
     """The queue and log of every send.
 
@@ -220,6 +233,34 @@ class ZaloMessage(models.Model):
                     error=failure,
                 )
         return messages
+
+    @api.model
+    def _queue_from_request(self, payload):
+        """The body of /zalo/send, as the key's user: (HTTP status, answer).
+
+        A model method so that it is tested without HTTP: no HttpCase runs on
+        this image. Bearer authentication (401) is Odoo's, before the route.
+
+        The message is read back as superuser: the sender holds no access to
+        the log, and reading its state as that user would raise.
+        """
+        if not self.env.user.has_group("zalo_oa.group_zalo_sender"):
+            return 403, {
+                "ok": False,
+                "error": "This key's user may not send Zalo messages.",
+            }
+        error = _payload_error(payload)
+        if error:
+            return 400, {"ok": False, "error": error}
+        message = self._queue(
+            payload["text"],
+            recipient_type=payload["recipient_type"],
+            recipient_id=payload["recipient"],
+        ).sudo()
+        result = {"ok": message.state == "queued", "id": message.id or False}
+        if not result["ok"]:
+            result["error"] = message.last_error or "The message could not be queued."
+        return 200, result
 
     # -- sending --------------------------------------------------------------
 

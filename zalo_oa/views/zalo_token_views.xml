@@ -16,9 +16,9 @@
         </field>
     </record>
 
-    <!-- Tokens are typed by hand, masked. Refresh now only on this instance's
-         app: refreshing another app's row is what the configuration exists to
-         prevent. -->
+    <!-- Tokens are typed by hand, masked. Refresh now and Authorize only on
+         this instance's app: refreshing another app's row is what the
+         configuration exists to prevent. -->
     <record id="zalo_token_view_form" model="ir.ui.view">
         <field name="name">zalo.token.form</field>
         <field name="model">zalo.token</field>
@@ -30,6 +30,12 @@
                         string="Refresh now"
                         type="object"
                         class="btn-primary"
+                        invisible="not is_configured_app"
+                    />
+                    <button
+                        name="action_authorize"
+                        string="Authorize"
+                        type="object"
                         invisible="not is_configured_app"
                     />
                 </header>
