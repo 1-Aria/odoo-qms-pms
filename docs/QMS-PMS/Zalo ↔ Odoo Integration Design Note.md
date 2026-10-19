@@ -284,8 +284,8 @@ Done Oct 8, 2026, in this order — the callback URL first, since *Authorize* ne
 2. Deploy the Apps Script change: `sendGMFMessage` and `sendCSMessage` post `{recipient_type, recipient, text}` to the test instance's `/zalo/send` with the technical user's API key as a bearer token; the refresh functions are removed, not just unused; the Odoo URL and API key live in Script Properties. Replies queue in Odoo from here, and go out once Odoo holds a valid token.
 3. *Authorize* on app A's `zalo.token` row, approved at Zalo — instead of copying the Apps Script's refresh token: no secret copied by hand, and the callback's first pair saved.
 4. *Refresh now*, and a send from each side: Odoo rotated the pair, and messages from the Apps Script and from Odoo arrived.
-5. To confirm on Oct 9: the refresh cron's own refresh, once fewer than six hours remain.
-6. Clear the app secret and the old tokens from the Apps Script's Script and User Properties — moved here from phase 4, since v1 keeps the script and it no longer needs them.
+5. The refresh cron's own refresh, once fewer than six hours remain: confirmed Oct 9, and refreshing on its own since.
+6. The app secret and the old tokens cleared from the Apps Script's Script and User Properties — moved here from phase 4, since v1 keeps the script and it no longer needs them.
 
 ### Phase 3: notifications
 
