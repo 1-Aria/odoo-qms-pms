@@ -1,31 +1,34 @@
 # CLAUDE.md
 
-Working context for the Odoo QMS/PMS module development project.
+Working context for the custom Odoo modules in this repo: the QMS/PMS suite and the IE-MES suite.
 
 ---
 
 ## What this is
 
-A set of custom Odoo 18.0 CE modules implementing a unified Quality Management
-and Plant Maintenance pipeline on top of OCA modules.
+Custom Odoo 18.0 CE modules, built on top of OCA modules, in two suites:
 
-**The architecture lives in `docs/Odoo-QMS-PMS-Development-Plan.md`.** Read it before
-starting work on any module. It describes the intended models, fields, relationships
-and delivery phases, and §9 records the design decisions with their rationale and
-the alternatives that were rejected.
+- **QMS/PMS**, a unified Quality Management and Plant Maintenance pipeline.
+  **Its architecture lives in `docs/QMS-PMS/Odoo-QMS-PMS-Development-Plan.md`.** Read it before
+  starting work on any of its modules. It describes the intended models, fields, relationships
+  and delivery phases, and §9 records the design decisions with their rationale and
+  the alternatives that were rejected.
+- **IE-MES**, Industrial Engineering for garment sewing lines (standards, time accounting,
+  skill and incentive metrics), with shop-floor capture (MES). Its documents are in
+  `docs/IE-MES/`; see *The IE-MES suite* below.
 
-**The plan is a work in progress, not a specification to follow.** It was written
-without inspecting the Odoo and OCA source, and it contains errors. Examples found
-so far: the §7.6 filter traversed a `product.category.product_tmpl_ids` field that
+**The design documents are a work in progress, not a specification to follow.** They were
+written without inspecting the Odoo and OCA source, and they contain errors. Examples found
+so far: the QMS plan's §7.6 filter traversed a `product.category.product_tmpl_ids` field that
 does not exist, the plan's claim that category scoping matched `quality_control_oca`
 was wrong because QC also walks up parent categories, and the `qms_catalog`
 dependencies did not fit how the module is meant to be used. Treat every field
-name, method, dependency and claim about OCA behaviour in the plan as unverified
+name, method, dependency and claim about OCA behaviour in a design document as unverified
 until checked against the code. The technical reality in the code comes first.
 
-This file says how to *work* here. The plan says *what* to build and *why*.
+This file says how to *work* here. The design documents say *what* to build and *why*.
 Neither duplicates the other. If something architectural is missing, it belongs
-in the plan, not here.
+in those documents, not here.
 
 ---
 
@@ -71,20 +74,20 @@ one where an override looked unavoidable.
 ### 4. Claude plans and writes instructions; Peter executes
 
 Follow the ground rules in `Odoo-Build/CLAUDE.md`. Claude does not create or edit files, run upgrades,
-tests or git commands unless Peter explicitly asks for that specific action. When code is designed,
-deliver it as file contents plus the exact commands to install/upgrade/test. Then wait for Peter's
-results rather than assuming success.
+tests or git commands unless Peter explicitly asks for that specific action. When Peter asks for a
+step's code or a document, Claude writes those files in place (`addons/<module>/`, `docs/`) and gives
+the exact commands to install/upgrade/test. Then wait for Peter's results rather than assuming success.
 
-### 5. When the plan and the code disagree
+### 5. When a design document and the code disagree
 
 The **code** comes first. It decides what a field is called, what a method does,
-what exists and what is possible. The plan records intent, but it is a draft:
+what exists and what is possible. A design document records intent, but it is a draft:
 its intent can also turn out wrong once the code is read.
 
-Never silently follow the plan over the code, or quietly work around the plan.
+Never silently follow a design document over the code, or quietly work around it.
 Say the discrepancy out loud, then propose the fix: usually a correction to the
-plan. When the discrepancy touches intent, the dependencies between modules, or a
-§9 decision, Peter decides.
+document. When the discrepancy touches intent, the dependencies between modules, or a
+recorded decision (the QMS plan's §9; the IE documents' DEC, FG and TD tables), Peter decides.
 
 ---
 
@@ -92,13 +95,15 @@ plan. When the discrepancy touches intent, the dependencies between modules, or 
 
 ```
 Odoo-Build/addons/         ← this repo; our modules live here (mounted at /mnt/extra-addons)
+Odoo-Build/addons/docs/    ← QMS-PMS/ and IE-MES/ design documents; modules/ holds the per-module specs
 Odoo-Build/odoo/           ← running Odoo core (read-only reference)
 Odoo-Build/oca/            ← running OCA repos (read-only reference)
+Odoo-Build/ie-prototype/   ← the IE step 5 prototype harness, outside the repo on purpose
 ```
 
 ---
 
-## The modules
+## The QMS/PMS modules
 
 Full specification in the plan, §8. Phase 1 is the core chain; Phase 2 is
 independent and can be built in any order; Phase 3 extends the quality side.
@@ -124,7 +129,7 @@ independent and can be built in any order; Phase 3 extends the quality side.
 | `maintenance_plan_action_template` | Plan-seeded action generation |
 
 The first two replace the plan's `maintenance_request_sla`; their design lives in
-`docs/Maintenance SLA Engine — Technical Design.md`, which the plan's §7.12 points to.
+`docs/QMS-PMS/Maintenance SLA Engine — Technical Design.md`, which the plan's §7.12 points to.
 `maintenance_equipment_status_automation` comes after them, because the SLA design changes
 which stages a corrective request passes through and that module keys on the stages.
 
@@ -135,9 +140,51 @@ which stages a corrective request passes through and that module keys on the sta
 | `qms_fabric_inspection` | Roll-level fabric inspection at receipt: rolls as rows of the receipt line's inspection, 4-point scoring, shade, dye lot and band on the lot |
 | `qms_quality_report` | Inspection and Defect Analysis — DHU, defective %, FTR, the defect Pareto — and the fabric section |
 
-Their designs are `docs/Fabric Inspection — Design.md` and `docs/QMS Quality Reporting — Design.md`.
-The report's capture fields live in `qms_quality_control` (its step 7). `zalo_oa`
-(`docs/Zalo ↔ Odoo Integration Design Note.md`) is a supporting integration outside the phases.
+Their designs are `docs/QMS-PMS/Fabric Inspection — Design.md` and
+`docs/QMS-PMS/QMS Quality Reporting — Design.md`. The report's capture fields live in
+`qms_quality_control` (its step 7). `zalo_oa` (`docs/QMS-PMS/Zalo ↔ Odoo Integration Design Note.md`)
+is a supporting integration outside the phases.
+
+**Supporting modules outside the phases**
+
+| Module | Role |
+|---|---|
+| `qms_nonconformity_hr` | Fills a nonconformity's department from the reporting user's employee; auto-installs with `mgmtsystem_nonconformity_hr` |
+| `maintenance_security_user_menu` | Restores core's maintenance menu visibility for internal users, which `maintenance_security` narrows |
+| `maintenance_sla_garment` | A starting SLA configuration for a garment plant: stage flow, targets, priority grid |
+| `zalo_oa_garment` | Zalo notification templates and rules for garment maintenance and quality, in Vietnamese |
+
+---
+
+## The IE-MES suite
+
+Industrial Engineering for garment sewing lines: SAM standards from timeSSD, time accounting,
+earned minutes, defects, the skill matrix and the incentive metrics that payroll pulls. MES is the
+shop-floor capture interface, designed in its own phase. Claude decides the implementation, business
+and technical, with Peter's confirmation.
+
+**Documents** (`docs/IE-MES/`). Each is a versioned file, and older versions stay as history;
+read the latest.
+
+| Document | Role |
+|---|---|
+| `IE_Business_Logic_Spec_v*.md` | The business rules of record (DEC, OPEN, FLAG-TECH) |
+| `IE_Framework_Rationale_v*.md` | The reasoning, with worked numbers |
+| `IE_Module_Function_Map.md` | The v1 scope, and the workflow for changing the business documents |
+| `IE_Acceptance_Test_Cases_v*.md`, `ie_reference_calc.py` | Expected results. The implementation is correct when it reproduces them. |
+| `IE_Roadmap_to_Development.md` | The steps before development |
+| `IE_Fit_Gap_v*.md` | Fit-gap against CE 18 and the step 5 prototype (FG decisions) |
+| `IE_Technical_Design_v*.md` | Models, fields and rules per module (TD decisions), written in chunks. Its chunk table says where the design stands. |
+| `IE_Design_Note_*.md` | One design question worked out before it is folded into the technical design |
+
+- The business documents (spec, rationale, function map, test cases) change only through the
+  function map's workflow. The fit-gap and the technical design list their proposed changes, which are
+  applied in batches once Peter confirms. Until then, a technical design that departs from the spec
+  says so.
+- Planned modules, in build order for shadow mode: `mes_capture` (credited worker, scan journal, scan
+  rules), `ie_base` (master data, SAM versions, periods, production records), `ie_time` (off-standard
+  grants, time accounting, exceptions), `ie_quality` (defects, repair), `ie_skill`. Then `ie_line`,
+  `ie_incentive`, `ie_valuation`, `ie_realtime`. The technical design's §1 holds the current map.
 
 ---
 
@@ -149,7 +196,7 @@ steps table that doubles as the progress log.
 
 It contains **no commands and no instructions** — no install, upgrade, test or
 troubleshooting steps — and no explanation of how things work. Reasoning belongs in
-the plan; commands belong in the chat reply beside the doc. Written out, the doc
+the design documents; commands belong in the chat reply beside the doc. Written out, the doc
 should be enough to rebuild the module's code.
 
 One step per cycle: spec the step in the doc → inspect it, flag uncertainties → Claude
@@ -243,6 +290,8 @@ cleanly and then appears broken.
   without a prefix.
 - Modules use `qms_` when they belong to this system, or OCA's
   `<base_module>_<feature>` form when generic enough to contribute upstream.
+- The IE-MES suite uses `ie_` / `ie.` for IE modules, models and fields added to core or OCA models,
+  and `mes_` / `mes.` for MES. The capture layer both share is `mes_capture` (technical design TD-01).
 
 ---
 
@@ -283,6 +332,11 @@ the module doc named.
   their count alone looks green: check the post-install count too. Core runs from the image's
   `/opt/odoo`, so `../odoo` still holds the deleted files. Put route logic in a model method tested by a
   `TransactionCase`, keep the route thin, and check its HTTP wiring with `curl`. (`zalo_oa`, step 4)
+
+**Scripts**
+- Scripts run through `odoo shell`, such as the IE prototype harness, live outside `addons/`:
+  auto-reload watches every `.py` under the addons path, so a script there restarts the server.
+  (`ie-prototype`)
 
 **ORM**
 - `@api.constrains` runs only when its fields are in the create/write values, so it cannot
@@ -326,14 +380,15 @@ the module doc named.
 ## Working style
 
 **Ask rather than assume** when a choice would change the architecture, add a
-dependency between modules, or alter anything recorded in §9 of the plan.
+dependency between modules, or alter a recorded decision (the QMS plan's §9; the IE
+documents' DEC, FG and TD tables).
 
 **Decide alone** on ordinary implementation: method names, file organisation,
 view layout, helper structure.
 
 **Prefer** reusing an OCA model over defining a new one; adding a field over
-overriding a method; suggesting over enforcing. This is the plan's governing
-constraint — maintenance cost, not feature count, is the thing being optimised.
+overriding a method; suggesting over enforcing. This is the governing constraint of
+both suites — maintenance cost, not feature count, is the thing being optimised.
 
 **When something doesn't work**, report what actually happened rather than
 describing what should have. Real behaviour comes from the instance's logs and
