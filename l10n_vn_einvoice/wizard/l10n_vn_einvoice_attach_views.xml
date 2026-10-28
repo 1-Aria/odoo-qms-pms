@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="l10n_vn_einvoice_attach_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.attach.form</field>
+        <field name="model">l10n_vn.einvoice.attach</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="move_id"/>
+                    <field name="file" filename="filename"/>
+                    <field name="filename" invisible="1"/>
+                </group>
+                <div class="alert alert-danger" role="alert" invisible="not error">
+                    <field name="error"/>
+                </div>
+                <group invisible="not preview_name">
+                    <group string="Read from the file" name="read">
+                        <field name="preview_name"/>
+                        <field name="preview_seller_name"/>
+                        <field name="preview_seller_vat"/>
+                        <field name="preview_buyer_vat"/>
+                        <field name="preview_invoice_date"/>
+                        <field name="preview_currency_id" invisible="1"/>
+                        <field name="preview_amount_untaxed"/>
+                        <field name="preview_amount_tax"/>
+                        <field name="preview_amount_total"/>
+                    </group>
+                    <group string="Document" name="document">
+                        <field name="partner_vat"/>
+                        <field name="partner_differs" invisible="1"/>
+                        <field name="date_differs" invisible="1"/>
+                        <field name="amounts_differ" invisible="1"/>
+                    </group>
+                </group>
+                <div class="alert alert-warning" role="alert" invisible="not partner_differs">
+                    The document's partner has a different tax code from the e-invoice.
+                </div>
+                <div class="alert alert-warning" role="alert" invisible="not date_differs">
+                    The invoice date differs from the document's.
+                </div>
+                <div class="alert alert-warning" role="alert" invisible="not amounts_differ">
+                    The total differs from the document's.
+                </div>
+                <footer>
+                    <button name="action_attach" type="object" string="Attach"
+                            class="btn-primary" invisible="error or not file"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_attach_action" model="ir.actions.act_window">
+        <field name="name">Attach E-Invoice</field>
+        <field name="res_model">l10n_vn.einvoice.attach</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

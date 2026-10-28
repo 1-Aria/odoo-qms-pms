@@ -1,12 +1,14 @@
 # CLAUDE.md
 
-Working context for the custom Odoo modules in this repo: the QMS/PMS suite and the IE-MES suite.
+Working context for the custom Odoo modules in this repo: the QMS/PMS suite, the IE-MES suite and
+the VN e-invoice modules.
 
 ---
 
 ## What this is
 
-Custom Odoo 18.0 CE modules, built on top of OCA modules, in two suites:
+Custom Odoo 18.0 CE modules, built on top of OCA modules, in two suites, plus the Vietnamese
+e-invoice modules:
 
 - **QMS/PMS**, a unified Quality Management and Plant Maintenance pipeline.
   **Its architecture lives in `docs/QMS-PMS/Odoo-QMS-PMS-Development-Plan.md`.** Read it before
@@ -16,6 +18,8 @@ Custom Odoo 18.0 CE modules, built on top of OCA modules, in two suites:
 - **IE-MES**, Industrial Engineering for garment sewing lines (standards, time accounting,
   skill and incentive metrics), with shop-floor capture (MES). Its documents are in
   `docs/IE-MES/`; see *The IE-MES suite* below.
+- **VN e-invoices**, Vietnamese e-invoices read from their XML and checked against the tax
+  portal's list. Its documents are in `docs/Accounting/`; see *The VN e-invoice modules* below.
 
 **The design documents are a work in progress, not a specification to follow.** They were
 written without inspecting the Odoo and OCA source, and they contain errors. Examples found
@@ -95,7 +99,7 @@ recorded decision (the QMS plan's §9; the IE documents' DEC, FG and TD tables),
 
 ```
 Odoo-Build/addons/         ← this repo; our modules live here (mounted at /mnt/extra-addons)
-Odoo-Build/addons/docs/    ← QMS-PMS/ and IE-MES/ design documents; modules/ holds the per-module specs
+Odoo-Build/addons/docs/    ← QMS-PMS/, IE-MES/ and Accounting/ design documents; modules/ holds the per-module specs
 Odoo-Build/odoo/           ← running Odoo core (read-only reference)
 Odoo-Build/oca/            ← running OCA repos (read-only reference)
 Odoo-Build/ie-prototype/   ← the IE step 5 prototype harness, outside the repo on purpose
@@ -185,6 +189,26 @@ read the latest.
   rules), `ie_base` (master data, SAM versions, periods, production records), `ie_time` (off-standard
   grants, time accounting, exceptions), `ie_quality` (defects, repair), `ie_skill`. Then `ie_line`,
   `ie_incentive`, `ie_valuation`, `ie_realtime`. The technical design's §1 holds the current map.
+
+---
+
+## The VN e-invoice modules
+
+Vietnamese e-invoices as records in Odoo, and their reconciliation with the tax authority's portal.
+Outside the QMS-PMS and IE-MES suites.
+
+| Module | Role | Design |
+|---|---|---|
+| `l10n_vn_einvoice` | The e-invoice record (one per legal invoice per company) read from its XML; attaching an XML to a bill or invoice; draft vendor bills from XML; VAT codes mapped to taxes | `docs/Accounting/VN E-Invoice — Design.md` |
+| `l10n_vn_einvoice_reconcile` | The portal's Excel lists imported through `excel_import_export`, grouped per invoice and matched to e-invoices | `docs/Accounting/VN E-Invoice Reconciliation — Design.md` |
+
+- The XML format reference is `docs/Accounting/vn_einvoice_field_dictionary.json` (Peter's, from
+  QĐ 1233/QĐ-CT, also in that folder). The design documents decide what Odoo stores and names.
+- Sample XML invoices and recreated portal lists are in `docs/Accounting/samples/`. Lookup codes
+  (*Mã số bí mật*, *Số bảo mật*) are replaced by `REDACTED`; do the same with any new sample before it
+  is committed.
+- `l10n_vn_edi_viettel` (core, installed) issues sales invoices through Viettel SInvoice. A bridge to it
+  is planned, not built.
 
 ---
 
@@ -292,6 +316,9 @@ cleanly and then appears broken.
   `<base_module>_<feature>` form when generic enough to contribute upstream.
 - The IE-MES suite uses `ie_` / `ie.` for IE modules, models and fields added to core or OCA models,
   and `mes_` / `mes.` for MES. The capture layer both share is `mes_capture` (technical design TD-01).
+- The VN e-invoice modules follow core's localisation conventions: modules `l10n_vn_<feature>`; models
+  `l10n_vn.<name>`, like core's `l10n_ke.item.code` or `l10n_latam.document.type`; and the `l10n_vn_`
+  prefix on fields added to core or OCA models, as `l10n_vn_edi_viettel` does.
 
 ---
 
@@ -332,6 +359,13 @@ the module doc named.
   their count alone looks green: check the post-install count too. Core runs from the image's
   `/opt/odoo`, so `../odoo` still holds the deleted files. Put route logic in a model method tested by a
   `TransactionCase`, keep the route thin, and check its HTTP wiring with `curl`. (`zalo_oa`, step 4)
+- Never import from a core module's `tests` package (`odoo.addons.account.tests.common` and its
+  `AccountTestInvoicingCommon`, and the like). On this image that package's `__init__` reaches
+  `mail/tests/__init__.py`, which imports its `discuss` subfolder, deleted by the same build step, and the
+  whole `-i`/`-u` run fails before any test (`No module named 'odoo.addons.mail.tests.discuss'`). Build
+  fixtures on `TransactionCase`: create a company, link it to the test user, load its chart with
+  `account.chart.template.try_loading`. The failed run still commits the module's tables, menus and
+  views while its state stays *uninstalled*; running `-i` again completes it. (`l10n_vn_einvoice`, step 1)
 
 **Scripts**
 - Scripts run through `odoo shell`, such as the IE prototype harness, live outside `addons/`:

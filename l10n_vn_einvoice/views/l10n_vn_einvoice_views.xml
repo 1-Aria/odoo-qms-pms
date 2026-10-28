@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="l10n_vn_einvoice_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.list</field>
+        <field name="model">l10n_vn.einvoice</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="name"/>
+                <field name="invoice_date"/>
+                <field name="seller_name"/>
+                <field name="seller_vat"/>
+                <field name="buyer_name" optional="hide"/>
+                <field name="buyer_vat" optional="hide"/>
+                <field name="amount_total" sum="Total"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="move_id"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'booked'"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'not_booked'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.form</field>
+        <field name="model">l10n_vn.einvoice</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0">
+                <header>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_document" type="object"
+                                class="oe_stat_button" icon="fa-file-text-o"
+                                invisible="not move_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Document</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group string="Invoice" name="invoice">
+                            <field name="direction"/>
+                            <field name="form"/>
+                            <field name="symbol"/>
+                            <field name="number"/>
+                            <field name="invoice_date"/>
+                            <field name="tax_authority_code"/>
+                            <field name="format_version"/>
+                            <field name="provider_vat"/>
+                        </group>
+                        <group string="Parties" name="parties">
+                            <field name="seller_name"/>
+                            <field name="seller_vat"/>
+                            <field name="buyer_name"/>
+                            <field name="buyer_vat"/>
+                        </group>
+                        <group string="Amounts" name="amounts">
+                            <field name="amount_untaxed"/>
+                            <field name="amount_tax"/>
+                            <field name="amount_total"/>
+                            <field name="currency_id"/>
+                            <field name="exchange_rate"/>
+                        </group>
+                        <group string="Booking" name="booking">
+                            <field name="move_id"/>
+                            <field name="attachment_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.search</field>
+        <field name="model">l10n_vn.einvoice</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="seller_vat"/>
+                <field name="seller_name"/>
+                <field name="buyer_vat"/>
+                <field name="tax_authority_code"/>
+                <filter name="filter_not_booked" string="Not Booked"
+                        domain="[('state', '=', 'not_booked')]"/>
+                <filter name="filter_draft" string="Draft"
+                        domain="[('state', '=', 'draft')]"/>
+                <filter name="filter_booked" string="Booked"
+                        domain="[('state', '=', 'booked')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_state" string="Status"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="group_seller" string="Seller"
+                            context="{'group_by': 'seller_name'}"/>
+                    <filter name="group_month" string="Invoice Date"
+                            context="{'group_by': 'invoice_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_received_action" model="ir.actions.act_window">
+        <field name="name">E-Invoices</field>
+        <field name="res_model">l10n_vn.einvoice</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('direction', '=', 'received')]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No received e-invoices yet</p>
+            <p>Open a vendor bill and use <i>Attach E-Invoice</i> to read the supplier's XML.</p>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_issued_action" model="ir.actions.act_window">
+        <field name="name">E-Invoices</field>
+        <field name="res_model">l10n_vn.einvoice</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('direction', '=', 'issued')]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No issued e-invoices yet</p>
+            <p>Open a customer invoice and use <i>Attach E-Invoice</i> to read its XML.</p>
+        </field>
+    </record>
+
+    <menuitem id="l10n_vn_einvoice_received_menu"
+              name="E-Invoices"
+              parent="account.menu_finance_payables"
+              action="l10n_vn_einvoice_received_action"
+              sequence="90"/>
+
+    <menuitem id="l10n_vn_einvoice_issued_menu"
+              name="E-Invoices"
+              parent="account.menu_finance_receivables"
+              action="l10n_vn_einvoice_issued_action"
+              sequence="90"/>
+</odoo>

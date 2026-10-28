@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_l10n_vn_einvoice_readonly,l10n_vn.einvoice readonly,model_l10n_vn_einvoice,account.group_account_readonly,1,0,0,0
+access_l10n_vn_einvoice_invoice,l10n_vn.einvoice invoicing,model_l10n_vn_einvoice,account.group_account_invoice,1,1,1,0
+access_l10n_vn_einvoice_manager,l10n_vn.einvoice manager,model_l10n_vn_einvoice,account.group_account_manager,1,1,1,1
+access_l10n_vn_einvoice_tax_readonly,l10n_vn.einvoice.tax readonly,model_l10n_vn_einvoice_tax,account.group_account_readonly,1,0,0,0
+access_l10n_vn_einvoice_tax_invoice,l10n_vn.einvoice.tax invoicing,model_l10n_vn_einvoice_tax,account.group_account_invoice,1,0,0,0
+access_l10n_vn_einvoice_tax_manager,l10n_vn.einvoice.tax manager,model_l10n_vn_einvoice_tax,account.group_account_manager,1,1,1,1
+access_l10n_vn_einvoice_attach,l10n_vn.einvoice.attach invoicing,model_l10n_vn_einvoice_attach,account.group_account_invoice,1,1,1,1

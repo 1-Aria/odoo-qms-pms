@@ -1,0 +1,4329 @@
+{
+ "meta": {
+  "source": "Quyết định 1233/QĐ-CT, 27/08/2026 (Cục Thuế), format version 2.1.1",
+  "samples": 8,
+  "generated": "2026-10-27"
+ },
+ "formats": {
+  "a": {
+   "short": "VAT",
+   "vi": "Hóa đơn giá trị gia tăng",
+   "when": "KHMSHDon 1"
+  },
+  "a2": {
+   "short": "Sales",
+   "vi": "Hóa đơn bán hàng",
+   "when": "KHMSHDon 2"
+  },
+  "g": {
+   "short": "VAT · cash register",
+   "vi": "Hóa đơn GTGT được khởi tạo từ máy tính tiền",
+   "when": "KHMSHDon 1, symbol 4th char M"
+  },
+  "h": {
+   "short": "Sales · cash register",
+   "vi": "Hóa đơn bán hàng được khởi tạo từ máy tính tiền",
+   "when": "KHMSHDon 2, symbol 4th char M"
+  },
+  "l": {
+   "short": "Commercial",
+   "vi": "Hóa đơn thương mại",
+   "when": "KHMSHDon 7"
+  }
+ },
+ "fields": [
+  {
+   "group": "Envelope",
+   "path": "HDon/MCCQT",
+   "tag": "MCCQT",
+   "vi": "Mã của cơ quan thuế (Mã của cơ quan thuế trên hóa đơn điện tử)",
+   "en": "Tax-authority code: 34 chars, or 23 chars \"Mx-yy-XXXXX-nnnnnnnnnnn\" for cash-register invoices",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "g": "23",
+    "h": "23",
+    "a": "34",
+    "a2": "34",
+    "l": "34"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "l": "R",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "l": "Bắt buộc",
+    "g": "Bắt buộc (đối với hóa đơn có mã)",
+    "h": "Bắt buộc (bắt buộc đối với hóa đơn có mã)"
+   },
+   "status": "spec",
+   "seen": 7,
+   "present": 7,
+   "examples": [
+    "002CB777F76A8343A88306E8F83DF807E6",
+    "001C3A766B8B2C4D449A41FAB8E37C5F9C",
+    "M2-26-EAXLG-00000029704"
+   ],
+   "odoo": "vn.einvoice.tax_authority_code",
+   "rule": "Required when symbol starts with C, absent with K. On cash-register invoices the trailing digits are NOT the invoice number."
+  },
+  {
+   "group": "Envelope",
+   "path": "HDon/DLQRCode",
+   "tag": "DLQRCode",
+   "vi": "Dữ liệu QR Code",
+   "en": "QR payload (EMV-style TLV; tag 99 holds seller MST, form, symbol, number, date, total)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "512",
+    "a2": "512",
+    "g": "512",
+    "h": "512",
+    "l": "512"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 4,
+   "examples": [
+    "99960032da35e089c77041389e6322da099df98f…"
+   ],
+   "odoo": "Validation (optional)",
+   "rule": "Optional: only 4 of 8 samples have it. Verify CRC and compare with XML when present."
+  },
+  {
+   "group": "Envelope",
+   "path": "HDon/DLHDon/@Id",
+   "tag": "@Id",
+   "vi": "Thuộc tính Id",
+   "en": "Id attribute of the signed data block; the signature references it",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "structure",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "data",
+    "DuLieuKy",
+    "71c7cb00-…"
+   ],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Values vary by provider (\"data\", \"DuLieuKy\", a GUID). Resolve signature references through it."
+  },
+  {
+   "group": "Envelope",
+   "path": "HDon/Fkey",
+   "tag": "Fkey",
+   "vi": "—",
+   "en": "Provider's own lookup key (not in any decision)",
+   "type": "",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "vendor",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "17919506843812219831",
+    "108602001C26TMX41195854"
+   ],
+   "odoo": "vn.einvoice.provider_key",
+   "rule": "Seen from the provider with tax code 0100684378. Ignore for logic; store."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/PBan",
+   "tag": "PBan",
+   "vi": "Phiên bản của thông điệp (trong Quy định này có giá trị là 2.1.1)",
+   "en": "XML format version: 2.1.0 (1306/QĐ-CT) or 2.1.1 (1233/QĐ-CT)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "6",
+    "a2": "6",
+    "g": "6",
+    "h": "6",
+    "l": "6"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "2.1.0"
+   ],
+   "odoo": "vn.einvoice.format_version",
+   "rule": "Pick the parser profile by version. Keep accepting 2.1.0 permanently: archived invoices never change."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/THDon",
+   "tag": "THDon",
+   "vi": "Tên hóa đơn",
+   "en": "Invoice title as printed, e.g. \"Hóa đơn giá trị gia tăng\"",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "100",
+    "a2": "100",
+    "g": "100",
+    "h": "100",
+    "l": "100"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "Hóa đơn giá trị gia tăng",
+    "Hóa đơn GTGT",
+    "Hóa đơn bán hàng"
+   ],
+   "odoo": "vn.einvoice.title",
+   "rule": "Display only. Free text; do not infer the type from it, use KHMSHDon."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/KHMSHDon",
+   "tag": "KHMSHDon",
+   "vi": "Ký hiệu mẫu số hóa đơn",
+   "en": "Invoice form number: 1 VAT, 2 sales, 3 public asset, 4 national reserve, 5 stamps/tickets, 6 warehouse slip, 7 commercial, 8-9 with tax receipt",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục II kèm theo Quy định này)",
+   "len": {
+    "a": "1",
+    "a2": "1",
+    "g": "1",
+    "h": "1",
+    "l": "1"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "1",
+    "2"
+   ],
+   "odoo": "vn.einvoice.form_no",
+   "rule": "Drives the parser profile and tax treatment. Form 2 (sales invoice) carries no deductible input VAT."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/KHHDon",
+   "tag": "KHHDon",
+   "vi": "Ký hiệu hóa đơn",
+   "en": "Invoice symbol, 6 chars: C/K (with / without tax-authority code), 2-digit year, issuing channel letter (T enterprise, M cash register…), 2 seller chars",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "6",
+    "a2": "6",
+    "g": "6",
+    "h": "6",
+    "l": "6"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "C26TTD",
+    "C26TAA",
+    "C26MYY"
+   ],
+   "odoo": "vn.einvoice.symbol → account.move.ref (\"C26TQL-394\")",
+   "rule": "Part of the unique key. 1st char C ⇒ MCCQT must be present; K ⇒ none. 4th char M ⇒ cash-register profile."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/SHDon",
+   "tag": "SHDon",
+   "vi": "Số hóa đơn",
+   "en": "Invoice number within the symbol (up to 8 digits)",
+   "type": "Số",
+   "len": {
+    "a": "8",
+    "a2": "8",
+    "g": "8",
+    "h": "8",
+    "l": "8"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "130",
+    "21013",
+    "00029704"
+   ],
+   "odoo": "vn.einvoice.number → account.move.ref",
+   "rule": "Store as integer and as text; some providers zero-pad (\"00029704\"). Unique key = seller MST + KHMSHDon + KHHDon + SHDon."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/MHSo",
+   "tag": "MHSo",
+   "vi": "Mã hồ sơ",
+   "en": "Dossier code, only for invoices issued by the tax authority per occurrence",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "20",
+    "a2": "20"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp là hoá đơn đề nghị cấp mã của cơ quan thuế theo từng lần phát sinh)",
+    "a2": "Bắt buộc (Đối với trường hợp là hoá đơn đề nghị cấp mã của cơ quan thuế theo từng lần phát sinh)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.dossier_code",
+   "rule": "Store if present."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/NLap",
+   "tag": "NLap",
+   "vi": "Ngày lập",
+   "en": "Invoice date (YYYY-MM-DD, GMT+7)",
+   "type": "Ngày",
+   "len": {
+    "a": "",
+    "a2": "",
+    "g": "",
+    "h": "",
+    "l": ""
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "2026-10-26",
+    "2026-10-14",
+    "2026-09-01"
+   ],
+   "odoo": "account.move.invoice_date",
+   "rule": "Legal invoice date. Signing time (in DSCKS) can differ; keep both."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/HDCTTChinh",
+   "tag": "HDCTTChinh",
+   "vi": "Hoá đơn cho thuê tài chính (Hóa đơn đối với hoạt động cho thuê tài chính)",
+   "en": "Financial-lease invoice flag (1 yes / 0 no)",
+   "type": "Số (1: Hóa đơn dành cho hoạt động thuê tài chính, 0: Hóa đơn không dành cho hoạt động cho thuê tài chính)",
+   "len": {
+    "a": "1"
+   },
+   "req": {
+    "a": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 4,
+   "examples": [
+    "0"
+   ],
+   "odoo": "vn.einvoice.is_financial_lease",
+   "rule": "VAT form only. Some providers omit it in 2.1.0 files; default 0."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/SBKe",
+   "tag": "SBKe",
+   "vi": "Số bảng kê (Số của bảng kê các loại hàng hóa, dịch vụ đã bán kèm theo hóa đơn hoặc hóa đơn chiết khấu thương mại)",
+   "en": "Number of the attached goods list (bảng kê)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50",
+    "h": "50"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.annex_no",
+   "rule": "If present, the lines may be summarised; the detail is in a separate list not in the XML."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/NBKe",
+   "tag": "NBKe",
+   "vi": "Ngày bảng kê (Ngày của bảng kê các loại hàng hóa, dịch vụ đã bán kèm theo hóa đơn hoặc hóa đơn chiết khấu thương mại)",
+   "en": "Date of the attached goods list",
+   "type": "Ngày",
+   "len": {
+    "a": "",
+    "a2": "",
+    "g": "",
+    "h": ""
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.annex_date",
+   "rule": "Store if present."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/DVTTe",
+   "tag": "DVTTe",
+   "vi": "Đơn vị tiền tệ",
+   "en": "Currency code (VND, USD, … per Phụ lục XVI)",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục XVI và Khoản 2 Mục IV Phần I Quy định này)",
+   "len": {
+    "a": "3",
+    "a2": "3",
+    "g": "3",
+    "h": "3",
+    "l": "3"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "VND"
+   ],
+   "odoo": "account.move.currency_id",
+   "rule": "Map ISO code to res.currency; fail if inactive."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/TGia",
+   "tag": "TGia",
+   "vi": "Tỷ giá",
+   "en": "Exchange rate to VND (7,2); required unless VND",
+   "type": "Số",
+   "len": {
+    "a": "7,2",
+    "a2": "7,2",
+    "g": "7,2",
+    "h": "7,2",
+    "l": "7,2"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Trừ trường hợp Đơn vị tiền tệ là VND)",
+    "a2": "Bắt buộc (Trừ trường hợp Đơn vị tiền tệ là VND)",
+    "g": "Bắt buộc (Trừ trường hợp Đơn vị tiền tệ là VND)",
+    "h": "Bắt buộc (Trừ trường hợp Đơn vị tiền tệ là VND)",
+    "l": "Bắt buộc (Trừ trường hợp Đơn vị tiền tệ là VND)"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "1",
+    "1.00"
+   ],
+   "odoo": "vn.einvoice.exchange_rate",
+   "rule": "Store the invoice rate; Odoo applies its own rate by date. Flag a large difference. \"1\" / \"1.00\" for VND."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/HTTToan",
+   "tag": "HTTToan",
+   "vi": "Hình thức thanh toán",
+   "en": "Payment method, free text (e.g. \"CK\", \"TM/CK\")",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50",
+    "h": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "CK",
+    "TM/CK"
+   ],
+   "odoo": "vn.einvoice.payment_method",
+   "rule": "Free text, not a code list. Informational only."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/MSTTCGP",
+   "tag": "MSTTCGP",
+   "vi": "Mã số thuế tổ chức cung cấp giải pháp hóa đơn điện tử",
+   "en": "Tax code of the e-invoice solution provider (Viettel, VNPT, MISA…)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "14",
+    "a2": "14",
+    "g": "14",
+    "h": "14",
+    "l": "14"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "0100686209",
+    "0100684378",
+    "0101243150"
+   ],
+   "odoo": "vn.einvoice.provider_vat",
+   "rule": "Useful to pick provider-specific quirk handling (Fkey, line TThue, TTKhac keys)."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/MSTDVNUNLHDon",
+   "tag": "MSTDVNUNLHDon",
+   "vi": "Mã số thuế đơn vị nhận ủy nhiệm lập hóa đơn",
+   "en": "Tax code of the party authorised to issue on the seller's behalf",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "14",
+    "a2": "14",
+    "g": "14",
+    "h": "14"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "a2": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "g": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.agent_vat",
+   "rule": "When present, the signer certificate may belong to this party, not the seller."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/TDVNUNLHDon",
+   "tag": "TDVNUNLHDon",
+   "vi": "Tên đơn vị nhận ủy nhiệm lập hóa đơn",
+   "en": "Name of the authorised issuing party",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "a2": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "g": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.agent_name",
+   "rule": "Store."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/DCDVNUNLHDon",
+   "tag": "DCDVNUNLHDon",
+   "vi": "Địa chỉ đơn vị nhận ủy nhiệm lập hóa đơn",
+   "en": "Address of the authorised issuing party",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "a2": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "g": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp ủy nhiệm lập hóa đơn)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.agent_address",
+   "rule": "Store."
+  },
+  {
+   "group": "Header",
+   "path": "HDon/DLHDon/TTChung/HDDCKPTQuan",
+   "tag": "HDDCKPTQuan",
+   "vi": "Hoá đơn dành cho khu phi thuế quan (Hóa đơn dành cho tổ chức, cá nhân trong khu phi thuế quan)",
+   "en": "Invoice for a buyer in a non-tariff zone (1 yes / 0 no)",
+   "type": "Số (1: Hóa đơn dành cho tổ chức, cá nhân trong khu phi thuế quan, 0: Hóa đơn không dành cho tổ chức, cá nhân trong khu phi thuế quan)",
+   "len": {
+    "a2": "1"
+   },
+   "req": {
+    "a2": "R"
+   },
+   "req_text": {
+    "a2": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 3,
+   "present": 4,
+   "examples": [
+    "0"
+   ],
+   "odoo": "vn.einvoice.non_tariff_zone",
+   "rule": "Sales form only in 1233. Seen empty on a VAT invoice and on cash-register sales invoices; tolerate anywhere."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/TCHDon",
+   "tag": "TCHDon",
+   "vi": "Tính chất hóa đơn",
+   "en": "Nature of this invoice: 1 replaces, 2 adjusts, 3 replaces several, 4 adjusts several, 5 commercial discount",
+   "type": "Số (1: Thay thế, 2: Điều chỉnh, 3: Thay thế nhiều hóa đơn, 4: Điều chỉnh nhiều hóa đơn, 5: Chiết khấu thương mại)",
+   "len": {
+    "a": "1",
+    "a2": "1",
+    "g": "1",
+    "h": "1",
+    "l": "1"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.relation_type",
+   "rule": "Presence of TTHDLQuan means this is not an ordinary invoice. 1/3: cancel the original bill and import this one. 2/4/5: import as adjustment (refund or extra bill by sign)."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/MSTCLQuan",
+   "tag": "MSTCLQuan",
+   "vi": "Mã số thuế có liên quan",
+   "en": "Tax code on the original invoice (when the seller was split/merged)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "14",
+    "a2": "14",
+    "g": "14",
+    "h": "14",
+    "l": "14"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với trường hợp lập hóa đơn điều chỉnh/ thay thế cho hóa đơn đã lập của đơn vị bị chia/ tách/ sáp nhập/ hợp nhất)",
+    "a2": "Bắt buộc (đối với trường hợp lập hóa đơn điều chỉnh/ thay thế cho hóa đơn đã lập của đơn vị bị chia/tách/ sáp nhập/ hợp nhất)",
+    "g": "Bắt buộc (đối với trường hợp lập hóa đơn điều chỉnh/ thay thế cho hóa đơn đã lập của đơn vị bị chia/ tách/ sáp nhập/ hợp nhất)",
+    "h": "Bắt buộc (đối với trường hợp lập hóa đơn điều chỉnh/ thay thế cho hóa đơn đã lập của đơn vị bị chia/ tách/ sáp nhập/ hợp nhất)",
+    "l": "Bắt buộc (đối với trường hợp lập hóa đơn điều chỉnh/ thay thế cho hóa đơn đã lập của đơn vị bị chia/tách/ sáp nhập/ hợp nhất)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_vat",
+   "rule": "Use instead of seller MST to find the original invoice."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/LHDCLQuan",
+   "tag": "LHDCLQuan",
+   "vi": "Loại hóa đơn có liên quan (Loại hóa đơn bị thay thế/điều chỉnh)",
+   "en": "Legal regime of the original invoice (Phụ lục VI)",
+   "type": "Số (Chi tiết tại Phụ lục VI kèm theo Quy định này)",
+   "len": {
+    "a": "1",
+    "a2": "1",
+    "g": "1",
+    "h": "1",
+    "l": "1"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "g": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_regime",
+   "rule": "Store."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/KHMSHDCLQuan",
+   "tag": "KHMSHDCLQuan",
+   "vi": "Ký hiệu mẫu số hóa đơn có liên quan (Ký hiệu mẫu số hóa đơn bị thay thế/điều chỉnh)",
+   "en": "Form number of the original invoice",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục II kèm theo Quy định này)",
+   "len": {
+    "a": "11",
+    "a2": "11",
+    "g": "11",
+    "h": "11",
+    "l": "1"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn có Ký hiệu mẫu số hóa đơn, Ký hiệu hóa đơn, Số hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn có Ký hiệu mẫu số hóa đơn, Ký hiệu hóa đơn, Số hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "g": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_form_no",
+   "rule": "With the next two fields: key to find the original vn.einvoice."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/KHHDCLQuan",
+   "tag": "KHHDCLQuan",
+   "vi": "Ký hiệu hóa đơn có liên quan (Ký hiệu hóa đơn bị thay thế/điều chỉnh)",
+   "en": "Symbol of the original invoice",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "8",
+    "a2": "8",
+    "g": "8",
+    "h": "8",
+    "l": "6"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn có Ký hiệu mẫu số hóa đơn, Ký hiệu hóa đơn, Số hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn có Ký hiệu mẫu số hóa đơn, Ký hiệu hóa đơn, Số hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "g": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_symbol",
+   "rule": "See above."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/SHDCLQuan",
+   "tag": "SHDCLQuan",
+   "vi": "Số hóa đơn có liên quan (Số hóa đơn bị thay thế/điều chỉnh)",
+   "en": "Number of the original invoice",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "8",
+    "a2": "8",
+    "g": "8",
+    "h": "8",
+    "l": "8"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn có Ký hiệu mẫu số hóa đơn, Ký hiệu hóa đơn, Số hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn có Ký hiệu mẫu số hóa đơn, Ký hiệu hóa đơn, Số hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "g": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_number",
+   "rule": "See above."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/NLHDCLQuan",
+   "tag": "NLHDCLQuan",
+   "vi": "Ngày lập hoá đơn có liên quan (Ngày lập hóa đơn bị thay thế/điều chỉnh)",
+   "en": "Date of the original invoice",
+   "type": "Ngày",
+   "len": {
+    "a": "",
+    "a2": "",
+    "g": "",
+    "h": "",
+    "l": ""
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn; Trừ trường hợp lý do 1, 2, 3, 9, 10, 12 tại Phụ lục XVII Quy định này)",
+    "g": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "h": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_date",
+   "rule": "See above."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/LDDCTThe",
+   "tag": "LDDCTThe",
+   "vi": "Lý do điều chỉnh/thay thế",
+   "en": "Reason code for the adjustment / replacement (Phụ lục XVII, 1–14)",
+   "type": "Số (Chi tiết tại phụ lục XVII Quy định này)",
+   "len": {
+    "a": "2",
+    "a2": "2",
+    "g": "2",
+    "h": "2",
+    "l": "2"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho 1 hóa đơn)",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.adjust_reason",
+   "rule": "New in 1233. Show the reason text on the Odoo document."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/GChu",
+   "tag": "GChu",
+   "vi": "Ghi chú",
+   "en": "Note on the adjustment / replacement",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "255",
+    "a2": "255",
+    "l": "255"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.adjust_note",
+   "rule": "Store."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/SBKCLQuan",
+   "tag": "SBKCLQuan",
+   "vi": "Số bảng kê có liên quan (Số bảng kê thay thế/điều chỉnh)",
+   "en": "Number of the list of invoices replaced/adjusted together",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho nhiều hóa đơn)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho nhiều hóa đơn)",
+    "g": "Bắt buộc (Đối với trường hợp thay thế cho nhiều hóa đơn)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_list_no",
+   "rule": "Multi-invoice case: the list is sent separately; flag for manual handling."
+  },
+  {
+   "group": "Related invoice",
+   "path": "HDon/DLHDon/TTChung/TTHDLQuan/NBKCLQuan",
+   "tag": "NBKCLQuan",
+   "vi": "Ngày bảng kê có liên quan (Ngày lập bảng kê thay thế/điều chỉnh)",
+   "en": "Date of that list",
+   "type": "Ngày",
+   "len": {
+    "a": "",
+    "a2": "",
+    "g": ""
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho nhiều hóa đơn)",
+    "a2": "Bắt buộc (Đối với trường hợp điều chỉnh, thay thế cho nhiều hóa đơn)",
+    "g": "Bắt buộc (Đối với trường hợp thay thế cho nhiều hóa đơn)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.related_list_date",
+   "rule": "See above."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/Ten",
+   "tag": "Ten",
+   "vi": "Tên",
+   "en": "Seller legal name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "CÔNG TY TNHH DỊCH VỤ BẢO VỆ THẮNG LỢI TOÀN DIỆN",
+    "CÔNG TY CỔ PHẦN VIỆC LÀM 24H",
+    "HỘ KINH DOANH NGUYỄN QUANG ANH"
+   ],
+   "odoo": "res.partner.name (purchases)",
+   "rule": "Display / partner creation only. Never match on name: one sample's signing certificate carries a different company name under the same tax code."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/MST",
+   "tag": "MST",
+   "vi": "Mã số thuế",
+   "en": "Seller tax code: 10 digits, 10-3 for a branch, or 12-digit personal ID for household businesses",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "14",
+    "a2": "14",
+    "g": "14",
+    "h": "14",
+    "l": "14"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "1602181122",
+    "0314071202",
+    "030088009541"
+   ],
+   "odoo": "Partner match key res.partner.vat (purchases); must equal own company VAT (sales)",
+   "rule": "Normalise (strip spaces). Keep branch suffix. Part of the unique key."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/DChi",
+   "tag": "DChi",
+   "vi": "Địa chỉ",
+   "en": "Seller address",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "Số 127, Đường Mộ, Phường Châu Đốc, An Giang",
+    "Tầng M, Tòa nhà Viet Dragon, số 141 Nguyễn Du, Phường Bến Thành, Thành",
+    "C9-32 khu đô thị Geleximco, đường Lê Trọng Tấn, Phường Dương Nội, TP H"
+   ],
+   "odoo": "res.partner.street (on creation)",
+   "rule": "Do not overwrite an existing partner address automatically."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/MCHang",
+   "tag": "MCHang",
+   "vi": "Mã cửa hàng",
+   "en": "Store code",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50",
+    "h": "50"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 3,
+   "examples": [
+    "ChiNhanh01",
+    "45kcff5hoypg_01"
+   ],
+   "odoo": "vn.einvoice.seller_store_code",
+   "rule": "Retail / cash-register sellers."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/TCHang",
+   "tag": "TCHang",
+   "vi": "Tên cửa hàng",
+   "en": "Store name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 3,
+   "examples": [
+    "HỘ KINH DOANH NGUYỄN QUANG ANH"
+   ],
+   "odoo": "vn.einvoice.seller_store_name",
+   "rule": "Store."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/TCQDGBTSan",
+   "tag": "TCQDGBTSan",
+   "vi": "Tên cơ quan được giao bán đấu giá tài sản",
+   "en": "Name of the agency assigned to auction the asset",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Rare."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/DCCQDGBTSan",
+   "tag": "DCCQDGBTSan",
+   "vi": "Địa chỉ cơ quan được giao bán đấu giá tài sản",
+   "en": "Address of the auction agency",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Rare."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/MSTCQDGBTSan",
+   "tag": "MSTCQDGBTSan",
+   "vi": "Mã số thuế cơ quan được giao bán đấu giá tài sản",
+   "en": "Tax code of the auction agency",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "14",
+    "a2": "14"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Rare."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/MDDKDoanh",
+   "tag": "MDDKDoanh",
+   "vi": "Mã địa điểm kinh doanh",
+   "en": "Business location code (fuel stations; household businesses)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "14",
+    "a2": "5",
+    "g": "14",
+    "h": "5",
+    "l": "5"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với doanh nghiệp có mã địa điểm kinh doanh xăng dầu)",
+    "a2": "Bắt buộc (đối với hộ kinh doanh, cá nhân kinh doanh)",
+    "g": "Bắt buộc (đối với doanh nghiệp có mã địa điểm kinh doanh xăng dầu)",
+    "h": "Bắt buộc (đối với HKD, CNKD)",
+    "l": "Bắt buộc (đối với HKD, CNKD)"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "00001"
+   ],
+   "odoo": "vn.einvoice.seller_location_code",
+   "rule": "Length 14 on VAT forms, 5 on sales forms."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/TDDKDoanh",
+   "tag": "TDDKDoanh",
+   "vi": "Tên địa điểm kinh doanh",
+   "en": "Business location name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "O",
+    "a2": "C",
+    "g": "O",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Bắt buộc (đối với hộ kinh doanh, cá nhân kinh doanh)",
+    "g": "Không bắt buộc",
+    "h": "Bắt buộc (đối với HKD, CNKD)",
+    "l": "Bắt buộc (đối với HKD, CNKD)"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "HỘ KINH DOANH NGUYỄN QUANG ANH",
+    "HỘ KINH DOANH PHỤ KIỆN ATI"
+   ],
+   "odoo": "vn.einvoice.seller_location_name",
+   "rule": "Store."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/DCDDKDoanh",
+   "tag": "DCDDKDoanh",
+   "vi": "Địa chỉ địa điểm kinh doanh",
+   "en": "Business location address",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với doanh nghiệp có nhiều địa điểm kinh doanh xăng dầu)",
+    "a2": "Bắt buộc (đối với hộ kinh doanh, cá nhân kinh doanh)",
+    "g": "Bắt buộc (đối với doanh nghiệp có nhiều địa điểm kinh doanh xăng dầu)",
+    "h": "Bắt buộc (đối với HKD, CNKD)",
+    "l": "Bắt buộc (đối với HKD, CNKD)"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "C9-32 khu đô thị Geleximco, đường Lê Trọng Tấn, Phường Dương Nội, TP H",
+    "45 Đường Hiệp Thành 43, Phường Tân Thới Hiệp, TP Hồ Chí Minh, Việt Nam"
+   ],
+   "odoo": "vn.einvoice.seller_location_address",
+   "rule": "Store."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/SDThoai",
+   "tag": "SDThoai",
+   "vi": "Số điện thoại",
+   "en": "Seller phone",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "20",
+    "a2": "20",
+    "g": "20",
+    "h": "20",
+    "l": "20"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 5,
+   "examples": [
+    "(02…24",
+    "098…86",
+    "098…45"
+   ],
+   "odoo": "res.partner.phone (on creation)",
+   "rule": "Optional."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/DCTDTu",
+   "tag": "DCTDTu",
+   "vi": "Địa chỉ thư điện tử",
+   "en": "Seller email",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 4,
+   "examples": [
+    "…@gmail.com",
+    "…@chauthanhpetro.vn"
+   ],
+   "odoo": "res.partner.email (on creation)",
+   "rule": "Optional."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/STKNHang",
+   "tag": "STKNHang",
+   "vi": "Số tài khoản ngân hàng",
+   "en": "Seller bank account number",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "30",
+    "a2": "30",
+    "g": "30",
+    "h": "30",
+    "l": "30"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 4,
+   "examples": [
+    "67…79",
+    "19…59",
+    "61…89"
+   ],
+   "odoo": "res.partner.bank.acc_number (suggest)",
+   "rule": "Purchases: propose as the vendor bank account, require confirmation (fraud risk if auto-trusted)."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/TNHang",
+   "tag": "TNHang",
+   "vi": "Tên ngân hàng",
+   "en": "Seller bank name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 4,
+   "examples": [
+    "Ngân Hàng Agribank Chi Nhánh Châu Đốc",
+    "Ngân hàng ACB",
+    "Ngân Hàng ACB - Chi Nhánh TP.HCM"
+   ],
+   "odoo": "res.bank (suggest)",
+   "rule": "See above."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/Fax",
+   "tag": "Fax",
+   "vi": "Fax",
+   "en": "Seller fax",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "20",
+    "a2": "20",
+    "l": "20"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 2,
+   "examples": [],
+   "odoo": "—",
+   "rule": "Often present but empty."
+  },
+  {
+   "group": "Seller",
+   "path": "HDon/DLHDon/NDHDon/NBan/Website",
+   "tag": "Website",
+   "vi": "Website",
+   "en": "Seller website",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "100",
+    "a2": "100",
+    "l": "100"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 2,
+   "examples": [],
+   "odoo": "res.partner.website (on creation)",
+   "rule": "Often present but empty."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/Ten",
+   "tag": "Ten",
+   "vi": "Tên",
+   "en": "Buyer legal name (organisation)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có/đối với hàng hóa đặc trưng 1- tên của người đăng ký)",
+    "a2": "Bắt buộc (Nếu có/ đối với hàng hóa đặc trưng 1-Tên người đăng ký)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "CHI NHÁNH CÔNG TY TNHH DỊCH VỤ THƯƠNG MẠI QUANG PHƯƠNG",
+    "CÔNG TY TNHH DV TM QUANG PHƯƠNG"
+   ],
+   "odoo": "res.partner.name (sales)",
+   "rule": "Absent for individual consumers."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/MST",
+   "tag": "MST",
+   "vi": "Mã số thuế",
+   "en": "Buyer tax code",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "14",
+    "a2": "14",
+    "g": "14",
+    "h": "14",
+    "l": "14"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có/đối với hàng hóa đặc trưng 1-MST của người đăng ký)",
+    "a2": "Bắt buộc (Nếu có/ đối với hàng hóa đặc trưng 1-MST người đăng ký)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "0317253698-001",
+    "0317253698"
+   ],
+   "odoo": "Purchases: must equal own company / branch VAT → company_id. Sales: partner match key",
+   "rule": "Branch invoices carry -001 etc.; map each VAT to the right Odoo company or branch. Reject purchases addressed to another tax code."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/MDVQHNSach",
+   "tag": "MDVQHNSach",
+   "vi": "Mã đơn vị quan hệ ngân sách (Mã số đơn vị có quan hệ với ngân sách)",
+   "en": "Budget-relationship unit code (state-funded buyers)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "7",
+    "a2": "7",
+    "g": "7",
+    "h": "7",
+    "l": "7"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (nếu có)",
+    "h": "Bắt buộc (nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 1,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Usually empty."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/DChi",
+   "tag": "DChi",
+   "vi": "Địa chỉ",
+   "en": "Buyer address",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "g": "400",
+    "h": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với hàng hóa đặc trưng 1-địa chỉ cư trú nơi đăng ký phương tiện của người đăng ký)",
+    "a2": "Bắt buộc (Nếu có/ đối với hàng hóa đặc trưng 1- địa chỉ cư trú nơi đăng ký phương tiện của người đăng ký)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 6,
+   "present": 6,
+   "examples": [
+    "Số 191A, đường tỉnh 948, tổ 2, ấp Tân Long, Phường Chi Lăng, Tỉnh An G",
+    "244 Hồ Học Lãm, Phường An Lạc, TP Hồ Chí Minh, Việt Nam",
+    "244 Hồ Học Lãm, Phường An Lạc, Thành phố Hồ Chí Minh, Việt Nam"
+   ],
+   "odoo": "res.partner.street (sales, on creation)",
+   "rule": "Store."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/MTinh",
+   "tag": "MTinh",
+   "vi": "Mã tỉnh (Mã tỉnh, thành phố)",
+   "en": "Province code (vehicle registration goods)",
+   "type": "Chuỗi ký tự (theo Quyết định số 19/2025/QĐ-TTg)",
+   "len": {
+    "a": "2",
+    "a2": "2"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với hàng hóa đặc trưng 1)",
+    "a2": "Bắt buộc (Đối với hàng hóa đặc trưng 1)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Only with special goods type 1."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/TTinh",
+   "tag": "TTinh",
+   "vi": "Tên tỉnh (Tên tỉnh, thành phố)",
+   "en": "Province name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với hàng hóa đặc trưng 1)",
+    "a2": "Bắt buộc (Đối với hàng hóa đặc trưng 1)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Only with special goods type 1."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/MXa",
+   "tag": "MXa",
+   "vi": "Mã xã (Mã xã, phường)",
+   "en": "Ward / commune code",
+   "type": "Chuỗi ký tự (theo Quyết định số 19/2025/QĐ-TTg)",
+   "len": {
+    "a": "5",
+    "a2": "5"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có/ đối với hàng hóa đặc trưng 1)",
+    "a2": "Bắt buộc (Đối với hàng hóa đặc trưng 1)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Only with special goods type 1."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/TXa",
+   "tag": "TXa",
+   "vi": "Tên xã (Tên xã, phường)",
+   "en": "Ward / commune name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Đối với hàng hóa đặc trưng 1)",
+    "a2": "Bắt buộc (Nếu có/ đối với hàng hóa đặc trưng 1)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Only with special goods type 1."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/MKHang",
+   "tag": "MKHang",
+   "vi": "Mã khách hàng",
+   "en": "Customer code in the seller's system",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "009",
+    "23E00974"
+   ],
+   "odoo": "vn.einvoice.buyer_ref",
+   "rule": "Purchases: your account number at the supplier; useful for matching statements."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/SDDTCNNgoai",
+   "tag": "SDDTCNNgoai",
+   "vi": "Số định danh tổ chức nước ngoài",
+   "en": "Identification number of a foreign organisation",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50",
+    "h": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Rare."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/SDThoai",
+   "tag": "SDThoai",
+   "vi": "Số điện thoại",
+   "en": "Buyer phone",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "20",
+    "a2": "20",
+    "g": "20",
+    "h": "20",
+    "l": "20"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với hàng hóa đặc trưng 1- số điện thoại của người đăng ký)",
+    "a2": "Bắt buộc (đối với hàng hóa đặc trưng 1-Số điện thoại của người đăng ký phương tiện)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "res.partner.phone (sales, on creation)",
+   "rule": "Optional."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/CCCDan",
+   "tag": "CCCDan",
+   "vi": "Căn cước công dân (Số CC/CCCD/số định danh)",
+   "en": "Citizen ID / personal ID number of an individual buyer",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "12",
+    "a2": "12",
+    "g": "12",
+    "h": "12",
+    "l": "12"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với người tiêu dùng là cá nhân có cung cấp thông tin)",
+    "a2": "Bắt buộc (đối với người tiêu dùng là cá nhân cung cấp thông tin)",
+    "g": "Bắt buộc (Đối với người tiêu dùng là cá nhân có cung cấp thông tin)",
+    "h": "Bắt buộc (Đối với người tiêu dùng là cá nhân có cung cấp thông tin)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 1,
+   "examples": [],
+   "odoo": "vn.einvoice.buyer_id_no",
+   "rule": "Personal data: store only on the e-invoice record, restrict access."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/SHChieu",
+   "tag": "SHChieu",
+   "vi": "Số hộ chiếu (Số hộ chiếu/Giấy tờ nhập xuất cảnh)",
+   "en": "Passport number of an individual buyer",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "20",
+    "a2": "20",
+    "g": "20",
+    "h": "20",
+    "l": "20"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với người tiêu dùng là cá nhân có cung cấp thông tin)",
+    "a2": "Bắt buộc (đối với người tiêu dùng là cá nhân cung cấp thông tin)",
+    "g": "Bắt buộc (Đối với người tiêu dùng là cá nhân có cung cấp thông tin)",
+    "h": "Bắt buộc (Đối với người tiêu dùng là cá nhân có cung cấp thông tin)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 1,
+   "examples": [],
+   "odoo": "vn.einvoice.buyer_passport",
+   "rule": "Personal data, as above."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/MQTNMua",
+   "tag": "MQTNMua",
+   "vi": "Mã quốc tịch người mua",
+   "en": "Buyer nationality code (Phụ lục XIX)",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục XIX Quy định này)",
+   "len": {
+    "a": "2",
+    "a2": "2",
+    "g": "2",
+    "h": "2",
+    "l": "2"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "a2": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "g": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "h": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "l": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Foreign individuals."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/QTNMua",
+   "tag": "QTNMua",
+   "vi": "Quốc tịch của người mua",
+   "en": "Buyer nationality name",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục XIX Quy định này)",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50",
+    "h": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "a2": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "g": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "h": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)",
+    "l": "Bắt buộc (đối với người mua là người nước ngoài cung cấp thông tin)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Foreign individuals."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/DCTDTu",
+   "tag": "DCTDTu",
+   "vi": "Địa chỉ thư điện tử",
+   "en": "Buyer email",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 3,
+   "present": 3,
+   "examples": [
+    "…@nhanlucsieuviet.com",
+    "…@gmail.com"
+   ],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Optional."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/HVTNMHang",
+   "tag": "HVTNMHang",
+   "vi": "Họ và tên người mua hàng",
+   "en": "Name of the person buying; \"Bán cho người tiêu dùng\" when unknown",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "100",
+    "a2": "100",
+    "g": "100",
+    "h": "100",
+    "l": "100"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có/ “Bán cho người tiêu dùng” nếu không có thông tin người mua)",
+    "a2": "Bắt buộc (Nếu có/ “Bán cho người tiêu dùng” nếu không có thông tin người mua)",
+    "g": "Bắt buộc (Nếu có/ “Bán cho người tiêu dùng” nếu không có thông tin người mua)",
+    "h": "Bắt buộc (Nếu có/ “Bán cho người tiêu dùng” nếu không có thông tin người mua)",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 4,
+   "examples": [
+    "Bán cho người tiêu dùng"
+   ],
+   "odoo": "vn.einvoice.buyer_contact",
+   "rule": "Free text and misused: one fuel invoice puts a licence plate here. Never use for matching."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/STKNHang",
+   "tag": "STKNHang",
+   "vi": "Số tài khoản ngân hàng",
+   "en": "Buyer bank account",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "30",
+    "a2": "30",
+    "l": "30"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Optional."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/TNHang",
+   "tag": "TNHang",
+   "vi": "Tên ngân hàng",
+   "en": "Buyer bank name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "400",
+    "a2": "400",
+    "l": "400"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Optional."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/KBHang",
+   "tag": "KBHang",
+   "vi": "Kênh bán hàng",
+   "en": "Sales channel, e.g. \"Shopee\" (2.1.0 only)",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "removed",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "Shopee"
+   ],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Present in 2.1.0 cash-register samples; dropped in 1233."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/TGHang",
+   "tag": "TGHang",
+   "vi": "Tên gian hàng",
+   "en": "Shop name on the platform (2.1.0 only)",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "removed",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "Gối công thái học EMA Việt Nam",
+    "Origin-Phụ kiện điện thoại"
+   ],
+   "odoo": "vn.einvoice (store)",
+   "rule": "As above."
+  },
+  {
+   "group": "Buyer",
+   "path": "HDon/DLHDon/NDHDon/NMua/MDHang",
+   "tag": "MDHang",
+   "vi": "Mã đơn hàng",
+   "en": "Platform order ID (2.1.0 only)",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "removed",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "260827FJ37S7BQ",
+    "260922NREM6RXA"
+   ],
+   "odoo": "vn.einvoice (store)",
+   "rule": "As above."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TChat",
+   "tag": "TChat",
+   "vi": "Tính chất",
+   "en": "Line type: 1 goods/service, 2 promotion, 3 commercial discount, 4 note, 5 special goods",
+   "type": "Số (Chi tiết tại Phụ lục IV Quy định này)",
+   "len": {
+    "a": "1",
+    "a2": "1",
+    "g": "1",
+    "h": "1",
+    "l": "1"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "1"
+   ],
+   "odoo": "account.move.line (type decides how)",
+   "rule": "1 normal line; 2 line at zero price; 3 negative line; 4 display_type=\"line_note\"; 5 normal line + TTHHDTrung data."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/STT",
+   "tag": "STT",
+   "vi": "Số thứ tự",
+   "en": "Line number",
+   "type": "Số",
+   "len": {
+    "a": "4",
+    "a2": "4",
+    "g": "4",
+    "h": "4",
+    "l": "4"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "1",
+    "2",
+    "3"
+   ],
+   "odoo": "account.move.line.sequence",
+   "rule": "Optional; fall back to document order."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/MHHDVu",
+   "tag": "MHHDVu",
+   "vi": "Mã hàng hóa, dịch vụ",
+   "en": "Seller's product code",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50",
+    "h": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "product_121",
+    "product_128",
+    "product_185"
+   ],
+   "odoo": "product via product.supplierinfo.product_code (purchases)",
+   "rule": "Main key for product matching on supplier lines. Often absent; then fall back to name or a manual mapping table."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/THHDVu",
+   "tag": "THHDVu",
+   "vi": "Tên hàng hóa, dịch vụ",
+   "en": "Product / service description",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "500",
+    "a2": "500",
+    "g": "500",
+    "h": "500",
+    "l": "500"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "Phí dịch vụ bảo vệ tháng 10/2026",
+    "Tin cơ bản - 4 tuần",
+    "Trang chủ - tuyển gấp - 1 tuần"
+   ],
+   "odoo": "account.move.line.name",
+   "rule": "Always keep the original text."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/DVTinh",
+   "tag": "DVTinh",
+   "vi": "Đơn vị tính",
+   "en": "Unit of measure, free text (\"MÉT\", \"Lít\", \"Cái\")",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "50",
+    "a2": "50",
+    "g": "50",
+    "h": "50",
+    "l": "50"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "tháng",
+    "Tin",
+    "Gói"
+   ],
+   "odoo": "account.move.line.product_uom_id (via mapping table)",
+   "rule": "Free text, any case. Needs a supplier-text → uom.uom mapping table."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/SLuong",
+   "tag": "SLuong",
+   "vi": "Số lượng",
+   "en": "Quantity (21,6)",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6",
+    "g": "21,6",
+    "h": "21,6",
+    "l": "21,6"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "1",
+    "1.000000",
+    "2040"
+   ],
+   "odoo": "account.move.line.quantity",
+   "rule": "Decimal."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/DGia",
+   "tag": "DGia",
+   "vi": "Đơn giá",
+   "en": "Unit price before tax (21,6)",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6",
+    "g": "21,6",
+    "h": "21,6",
+    "l": "21,6"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "14000000",
+    "1204000",
+    "2282000"
+   ],
+   "odoo": "account.move.line.price_unit",
+   "rule": "May carry 3+ decimals when back-calculated from a gross price."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TLCKhau",
+   "tag": "TLCKhau",
+   "vi": "Tỷ lệ % chiết khấu (Trong trường hợp thể hiện thông tin chiết khấu cho từng hàng hóa, dịch vụ)",
+   "en": "Line discount % (6,4)",
+   "type": "Số",
+   "len": {
+    "a": "6,4",
+    "a2": "6,4",
+    "g": "6,4",
+    "h": "6,4"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O"
+   },
+   "req_text": {
+    "a": "Không Bắt buộc",
+    "a2": "Không Bắt buộc",
+    "g": "Không Bắt buộc",
+    "h": "Không Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 4,
+   "present": 6,
+   "examples": [
+    "0",
+    "0.0000"
+   ],
+   "odoo": "account.move.line.discount",
+   "rule": "Often present but empty."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/STCKhau",
+   "tag": "STCKhau",
+   "vi": "Số tiền chiết khấu (Trong trường hợp thể hiện thông tin chiết khấu cho từng hàng hóa, dịch vụ)",
+   "en": "Line discount amount",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6",
+    "g": "21,6",
+    "h": "21,6"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O"
+   },
+   "req_text": {
+    "a": "Không Bắt buộc",
+    "a2": "Không Bắt buộc",
+    "g": "Không Bắt buộc",
+    "h": "Không Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 6,
+   "present": 8,
+   "examples": [
+    "0",
+    "0.000000"
+   ],
+   "odoo": "vn.einvoice.line.discount_amount",
+   "rule": "Odoo lines take a %, not an amount: convert, or fold into price_unit."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/ThTien",
+   "tag": "ThTien",
+   "vi": "Thành tiền (Thành tiền chưa có thuế GTGT)",
+   "en": "Line amount before VAT (after discount)",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6",
+    "g": "21,6",
+    "h": "21,6",
+    "l": "21,6"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Trừ trường hợp TChat có giá trị là “4-Ghi chú/diễn giải”)",
+    "a2": "Bắt buộc (Trừ trường hợp TChat có giá trị là “4-Ghi chú/diễn giải”)",
+    "g": "Bắt buộc (Trừ trường hợp TChat có giá trị là “4-Ghi chú/diễn giải”)",
+    "h": "Bắt buộc (Trừ trường hợp TChat có giá trị là “4-Ghi chú/diễn giải”)",
+    "l": "Bắt buộc (Trừ trường hợp TChat có giá trị là “4-Ghi chú/diễn giải”)"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "14000000",
+    "1204000.0",
+    "2282000.0"
+   ],
+   "odoo": "Checked against account.move.line.price_subtotal",
+   "rule": "Authoritative amount. Do not require ThTien = SLuong × DGia exactly: fuel invoices differ by up to tens of đồng."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TSuat",
+   "tag": "TSuat",
+   "vi": "Thuế suất (Thuế suất thuế GTGT)",
+   "en": "VAT rate code on the line (Phụ lục V)",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục V Quy định này)",
+   "len": {
+    "a": "11",
+    "g": "11"
+   },
+   "req": {
+    "a": "C",
+    "g": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "8%",
+    "KKKNT"
+   ],
+   "odoo": "account.move.line.tax_ids (via tax mapping)",
+   "rule": "VAT forms only. KCT and KKKNT are not 0%: no input VAT. Map each code to an Odoo tax explicitly."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/MNNNghe",
+   "tag": "MNNNghe",
+   "vi": "Mã nhóm ngành nghề",
+   "en": "Business-activity group code of a household seller (Phụ lục XVIII, e.g. 01_2)",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục XVIII theo Quy định này)",
+   "len": {
+    "a2": "4",
+    "h": "4"
+   },
+   "req": {
+    "a2": "O",
+    "h": "O"
+   },
+   "req_text": {
+    "a2": "Không bắt buộc",
+    "h": "Không bắt buộc (Phụ lục XVIII)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.line.activity_code",
+   "rule": "Replaces the free-text NNNghe of 2.1.0."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TThue",
+   "tag": "TThue",
+   "vi": "—",
+   "en": "Line VAT amount (not in 1233 line tables)",
+   "type": "Số",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "vendor",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "35185216",
+    "0"
+   ],
+   "odoo": "Validation",
+   "rule": "Seen from the provider with tax code 0100109106. Use only as a cross-check."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/NNNghe",
+   "tag": "NNNghe",
+   "vi": "Ngành nghề",
+   "en": "Business activity, free text (2.1.0); replaced by MNNNghe code",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "removed",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "Phân phối, cung cấp hàng hóa"
+   ],
+   "odoo": "vn.einvoice.line (store)",
+   "rule": "Map text to MNNNghe where possible."
+  },
+  {
+   "group": "Lines",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TLTThue",
+   "tag": "TLTThue",
+   "vi": "Tỷ lệ tính thuế",
+   "en": "Revenue-based tax rate of a household seller, e.g. \"1%\" (2.1.0)",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "removed",
+   "seen": 1,
+   "present": 1,
+   "examples": [
+    "1%"
+   ],
+   "odoo": "vn.einvoice.line (store)",
+   "rule": "Dropped in 1233. No input VAT either way."
+  },
+  {
+   "group": "Special goods",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TTHHDTrung/TTin/LHHDTrung",
+   "tag": "LHHDTrung",
+   "vi": "Loại hàng hóa đặc trưng",
+   "en": "Special-goods type (Phụ lục XV): 1 vehicles, 2 transport, 3 platform transport, 4 registered assets",
+   "type": "Số (Chi tiết Phụ lục XV, Quy định này)",
+   "len": {
+    "a": "1",
+    "a2": "1",
+    "g": "1",
+    "h": "1"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.line (store)",
+   "rule": "Rare for a garment business; store as key/value."
+  },
+  {
+   "group": "Special goods",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TTHHDTrung/TTin/TTruong",
+   "tag": "TTruong",
+   "vi": "Tên trường",
+   "en": "Special-goods field name (SKhung, SMay, …)",
+   "type": "Chuỗi ký tự (Chi tiết Cột “Giá trị bắt buộc” tại Phụ lục XV Quy định này)",
+   "len": {
+    "a": "20",
+    "a2": "20",
+    "g": "20",
+    "h": "20"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.line (store)",
+   "rule": "Store as key/value."
+  },
+  {
+   "group": "Special goods",
+   "path": "HDon/DLHDon/NDHDon/DSHHDVu/HHDVu/TTHHDTrung/TTin/DLieu",
+   "tag": "DLieu",
+   "vi": "Dữ liệu",
+   "en": "Special-goods field value",
+   "type": "",
+   "len": {
+    "a": "200",
+    "a2": "200",
+    "g": "200",
+    "h": "200"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "vn.einvoice.line (store)",
+   "rule": "Store as key/value."
+  },
+  {
+   "group": "Tax summary",
+   "path": "HDon/DLHDon/NDHDon/TToan/THTTLTSuat/LTSuat/TSuat",
+   "tag": "TSuat",
+   "vi": "Thuế suất (Thuế suất thuế GTGT)",
+   "en": "VAT rate code of this summary row",
+   "type": "Chuỗi ký tự (Chi tiết tại Phụ lục V Quy định này)",
+   "len": {
+    "a": "11",
+    "g": "11"
+   },
+   "req": {
+    "a": "C",
+    "g": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "8%",
+    "KKKNT"
+   ],
+   "odoo": "Validation",
+   "rule": "One row per distinct rate."
+  },
+  {
+   "group": "Tax summary",
+   "path": "HDon/DLHDon/NDHDon/TToan/THTTLTSuat/LTSuat/ThTien",
+   "tag": "ThTien",
+   "vi": "Thành tiền (Thành tiền chưa có thuế GTGT)",
+   "en": "Net amount at this rate",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "g": "21,6"
+   },
+   "req": {
+    "a": "R",
+    "g": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "g": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "14000000",
+    "5411000.0",
+    "439815200"
+   ],
+   "odoo": "Validation vs sum of lines at that rate",
+   "rule": "Must equal the line sum (±1 đồng)."
+  },
+  {
+   "group": "Tax summary",
+   "path": "HDon/DLHDon/NDHDon/TToan/THTTLTSuat/LTSuat/TThue",
+   "tag": "TThue",
+   "vi": "Tiền thuế (Tiền thuế GTGT)",
+   "en": "VAT amount at this rate",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "g": "21,6"
+   },
+   "req": {
+    "a": "C",
+    "g": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "1120000",
+    "432880.0",
+    "35185216"
+   ],
+   "odoo": "Validation vs Odoo tax line",
+   "rule": "Must equal ThTien × rate (±1 đồng) for numeric rates."
+  },
+  {
+   "group": "Fees",
+   "path": "HDon/DLHDon/NDHDon/TToan/DSLPhi/LPhi/TLPhi",
+   "tag": "TLPhi",
+   "vi": "Tên loại phí",
+   "en": "Fee / charge name",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "100",
+    "a2": "100",
+    "g": "100",
+    "l": "100"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "account.move.line (extra line)",
+   "rule": "Rare. Add as a line without VAT."
+  },
+  {
+   "group": "Fees",
+   "path": "HDon/DLHDon/NDHDon/TToan/DSLPhi/LPhi/TPhi",
+   "tag": "TPhi",
+   "vi": "Tiền phí",
+   "en": "Fee / charge amount",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6",
+    "g": "21,6",
+    "l": "21,6"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "account.move.line.price_unit",
+   "rule": "Include in the total check."
+  },
+  {
+   "group": "Totals",
+   "path": "HDon/DLHDon/NDHDon/TToan/TgTCThue",
+   "tag": "TgTCThue",
+   "vi": "Tổng tiền chưa thuế (Tổng cộng thành tiền chưa có thuế GTGT)",
+   "en": "Total before VAT",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "g": "21,6"
+   },
+   "req": {
+    "a": "R",
+    "g": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "g": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "14000000",
+    "5411000.0",
+    "439815200"
+   ],
+   "odoo": "Checked against account.move.amount_untaxed",
+   "rule": "VAT forms only. Whole đồng for VND."
+  },
+  {
+   "group": "Totals",
+   "path": "HDon/DLHDon/NDHDon/TToan/TGTKCThue",
+   "tag": "TGTKCThue",
+   "vi": "Tổng giảm trừ không chịu thuế",
+   "en": "Total non-taxable deductions",
+   "type": "Số",
+   "len": {
+    "a": "21,6"
+   },
+   "req": {
+    "a": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "0"
+   ],
+   "odoo": "vn.einvoice (store)",
+   "rule": "Usually 0."
+  },
+  {
+   "group": "Totals",
+   "path": "HDon/DLHDon/NDHDon/TToan/TgTThue",
+   "tag": "TgTThue",
+   "vi": "Tổng tiền thuế (Tổng cộng tiền thuế GTGT)",
+   "en": "Total VAT",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "g": "21,6"
+   },
+   "req": {
+    "a": "R",
+    "g": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "g": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "1120000",
+    "432880.0",
+    "35185216"
+   ],
+   "odoo": "Checked against account.move.amount_tax",
+   "rule": "VAT forms only."
+  },
+  {
+   "group": "Totals",
+   "path": "HDon/DLHDon/NDHDon/TToan/TTCKTMai",
+   "tag": "TTCKTMai",
+   "vi": "Tổng tiền chiết khấu thương mại",
+   "en": "Total commercial discount",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6",
+    "g": "21,6",
+    "h": "21,6"
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "C",
+    "h": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Bắt buộc (Nếu có)",
+    "h": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 6,
+   "present": 6,
+   "examples": [
+    "0",
+    "0.000000"
+   ],
+   "odoo": "Validation",
+   "rule": "Subtract in the total check."
+  },
+  {
+   "group": "Totals",
+   "path": "HDon/DLHDon/NDHDon/TToan/TGTKhac",
+   "tag": "TGTKhac",
+   "vi": "Tổng giảm trừ khác",
+   "en": "Total other deductions",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6"
+   },
+   "req": {
+    "a": "O",
+    "a2": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 2,
+   "present": 2,
+   "examples": [
+    "0"
+   ],
+   "odoo": "Validation",
+   "rule": "Subtract in the total check."
+  },
+  {
+   "group": "Totals",
+   "path": "HDon/DLHDon/NDHDon/TToan/TgTTTBSo",
+   "tag": "TgTTTBSo",
+   "vi": "Tổng tiền thanh toán bằng số",
+   "en": "Total payable (number)",
+   "type": "Số",
+   "len": {
+    "a": "21,6",
+    "a2": "21,6",
+    "g": "21,6",
+    "h": "21,6",
+    "l": "21,6"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "15120000",
+    "5843880.0",
+    "795000.000000"
+   ],
+   "odoo": "Checked against account.move.amount_total",
+   "rule": "The figure that must reconcile. Some providers write \"5411000.0\" or \"795000.000000\"; parse as Decimal."
+  },
+  {
+   "group": "Totals",
+   "path": "HDon/DLHDon/NDHDon/TToan/TgTTTBChu",
+   "tag": "TgTTTBChu",
+   "vi": "Tổng tiền thanh toán bằng chữ",
+   "en": "Total payable in words (Vietnamese)",
+   "type": "Chuỗi ký tự",
+   "len": {
+    "a": "255",
+    "a2": "255",
+    "g": "255",
+    "h": "255",
+    "l": "255"
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "g": "R",
+    "h": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "g": "Bắt buộc",
+    "h": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "Mười lăm triệu một trăm hai mươi nghìn đồng",
+    "Năm triệu tám trăm bốn mươi ba nghìn tám trăm tám mươi đồng chẵn.",
+    "Bảy trăm chín mươi lăm nghìn đồng chẵn."
+   ],
+   "odoo": "vn.einvoice.amount_in_words",
+   "rule": "Display only."
+  },
+  {
+   "group": "Signatures",
+   "path": "HDon/DSCKS/NBan/Signature",
+   "tag": "Signature",
+   "vi": "Chữ ký số người bán",
+   "en": "Seller's digital signature (XML-DSig now, XAdES from 2027)",
+   "type": "",
+   "len": {
+    "a": "",
+    "a2": "",
+    "g": "",
+    "h": "",
+    "l": ""
+   },
+   "req": {
+    "a": "C",
+    "a2": "C",
+    "g": "O",
+    "h": "O",
+    "l": "C"
+   },
+   "req_text": {
+    "a": "Bắt buộc (Nếu có)",
+    "a2": "Bắt buộc (Nếu có)",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Bắt buộc (Nếu có)"
+   },
+   "status": "spec",
+   "seen": 6,
+   "present": 6,
+   "examples": [
+    "<…>"
+   ],
+   "odoo": "vn.einvoice.seller_sig_ok / signer_vat / signed_at",
+   "rule": "Verify. Identify signer by UID=MST in the certificate, not by name. Optional on cash-register invoices."
+  },
+  {
+   "group": "Signatures",
+   "path": "HDon/DSCKS/NMua/Signature",
+   "tag": "Signature",
+   "vi": "Chữ ký số người mua",
+   "en": "Buyer's digital signature",
+   "type": "",
+   "len": {
+    "a": "",
+    "a2": "",
+    "g": "",
+    "h": "",
+    "l": ""
+   },
+   "req": {
+    "a": "O",
+    "a2": "O",
+    "g": "O",
+    "h": "O",
+    "l": "O"
+   },
+   "req_text": {
+    "a": "Không bắt buộc",
+    "a2": "Không bắt buộc",
+    "g": "Không bắt buộc",
+    "h": "Không bắt buộc",
+    "l": "Không bắt buộc"
+   },
+   "status": "spec",
+   "seen": 0,
+   "present": 0,
+   "examples": [],
+   "odoo": "—",
+   "rule": "Normally empty."
+  },
+  {
+   "group": "Signatures",
+   "path": "HDon/DSCKS/CQT/Signature",
+   "tag": "Signature",
+   "vi": "Chữ ký số cơ quan thuế",
+   "en": "Tax authority's digital signature (covers the data and MCCQT)",
+   "type": "",
+   "len": {
+    "a": "",
+    "a2": "",
+    "l": ""
+   },
+   "req": {
+    "a": "R",
+    "a2": "R",
+    "l": "R"
+   },
+   "req_text": {
+    "a": "Bắt buộc",
+    "a2": "Bắt buộc",
+    "l": "Bắt buộc"
+   },
+   "status": "spec",
+   "seen": 5,
+   "present": 5,
+   "examples": [
+    "<…>"
+   ],
+   "odoo": "vn.einvoice.cqt_sig_ok",
+   "rule": "Present on coded invoices (C). This is what proves MCCQT is genuine."
+  },
+  {
+   "group": "Signatures",
+   "path": "HDon/DSCKS/CQT",
+   "tag": "CQT",
+   "vi": "Chữ ký số cơ quan thuế",
+   "en": "Container of the tax-authority signature",
+   "type": "",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "structure",
+   "seen": 5,
+   "present": 5,
+   "examples": [],
+   "odoo": "—",
+   "rule": "1233 lists the signature under DSCKS; files place it in DSCKS/CQT."
+  },
+  {
+   "group": "Signatures",
+   "path": "HDon/DSCKS/CCKSKhac",
+   "tag": "CCKSKhac",
+   "vi": "Các chữ ký số khác",
+   "en": "Container for other signatures",
+   "type": "",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "structure",
+   "seen": 2,
+   "present": 2,
+   "examples": [],
+   "odoo": "—",
+   "rule": "Usually empty."
+  },
+  {
+   "group": "Extension",
+   "path": "HDon/DLHDon/…/TTKhac/TTin/TTruong",
+   "tag": "TTruong",
+   "vi": "Tên trường",
+   "en": "Extension field name, chosen by the seller or provider",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "structure",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "Amount",
+    "Mã số bí mật",
+    "tthue"
+   ],
+   "odoo": "vn.einvoice.extra_json",
+   "rule": "Allowed at any level. Keys are free text in English or Vietnamese with spaces. Store raw; never rely on them."
+  },
+  {
+   "group": "Extension",
+   "path": "HDon/DLHDon/…/TTKhac/TTin/KDLieu",
+   "tag": "KDLieu",
+   "vi": "Kiểu dữ liệu",
+   "en": "Extension data type: string, numeric, dateTime, date (Phụ lục III)",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "structure",
+   "seen": 8,
+   "present": 8,
+   "examples": [
+    "numeric",
+    "string",
+    "Decimal"
+   ],
+   "odoo": "vn.einvoice.extra_json",
+   "rule": "Samples also use \"Decimal\", \"number\", and \"numeric\" holding \"False\". Treat as a hint only."
+  },
+  {
+   "group": "Extension",
+   "path": "HDon/DLHDon/…/TTKhac/TTin/DLieu",
+   "tag": "DLieu",
+   "vi": "Dữ liệu",
+   "en": "Extension value",
+   "type": "Chuỗi ký tự",
+   "len": {},
+   "req": {},
+   "req_text": {},
+   "status": "structure",
+   "seen": 8,
+   "present": 8,
+   "examples": [],
+   "odoo": "vn.einvoice.extra_json",
+   "rule": "May contain lookup secrets (\"Mã số bí mật\"); restrict access."
+  }
+ ],
+ "codes": [
+  {
+   "id": "KHMSHDon",
+   "title": "Invoice form number",
+   "field": "KHMSHDon",
+   "source": "1233 Phụ lục II",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    "Treatment in Odoo"
+   ],
+   "rows": [
+    [
+     "1",
+     "Hóa đơn điện tử giá trị gia tăng",
+     "VAT invoice",
+     "Input VAT deductible per line rate"
+    ],
+    [
+     "2",
+     "Hóa đơn điện tử bán hàng",
+     "Sales invoice",
+     "No input VAT; whole amount is cost"
+    ],
+    [
+     "3",
+     "Hóa đơn điện tử bán tài sản công",
+     "Public-asset sale invoice",
+     "Out of scope"
+    ],
+    [
+     "4",
+     "Hóa đơn điện tử bán hàng dự trữ quốc gia",
+     "National-reserve sale invoice",
+     "Out of scope"
+    ],
+    [
+     "5",
+     "Tem, vé, thẻ, phiếu thu điện tử… có nội dung hóa đơn",
+     "Stamps, tickets, cards, receipts with invoice content",
+     "Out of scope for now (parking, tolls)"
+    ],
+    [
+     "6",
+     "Phiếu xuất kho kiêm vận chuyển nội bộ / hàng gửi bán đại lý",
+     "Internal transfer / consignment delivery note",
+     "Not an invoice; ignore"
+    ],
+    [
+     "7",
+     "Hóa đơn thương mại điện tử",
+     "Commercial invoice (export)",
+     "Import as customer/vendor document in foreign currency"
+    ],
+    [
+     "8",
+     "Hóa đơn GTGT tích hợp biên lai thu thuế, phí, lệ phí",
+     "VAT invoice with tax/fee receipt",
+     "Out of scope"
+    ],
+    [
+     "9",
+     "Hóa đơn bán hàng tích hợp biên lai thu thuế, phí, lệ phí",
+     "Sales invoice with tax/fee receipt",
+     "Out of scope"
+    ]
+   ]
+  },
+  {
+   "id": "KHHDon",
+   "title": "Invoice symbol structure",
+   "field": "KHHDon",
+   "source": "Thông tư 91/2026 Phụ lục I (structure carried over from Thông tư 78/2021; 1233 refers to it but does not repeat it — confirm the letter list against TT91)",
+   "cols": [
+    "Position",
+    "Meaning",
+    "Values",
+    "Import rule"
+   ],
+   "rows": [
+    [
+     "1",
+     "With or without tax-authority code",
+     "C = coded, K = not coded",
+     "C ⇒ require MCCQT and CQT signature; K ⇒ neither"
+    ],
+    [
+     "2–3",
+     "Year of issue",
+     "26 = 2026",
+     "Should match the year of NLap"
+    ],
+    [
+     "4",
+     "Issuing channel",
+     "T registered enterprise, M cash register, L issued by tax authority per occurrence, D special/assets, N/B delivery notes, G/H refund forms",
+     "M ⇒ cash-register format; 23-char MCCQT"
+    ],
+    [
+     "5–6",
+     "Seller-defined",
+     "Two letters, e.g. YY, QL",
+     "Part of the unique key"
+    ]
+   ]
+  },
+  {
+   "id": "MCCQT",
+   "title": "Tax-authority code (MCCQT)",
+   "field": "MCCQT",
+   "source": "1233 Phần I, IV.3",
+   "cols": [
+    "Kind",
+    "Format",
+    "Example",
+    "Note"
+   ],
+   "rows": [
+    [
+     "Ordinary coded invoice",
+     "34 characters, generated by the tax system",
+     "001C3A766B8B2C4D449A41FAB8E37C5F9C",
+     "Unique per invoice"
+    ],
+    [
+     "Cash-register invoice",
+     "M + form – YY – 5 chars from tax authority – 11 digits from sales software (23 chars)",
+     "M2-26-EAXLG-00000029704",
+     "The 11 digits are a software counter, not the invoice number"
+    ]
+   ]
+  },
+  {
+   "id": "TChat",
+   "title": "Line type",
+   "field": "HHDVu/TChat",
+   "source": "1233 Phụ lục IV",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    "Odoo line"
+   ],
+   "rows": [
+    [
+     "1",
+     "Hàng hóa, dịch vụ",
+     "Goods or service",
+     "Normal line"
+    ],
+    [
+     "2",
+     "Khuyến mại",
+     "Promotion (free goods)",
+     "Line at price 0 (or as recorded)"
+    ],
+    [
+     "3",
+     "Chiết khấu thương mại",
+     "Commercial discount shown as a line",
+     "Negative line"
+    ],
+    [
+     "4",
+     "Ghi chú/diễn giải",
+     "Note / explanation",
+     "display_type = line_note, no amount"
+    ],
+    [
+     "5",
+     "Hàng hóa đặc trưng",
+     "Special goods (with TTHHDTrung data)",
+     "Normal line + stored attributes"
+    ]
+   ]
+  },
+  {
+   "id": "TSuat",
+   "title": "VAT rate code",
+   "field": "HHDVu/TSuat, LTSuat/TSuat",
+   "source": "1233 Phụ lục V",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    "Odoo tax (purchases)"
+   ],
+   "rows": [
+    [
+     "0%",
+     "Thuế suất 0%",
+     "Zero-rated",
+     "Purchase VAT 0%"
+    ],
+    [
+     "5%",
+     "Thuế suất 5%",
+     "5% VAT",
+     "Purchase VAT 5% (deductible)"
+    ],
+    [
+     "8%",
+     "Thuế suất 8%",
+     "8% VAT (temporary reduced rate)",
+     "Purchase VAT 8% (deductible)"
+    ],
+    [
+     "10%",
+     "Thuế suất 10%",
+     "10% VAT",
+     "Purchase VAT 10% (deductible)"
+    ],
+    [
+     "KCT",
+     "Không chịu thuế GTGT",
+     "Not subject to VAT",
+     "No tax (separate from 0%)"
+    ],
+    [
+     "KKKNT",
+     "Không kê khai, tính nộp thuế GTGT",
+     "VAT not declared or paid by the seller",
+     "No tax, no input VAT (separate from 0%)"
+    ],
+    [
+     "KHAC:AB.CD%",
+     "Trường hợp khác (KHAC:5.26%, KHAC:7%, hoặc chỉ KHAC)",
+     "Other rate; the number may be omitted",
+     "Map case by case; flag for review"
+    ],
+    [
+     "CTTC",
+     "Thuế suất của hóa đơn cho thuê tài chính",
+     "Financial-lease invoice rate",
+     "Flag for review"
+    ],
+    [
+     "KTPVDC",
+     "Không thuộc phạm vi điều chỉnh của Luật thuế",
+     "Outside the scope of VAT law",
+     "No tax"
+    ],
+    [
+     "KTGTT",
+     "Không tính vào giá tính thuế GTGT",
+     "Not included in the VAT base",
+     "No tax"
+    ]
+   ]
+  },
+  {
+   "id": "TCHDon",
+   "title": "Nature of related invoice",
+   "field": "TTHDLQuan/TCHDon",
+   "source": "1233 invoice tables",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    "Import action"
+   ],
+   "rows": [
+    [
+     "1",
+     "Thay thế",
+     "Replaces one invoice",
+     "Cancel the original bill, import this one"
+    ],
+    [
+     "2",
+     "Điều chỉnh",
+     "Adjusts one invoice",
+     "Import the difference: refund if negative, extra bill if positive"
+    ],
+    [
+     "3",
+     "Thay thế nhiều hóa đơn",
+     "Replaces several invoices (list attached)",
+     "Manual review"
+    ],
+    [
+     "4",
+     "Điều chỉnh nhiều hóa đơn",
+     "Adjusts several invoices (list attached)",
+     "Manual review (not used on cash-register forms)"
+    ],
+    [
+     "5",
+     "Chiết khấu thương mại",
+     "Commercial discount invoice",
+     "Import as refund / discount"
+    ]
+   ]
+  },
+  {
+   "id": "LDDCTThe",
+   "title": "Reason for adjustment or replacement",
+   "field": "TTHDLQuan/LDDCTThe",
+   "source": "1233 Phụ lục XVII",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    "Legal basis"
+   ],
+   "rows": [
+    [
+     "1",
+     "Điều chỉnh giá trị quyết toán dự án đầu tư…; điều chỉnh giá bán theo pháp luật chuyên ngành",
+     "Investment-project settlement or regulated price change",
+     "TT91 Đ10.5.a.1"
+    ],
+    [
+     "2",
+     "Điều chỉnh giá trị, khối lượng theo kết luận của cơ quan nhà nước",
+     "Adjustment following a state authority conclusion",
+     "TT91 Đ10.5.a.2"
+    ],
+    [
+     "3",
+     "Điều chỉnh giá bán buôn điện giữa EVN và các công ty điện lực",
+     "Wholesale electricity price between EVN units",
+     "TT91 Đ10.5.a.3"
+    ],
+    [
+     "4",
+     "Điều chỉnh do chiết khấu thương mại",
+     "Commercial discount",
+     "TT91 Đ10.5.b"
+    ],
+    [
+     "5",
+     "Điều chỉnh do trả lại hàng hóa (không phải tài sản phải đăng ký)",
+     "Goods returned (not registrable assets)",
+     "TT91 Đ10.5.c.1"
+    ],
+    [
+     "6",
+     "Thay thế do trả lại hàng hóa là tài sản phải đăng ký",
+     "Return of registrable assets (replacement)",
+     "TT91 Đ10.5.c.2"
+    ],
+    [
+     "7",
+     "Điều chỉnh do hoàn phí, giảm phí, giảm hoa hồng môi giới bảo hiểm",
+     "Insurance fee refund or reduction",
+     "TT91 Đ10.5.c.3"
+    ],
+    [
+     "8",
+     "Điều chỉnh do hủy/chấm dứt giao dịch, hủy một phần dịch vụ thu tiền trước nhiều kỳ",
+     "Cancelled transaction or prepaid service partly cancelled",
+     "TT91 Đ10.5.c.4"
+    ],
+    [
+     "9",
+     "Điều chỉnh do hoàn phí của tổ chức tín dụng, trung gian thanh toán",
+     "Bank or payment-service fee refund",
+     "TT91 Đ10.5"
+    ],
+    [
+     "10",
+     "Điều chỉnh đối với dịch vụ viễn thông dùng thẻ trả trước…",
+     "Telecom prepaid-card settlement",
+     "TT91 Đ10.5"
+    ],
+    [
+     "11",
+     "Điều chỉnh do thay đổi giá trị bán khí thiên nhiên khi quy đổi ra VND",
+     "Natural-gas value change on VND conversion",
+     "TT91 Đ10.5.e"
+    ],
+    [
+     "12",
+     "Điều chỉnh hóa đơn đổi, hoàn chứng từ vận chuyển hàng không",
+     "Air-ticket exchange or refund",
+     "TT91 Đ10.1.d"
+    ],
+    [
+     "13",
+     "Điều chỉnh/thay thế cho hóa đơn đã lập sai",
+     "Correction of a wrongly issued invoice",
+     "TT91 Đ10"
+    ],
+    [
+     "14",
+     "Thay thế hóa đơn điện tử từ máy tính tiền đã lập sai",
+     "Replacement of a wrong cash-register invoice",
+     "TT91 Đ10.1.c"
+    ]
+   ]
+  },
+  {
+   "id": "LHDCLQuan",
+   "title": "Legal regime of the related invoice",
+   "field": "TTHDLQuan/LHDCLQuan",
+   "source": "1233 Phụ lục VI",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    ""
+   ],
+   "rows": [
+    [
+     "1",
+     "Hóa đơn điện tử theo NĐ 123/2020, NĐ 70/2025",
+     "E-invoice under the 2020/2025 decrees",
+     ""
+    ],
+    [
+     "2",
+     "Hóa đơn có mã xác thực theo QĐ 1209/2015, 2660/2016",
+     "Authenticated e-invoice (2015–2016 pilot)",
+     ""
+    ],
+    [
+     "3",
+     "Hóa đơn theo NĐ 51/2010, NĐ 04/2014",
+     "Invoices under the 2010/2014 decrees",
+     ""
+    ],
+    [
+     "4",
+     "Hóa đơn đặt in theo NĐ 123/2020",
+     "Pre-printed paper invoice under the 2020 decree",
+     ""
+    ],
+    [
+     "5",
+     "Hóa đơn điện tử theo NĐ 254/2026",
+     "E-invoice under the 2026 decree",
+     ""
+    ]
+   ]
+  },
+  {
+   "id": "MNNNghe",
+   "title": "Business-activity group (household sellers)",
+   "field": "HHDVu/MNNNghe",
+   "source": "1233 Phụ lục XVIII",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    ""
+   ],
+   "rows": [
+    [
+     "01_0 / 01_1 / 01_2",
+     "Phân phối, cung cấp hàng hoá (không chịu thuế / 0% / thường)",
+     "Distribution of goods (exempt / 0% / standard)",
+     ""
+    ],
+    [
+     "02_0 / 02_1 / 02_2",
+     "Dịch vụ, xây dựng không bao thầu nguyên vật liệu",
+     "Services; construction without materials",
+     ""
+    ],
+    [
+     "03_0 / 03_1 / 03_2",
+     "Cho thuê tài sản, đại lý bảo hiểm, xổ số, bán hàng đa cấp",
+     "Asset rental; insurance, lottery, multi-level agents",
+     ""
+    ],
+    [
+     "04_0 / 04_1 / 04_2",
+     "Sản xuất, vận tải, dịch vụ gắn với hàng hoá, xây dựng có bao thầu NVL",
+     "Manufacturing, transport, goods-related services, construction with materials",
+     ""
+    ],
+    [
+     "05_0 / 05_1 / 05_2",
+     "Sản phẩm, dịch vụ nội dung thông tin số",
+     "Digital content products and services",
+     ""
+    ],
+    [
+     "06_0 / 06_1 / 06_2",
+     "Hoạt động kinh doanh khác",
+     "Other business activities",
+     ""
+    ],
+    [
+     "07_0",
+     "Không thuộc phạm vi điều chỉnh",
+     "Outside scope",
+     ""
+    ]
+   ]
+  },
+  {
+   "id": "DVTTe",
+   "title": "Currency",
+   "field": "TTChung/DVTTe",
+   "source": "1233 Phụ lục XVI",
+   "cols": [
+    "Code",
+    "Vietnamese",
+    "English",
+    ""
+   ],
+   "rows": [
+    [
+     "VND",
+     "Đồng Việt Nam",
+     "Vietnamese đồng",
+     ""
+    ],
+    [
+     "USD",
+     "Đô la Mỹ",
+     "US dollar",
+     ""
+    ],
+    [
+     "EUR",
+     "Đồng Euro",
+     "Euro",
+     ""
+    ],
+    [
+     "CNY",
+     "Nhân dân tệ",
+     "Chinese yuan",
+     ""
+    ],
+    [
+     "JPY",
+     "Yên Nhật",
+     "Japanese yen",
+     ""
+    ],
+    [
+     "KRW",
+     "Won Hàn Quốc",
+     "Korean won",
+     ""
+    ],
+    [
+     "…",
+     "21 codes in total: AUD CAD CHF DKK GBP HKD INR KWD MYR NOK RUB SAR SEK SGD THB as well",
+     "ISO 4217 codes",
+     ""
+    ]
+   ]
+  },
+  {
+   "id": "KDLieu",
+   "title": "Extension data type",
+   "field": "TTKhac/TTin/KDLieu",
+   "source": "1233 Phụ lục III",
+   "cols": [
+    "Value",
+    "Vietnamese",
+    "English",
+    "Seen in samples"
+   ],
+   "rows": [
+    [
+     "string",
+     "Chuỗi ký tự",
+     "Text",
+     "yes"
+    ],
+    [
+     "numeric",
+     "Số",
+     "Number",
+     "yes (once holding \"False\")"
+    ],
+    [
+     "dateTime",
+     "Ngày giờ",
+     "Date-time",
+     "—"
+    ],
+    [
+     "date",
+     "Ngày",
+     "Date",
+     "yes"
+    ],
+    [
+     "Decimal, number",
+     "—",
+     "Not in the list",
+     "yes: treat as numeric"
+    ]
+   ]
+  },
+  {
+   "id": "QR",
+   "title": "QR payload, lookup block (tag 99)",
+   "field": "DLQRCode",
+   "source": "1233 Phần I, IV.7",
+   "cols": [
+    "ID",
+    "Content",
+    "Max length",
+    "Matches XML"
+   ],
+   "rows": [
+    [
+     "00",
+     "QR spec version, \"01\"",
+     "2",
+     "Missing on 1 of 4 samples"
+    ],
+    [
+     "99-00",
+     "Unique ID (GUID)",
+     "32",
+     "One provider writes 33"
+    ],
+    [
+     "99-01",
+     "Seller tax code without \"-\"",
+     "13",
+     "NBan/MST"
+    ],
+    [
+     "99-02",
+     "Form number",
+     "1",
+     "KHMSHDon"
+    ],
+    [
+     "99-03",
+     "Symbol",
+     "6",
+     "KHHDon"
+    ],
+    [
+     "99-04",
+     "Invoice number, no leading zeros",
+     "8",
+     "SHDon"
+    ],
+    [
+     "99-05",
+     "Invoice date YYYYMMDD",
+     "8",
+     "NLap"
+    ],
+    [
+     "99-06",
+     "Total payable",
+     "20",
+     "TgTTTBSo"
+    ],
+    [
+     "63",
+     "CRC-16/CCITT checksum",
+     "4",
+     "Verified on all 4 samples"
+    ]
+   ]
+  }
+ ],
+ "samples": [
+  {
+   "file": "1602181122_1C26TTD_130.xml",
+   "format": "a",
+   "version": "2.1.0",
+   "symbol": "C26TTD",
+   "number": "130",
+   "date": "2026-10-26",
+   "seller": "CÔNG TY TNHH DỊCH VỤ BẢO VỆ THẮNG LỢI TOÀN DIỆN",
+   "direction": "Received",
+   "provider": "0100686209",
+   "total": "15120000"
+  },
+  {
+   "file": "1_001_C26TAA_21013_8446.xml",
+   "format": "a",
+   "version": "2.1.0",
+   "symbol": "C26TAA",
+   "number": "21013",
+   "date": "2026-10-14",
+   "seller": "CÔNG TY CỔ PHẦN VIỆC LÀM 24H",
+   "direction": "Received",
+   "provider": "0100684378",
+   "total": "5843880.0"
+  },
+  {
+   "file": "2C26MYY_00029704.xml",
+   "format": "h",
+   "version": "2.1.0",
+   "symbol": "C26MYY",
+   "number": "00029704",
+   "date": "2026-09-01",
+   "seller": "HỘ KINH DOANH NGUYỄN QUANG ANH",
+   "direction": "Consumer purchase",
+   "provider": "0101243150",
+   "total": "795000.000000"
+  },
+  {
+   "file": "2C26MYY_00056822.xml",
+   "format": "h",
+   "version": "2.1.0",
+   "symbol": "C26MYY",
+   "number": "00056822",
+   "date": "2026-09-23",
+   "seller": "HỘ KINH DOANH PHỤ KIỆN ATI",
+   "direction": "Consumer purchase",
+   "provider": "0101243150",
+   "total": "124900.000000"
+  },
+  {
+   "file": "2_001_C26TMX_41_10860.xml",
+   "format": "a2",
+   "version": "2.1.0",
+   "symbol": "C26TMX",
+   "number": "41",
+   "date": "2026-10-26",
+   "seller": "CÔNG TY TRÁCH NHIỆM HỮU HẠN NHỰA BÌNH MINH MIỀN NAM",
+   "direction": "Received",
+   "provider": "0100684378",
+   "total": "48960000"
+  },
+  {
+   "file": "C26TQL394.xml",
+   "format": "a",
+   "version": "2.1.0",
+   "symbol": "C26TQL",
+   "number": "394",
+   "date": "2026-10-21",
+   "seller": "CÔNG TY TNHH QUANG QUANG LINH",
+   "direction": "Received",
+   "provider": "0100109106",
+   "total": "475000416"
+  },
+  {
+   "file": "K26TDB122621.xml",
+   "format": "a",
+   "version": "2.1.0",
+   "symbol": "K26TDB",
+   "number": "122621",
+   "date": "2026-10-20",
+   "seller": "CÔNG TY TRÁCH NHIỆM HỮU HẠN TMDV XĂNG DẦU CHÂU THÀNH",
+   "direction": "Received",
+   "provider": "0100109106",
+   "total": "5500000"
+  },
+  {
+   "file": "invoice_xml_0317253698_C26TQP_2160.xml",
+   "format": "a",
+   "version": "2.1.0",
+   "symbol": "C26TQP",
+   "number": "2160",
+   "date": "2026-10-24",
+   "seller": "CÔNG TY TNHH DV TM QUANG PHƯƠNG",
+   "direction": "Issued by the sister company",
+   "provider": "0106026495",
+   "total": "5000000"
+  }
+ ]
+}
