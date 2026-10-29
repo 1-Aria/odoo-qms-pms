@@ -29,9 +29,18 @@
         <field name="arch" type="xml">
             <form create="0" edit="0">
                 <header>
+                    <button name="action_create_partner" type="object"
+                            string="Create Supplier"
+                            groups="account.group_account_invoice"
+                            invisible="direction != 'received' or state != 'draft' or move_partner_id"/>
                     <field name="state" widget="statusbar"/>
                 </header>
+                <div class="alert alert-warning mb-0" role="alert" invisible="not amounts_differ">
+                    The amounts differ from the document's.
+                </div>
                 <sheet>
+                    <field name="move_partner_id" invisible="1"/>
+                    <field name="amounts_differ" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_document" type="object"
                                 class="oe_stat_button" icon="fa-file-text-o"

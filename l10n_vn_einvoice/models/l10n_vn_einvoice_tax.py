@@ -1,6 +1,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 
 def _normalise_code(values):
@@ -45,6 +46,25 @@ class L10nVnEinvoiceTax(models.Model):
             "This VAT code is already mapped in this company.",
         ),
     ]
+
+    @api.constrains("tax_id")
+    def _check_tax(self):
+        for row in self:
+            tax = row.tax_id
+            if not tax:
+                continue
+            if tax.type_tax_use != "purchase":
+                raise ValidationError(
+                    _("%(tax)s is not a purchase tax.", tax=tax.display_name)
+                )
+            if tax.price_include:
+                raise ValidationError(
+                    _(
+                        "%(tax)s includes VAT in the price, while e-invoice lines are "
+                        "untaxed amounts. Choose a tax that excludes it.",
+                        tax=tax.display_name,
+                    )
+                )
 
     @api.model_create_multi
     def create(self, vals_list):

@@ -1,6 +1,11 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import api, fields, models
+from lxml import etree
+
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
+
+from .l10n_vn_einvoice import normalise_vat
 
 
 class AccountMove(models.Model):
@@ -40,3 +45,80 @@ class AccountMove(models.Model):
             "views": [(False, "form")],
             "view_mode": "form",
         }
+
+    # ----------------------------------------------------------------------
+    # Import (step 2)
+    # ----------------------------------------------------------------------
+
+    def _get_edi_decoder(self, file_data, new=False):
+        # EXTENDS 'account': claim Vietnamese e-invoices (root HDon).
+        if (
+            file_data.get("type") == "xml"
+            and file_data.get("xml_tree") is not None
+            and etree.QName(file_data["xml_tree"]).localname == "HDon"
+        ):
+            return self.env["l10n_vn.einvoice"]._import_document
+        return super()._get_edi_decoder(file_data, new=new)
+
+    # ----------------------------------------------------------------------
+    # Posting check (step 2, design D7)
+    # ----------------------------------------------------------------------
+
+    def _post(self, soft=True):
+        self._l10n_vn_einvoice_check_partners()
+        return super()._post(soft=soft)
+
+    def _l10n_vn_einvoice_check_partners(self):
+        Einvoice = self.env["l10n_vn.einvoice"]
+        for move in self.filtered("l10n_vn_einvoice_ids"):
+            einvoice = move.l10n_vn_einvoice_ids[:1]
+            if move.is_purchase_document(include_receipts=True):
+                vat = einvoice.seller_vat
+            else:
+                vat = einvoice.buyer_vat
+            partner = move.commercial_partner_id
+            if not vat or not partner:
+                continue
+            partner_vat = normalise_vat(partner.vat)
+            if partner_vat == vat:
+                continue
+            if partner_vat:
+                raise UserError(
+                    _(
+                        "%(document)s: its partner %(partner)s has tax code "
+                        "%(partner_vat)s, but e-invoice %(name)s names %(vat)s. Choose the "
+                        "partner with that tax code, or correct the partner's.",
+                        document=move.display_name,
+                        partner=partner.display_name,
+                        partner_vat=partner.vat,
+                        name=einvoice.name,
+                        vat=vat,
+                    )
+                )
+            others = Einvoice._find_partner(vat, move.company_id) - partner
+            if others:
+                raise UserError(
+                    _(
+                        "%(document)s: its partner %(partner)s has no tax code, while "
+                        "%(others)s already hold %(vat)s, the tax code on e-invoice "
+                        "%(name)s. Choose that partner.",
+                        document=move.display_name,
+                        partner=partner.display_name,
+                        others=", ".join(others.mapped("display_name")),
+                        vat=vat,
+                        name=einvoice.name,
+                    )
+                )
+            # sudo: writing partners needs Contact Creation, and this fill follows
+            # from the check, not from the user's edit (D19).
+            partner.sudo().write({"vat": vat})
+            partner.sudo().message_post(
+                body=_(
+                    "Tax code %(vat)s set from e-invoice %(name)s when %(document)s was "
+                    "posted.",
+                    vat=vat,
+                    name=einvoice.name,
+                    document=move.display_name,
+                ),
+                author_id=self.env.user.partner_id.id,
+            )
