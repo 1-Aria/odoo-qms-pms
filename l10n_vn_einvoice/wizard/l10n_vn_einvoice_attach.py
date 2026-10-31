@@ -2,7 +2,7 @@
 
 import base64
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 from ..models.l10n_vn_einvoice import normalise_vat
@@ -40,6 +40,7 @@ class L10nVnEinvoiceAttach(models.TransientModel):
     partner_vat = fields.Char(
         string="Partner Tax Code", related="move_id.commercial_partner_id.vat"
     )
+    preview_relation = fields.Char(string="Correction", compute="_compute_preview")
     partner_differs = fields.Boolean(compute="_compute_preview")
     date_differs = fields.Boolean(compute="_compute_preview")
     amounts_differ = fields.Boolean(compute="_compute_preview")
@@ -57,6 +58,7 @@ class L10nVnEinvoiceAttach(models.TransientModel):
                 "preview_amount_untaxed": 0.0,
                 "preview_amount_tax": 0.0,
                 "preview_amount_total": 0.0,
+                "preview_relation": False,
                 "partner_differs": False,
                 "date_differs": False,
                 "amounts_differ": False,
@@ -91,6 +93,16 @@ class L10nVnEinvoiceAttach(models.TransientModel):
                 values["seller_vat"] if direction == "received" else values["buyer_vat"]
             )
             partner_vat = normalise_vat(move.commercial_partner_id.vat)
+            # A decreasing adjustment's totals are negative, a refund's positive (D29).
+            sign = -1 if move.move_type in ("in_refund", "out_refund") else 1
+            related = f"{values['related_symbol'] or '?'}-{values['related_number'] or '?'}"
+            relation = {
+                "1": _("Replaces %(invoice)s", invoice=related),
+                "2": _("Adjusts %(invoice)s", invoice=related),
+                "5": _("Discounts %(invoice)s", invoice=related),
+                "3": _("Corrects several invoices"),
+                "4": _("Corrects several invoices"),
+            }.get(values["relation_type"], False)
             wizard.update(
                 {
                     "preview_name": f"{values['symbol']}-{values['number']}",
@@ -102,12 +114,15 @@ class L10nVnEinvoiceAttach(models.TransientModel):
                     "preview_amount_untaxed": values["amount_untaxed"],
                     "preview_amount_tax": values["amount_tax"],
                     "preview_amount_total": values["amount_total"],
+                    "preview_relation": relation,
                     "partner_differs": bool(partner_vat) and partner_vat != party_vat,
                     "date_differs": bool(move.invoice_date)
                     and move.invoice_date != values["invoice_date"],
                     "amounts_differ": currency != move.currency_id
                     or bool(
-                        currency.compare_amounts(values["amount_total"], move.amount_total)
+                        currency.compare_amounts(
+                            sign * values["amount_total"], move.amount_total
+                        )
                     ),
                 }
             )

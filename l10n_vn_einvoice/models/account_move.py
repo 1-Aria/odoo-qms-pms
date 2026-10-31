@@ -23,6 +23,11 @@ class AccountMove(models.Model):
         compute="_compute_l10n_vn_einvoice_id",
     )
 
+    l10n_vn_einvoice_correction_state = fields.Selection(
+        string="E-Invoice Correction",
+        related="l10n_vn_einvoice_id.correction_state",
+    )
+
     @api.depends("l10n_vn_einvoice_ids")
     def _compute_l10n_vn_einvoice_id(self):
         for move in self:
@@ -65,8 +70,28 @@ class AccountMove(models.Model):
     # ----------------------------------------------------------------------
 
     def _post(self, soft=True):
+        self._l10n_vn_einvoice_check_replaced()
         self._l10n_vn_einvoice_check_partners()
         return super()._post(soft=soft)
+
+    def _l10n_vn_einvoice_check_replaced(self):
+        """A document whose e-invoice has been replaced is not posted (step 3)."""
+        for move in self.filtered("l10n_vn_einvoice_ids"):
+            einvoice = move.l10n_vn_einvoice_ids[:1]
+            if einvoice.correction_state != "replaced":
+                continue
+            replacements = einvoice.correction_ids.filtered(
+                lambda correction: correction.relation_type in ("1", "3")
+            )
+            raise UserError(
+                _(
+                    "%(document)s: its e-invoice %(name)s was replaced by %(replacements)s. "
+                    "Book the replacement instead, and cancel this document.",
+                    document=move.display_name,
+                    name=einvoice.name,
+                    replacements=", ".join(replacements.mapped("name")),
+                )
+            )
 
     def _l10n_vn_einvoice_check_partners(self):
         Einvoice = self.env["l10n_vn.einvoice"]

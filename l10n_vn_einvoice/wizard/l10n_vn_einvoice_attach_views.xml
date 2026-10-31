@@ -16,6 +16,7 @@
                 <group invisible="not preview_name">
                     <group string="Read from the file" name="read">
                         <field name="preview_name"/>
+                        <field name="preview_relation" invisible="not preview_relation"/>
                         <field name="preview_seller_name"/>
                         <field name="preview_seller_vat"/>
                         <field name="preview_buyer_vat"/>

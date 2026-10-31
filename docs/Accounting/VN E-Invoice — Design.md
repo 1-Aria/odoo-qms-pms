@@ -262,6 +262,16 @@ lines: the decoder (§2) reads the file, creates the e-invoice and fills the bil
   one line fewer); and an **information-only adjustment** (`C26TQP-958` adjusts `931`: a line of
   −23 × 896,135.266 and one of +230 × 89,613.526, totals 0, no per-rate rows). A decrease is written
   as a negative price on an ordinary line (`TChat` 1), not as a commercial-discount line.
+  Decided for step 3, the lighter version (module spec, step 3):
+  - the relation is stored on every e-invoice, and originals and corrections link in either order,
+    by the related key;
+  - a replacement is uploaded like any invoice and becomes a vendor bill (D11);
+  - **no document is created from an adjustment.** Its upload is refused; the accountant enters the
+    bill or refund by hand, as its own document in the period it was issued, and attaches the XML
+    (D12). Received adjustments are rare and none has been seen, so the sign handling a refund needs
+    is left until they prove frequent;
+  - posting a document whose e-invoice has been replaced is refused; a posted original is reversed
+    by hand (D13).
 - **Products and units:** `MHHDVu` through the supplier's product codes, `DVTinh` through a mapping
   table.
 - **Supplier bank accounts:** `STKNHang` proposed, never trusted automatically.
@@ -282,6 +292,9 @@ lines: the decoder (§2) reads the file, creates the e-invoice and fills the bil
 | D8 | **VAT codes map to taxes through a per-company table, seeded empty** (§5.3) |
 | D9 | **A line's untaxed amount is `ThTien`;** the per-rate tax is the XML's (§5.4) |
 | D10 | **No ZIP support.** The portal delivers each invoice as a ZIP; it is unzipped outside Odoo and its `invoice.xml` uploaded or attached (Peter, 2026-10-31) |
+| D11 | **A replacement is uploaded like any invoice** (step 3): it is complete, so it becomes a vendor bill from its own lines |
+| D12 | **An adjustment is always its own document, entered by hand and attached** (step 3): its upload is refused, and the bill or refund is booked in the period the adjustment was issued (Peter, 2026-10-31) |
+| D13 | **A replaced document cannot be posted** (step 3); the original is still never cancelled or reversed automatically |
 
 ## 11. Steps (provisional)
 

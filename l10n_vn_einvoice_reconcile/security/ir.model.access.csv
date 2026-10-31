@@ -1,0 +1,12 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_l10n_vn_einvoice_batch_readonly,l10n_vn.einvoice.batch readonly,model_l10n_vn_einvoice_batch,account.group_account_readonly,1,0,0,0
+access_l10n_vn_einvoice_batch_user,l10n_vn.einvoice.batch accountant,model_l10n_vn_einvoice_batch,account.group_account_user,1,1,1,0
+access_l10n_vn_einvoice_batch_manager,l10n_vn.einvoice.batch manager,model_l10n_vn_einvoice_batch,account.group_account_manager,1,1,1,1
+access_l10n_vn_einvoice_portal_row_readonly,l10n_vn.einvoice.portal.row readonly,model_l10n_vn_einvoice_portal_row,account.group_account_readonly,1,0,0,0
+access_l10n_vn_einvoice_portal_row_user,l10n_vn.einvoice.portal.row accountant,model_l10n_vn_einvoice_portal_row,account.group_account_user,1,1,1,1
+access_l10n_vn_einvoice_portal_row_manager,l10n_vn.einvoice.portal.row manager,model_l10n_vn_einvoice_portal_row,account.group_account_manager,1,1,1,1
+access_l10n_vn_einvoice_portal_readonly,l10n_vn.einvoice.portal readonly,model_l10n_vn_einvoice_portal,account.group_account_readonly,1,0,0,0
+access_l10n_vn_einvoice_portal_user,l10n_vn.einvoice.portal accountant,model_l10n_vn_einvoice_portal,account.group_account_user,1,1,1,1
+access_l10n_vn_einvoice_portal_manager,l10n_vn.einvoice.portal manager,model_l10n_vn_einvoice_portal,account.group_account_manager,1,1,1,1
+access_l10n_vn_einvoice_batch_import_user,l10n_vn.einvoice.batch.import accountant,model_l10n_vn_einvoice_batch_import,account.group_account_user,1,1,1,1
+access_l10n_vn_einvoice_batch_import_manager,l10n_vn.einvoice.batch.import manager,model_l10n_vn_einvoice_batch_import,account.group_account_manager,1,1,1,1

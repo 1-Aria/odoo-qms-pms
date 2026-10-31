@@ -4,7 +4,7 @@ from odoo import fields
 from odoo.exceptions import AccessError, RedirectWarning, UserError, ValidationError
 from odoo.tests import new_test_user, tagged
 
-from .common import EInvoiceCase
+from .common import EInvoiceBillCase
 
 VAT_INVOICE = "C26TQL394.xml"
 FIVE_LINES = "1_001_C26TAA_21013_8446.xml"
@@ -15,64 +15,7 @@ TO_BRANCH = "1602181122_1C26TTD_130.xml"
 
 
 @tagged("post_install", "-at_install")
-class TestEInvoiceBill(EInvoiceCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.tax_8 = cls.env["account.tax"].create(
-            {
-                "name": "Test 8%",
-                "amount": 8.0,
-                "amount_type": "percent",
-                "type_tax_use": "purchase",
-                "company_id": cls.company.id,
-            }
-        )
-        VatCode = cls.env["l10n_vn.einvoice.tax"]
-        cls.code_8 = VatCode.create({"code": "8%", "tax_id": cls.tax_8.id})
-        cls.code_kkknt = VatCode.create({"code": "KKKNT"})
-        cls.supplier = cls.env["res.partner"].create(
-            {
-                "name": "CÔNG TY TNHH QUANG QUANG LINH",
-                "vat": "0308965730",
-                "is_company": True,
-            }
-        )
-        cls.purchase_journal = cls.env["account.journal"].search(
-            [("type", "=", "purchase"), ("company_id", "=", cls.company.id)], limit=1
-        )
-
-    def _upload(self, content, move_type="in_invoice", user=None):
-        filename = "einvoice.xml"
-        if isinstance(content, str):
-            filename, content = content, self._sample(content)
-        env = self.env(user=user) if user else self.env
-        attachment = env["ir.attachment"].create({"name": filename, "raw": content})
-        action = (
-            self.purchase_journal.with_env(env)
-            .with_context(default_move_type=move_type)
-            .create_document_from_attachment(attachment.ids)
-        )
-        return env["account.move"].browse(action["res_id"])
-
-    def _replaced(self, content, old, new, count):
-        if isinstance(content, str):
-            content = self._sample(content)
-        old, new = old.encode(), new.encode()
-        self.assertEqual(content.count(old), count, f"{old!r} must occur {count} times")
-        return content.replace(old, new)
-
-    def _bodies(self, record):
-        return " ".join(str(message.body or "") for message in record.message_ids)
-
-    def _message_count(self, record):
-        return self.env["mail.message"].search_count(
-            [("model", "=", record._name), ("res_id", "=", record.id)]
-        )
-
-    def _einvoices(self):
-        return self.env["l10n_vn.einvoice"].search([("company_id", "=", self.company.id)])
-
+class TestEInvoiceBill(EInvoiceBillCase):
     # ------------------------------------------------------------------
     # Creating bills
     # ------------------------------------------------------------------
@@ -215,7 +158,7 @@ class TestEInvoiceBill(EInvoiceCase):
         cases = [
             (ISSUED, "in_invoice", "Only received e-invoices"),
             (TO_BRANCH, "in_invoice", "0317253698-001"),
-            (adjusted, "in_invoice", "replaces or adjusts"),
+            (adjusted, "in_invoice", "adjusts an invoice or corrects several"),
             (VAT_INVOICE, "in_refund", "Only received e-invoices"),
         ]
         for content, move_type, text in cases:

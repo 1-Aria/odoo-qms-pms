@@ -12,7 +12,7 @@ Design: `docs/Accounting/VN E-Invoice — Design.md`. Format reference:
 |---|---|---|---|
 | 1 | `l10n_vn.einvoice` and its key; `l10n_vn.einvoice.tax` (the VAT-code table, used from step 2); the reader for 2.1.0 and 2.1.1; the attach wizard and the re-import rules; the e-invoice on the bill and invoice forms; access, record rules, menus | done | 2026-10-28, three runs. First: `exit=255` before any test, the tests' import of `AccountTestInvoicingCommon` failing on the image (see *Tests*); the base rebuilt on `TransactionCase`. Second run: installed; UI check as an *Invoicing* user found *Attach* failing with `binascii.Error` — the preview decoded the file's size, the web client reading the saved wizard with `bin_size=True`; fixed with `_file_content` and `test_wizard_read_as_web_client`. Third: `-u`, `exit=0`, 26 tests, 0 failures; UI checked as an *Invoicing* user: the preview of `C26TQL394.xml` beside a draft bill with the total warning, *Attach* linking it, the *E-Invoice* smart button and the chatter copy, `C26TQL-394` *Draft* under *Vendors → E-Invoices*, the same file on a second bill refused |
 | 2 | Vendor bills from XML through core's import hook (design §5.4, §6.2): lines, VAT through the VAT-code table, the per-rate tax correction, the totals check; the duplicate refusal as a `RedirectWarning`; partner by tax code and *Create Supplier*; the posting check (design D7); the amounts banner on the e-invoice | done | 2026-10-28/29, two runs. First: `-u`, 46 tests, 0 failures. Its log showed core's chatter hook trying to import the XML that *Attach* posts (D25): silent on step 1's empty draft, but with step 2's decoder an empty draft would be filled and a bill with lines or a posted one noted as not updated; fixed with `no_new_invoice` and `test_attach_never_imports`. Second: `-u`, `exit=0`, 47 tests, 0 failures; UI checked as an *Invoicing* user on the trading company: the VAT codes `8%` and `KKKNT` added by an administrator; *Upload* of `1_001_C26TAA_21013_8446.xml` giving five lines at 8% and 5,843,880 ₫ without a supplier and the chatter naming `0314071202`; *Create Supplier* setting the new partner; `K26TDB122621.xml` as 1 × 5,500,000 ₫ without VAT, the label holding the original figures; the second upload of `1_001…` refused with *Open E-Invoice* and no new bill; posting refused for a partner with another tax code; *Attach* on an empty draft leaving it empty with one message |
-| 3 | Replacement and adjustment invoices (`TTHDLQuan`, design §9) | planned | |
+| 3 | Replacement and adjustment invoices (`TTHDLQuan`, design §9), the lighter version: the relation read and stored, originals and corrections linked in either order; replacements uploaded as bills; adjustments refused on upload, entered by hand and attached; posting a replaced document refused; banners on the document and the e-invoice | done | 2026-10-31, two runs. First: `-u`, 56 tests, 4 failing — all in `TestEInvoiceBill` on `1_001…`, because the instance now holds a partner with its seller's tax code `0314071202`, made by *Create Supplier* in step 2's UI check, which the tests' partner lookups found. Fixed in the fixtures (*Tests*, `SAMPLE_PARTY_VATS`). Second: `-u`, 56 tests, 0 failures. UI checked as an *Invoicing* user on the trading company: `C26THM_10868.xml` uploaded before `10867` noted the original as not in Odoo; after that bill was cancelled, `10867` uploaded linked the waiting replacement and showed the red banner; `10868` uploaded again re-linked its e-invoice to the new bill; *Confirm* on the replaced bill refused; `C26THM_10870.xml` refused on upload; attached to a document by hand, it linked to `10867`, the dialog's tax-code and total warnings correct for a bill of another partner, and clean on a refund; `C26TQP_950.xml` and `C26TQP_1118.xml` attached to two customer invoices linked, the first refused at posting |
 
 ## Divergences from the design
 
@@ -23,6 +23,8 @@ Design: `docs/Accounting/VN E-Invoice — Design.md`. Format reference:
 | 3 | §5.1: form 2 "has only the total" | form 2 stores `amount_untaxed` = total and `amount_tax` = 0 | A sales invoice carries no VAT (dictionary, `KHMSHDon` 2), and every comparison — the wizard's, step 2's, reconciliation's — reads the three amounts |
 | 4 | §5.2: at posting, a partner with no tax code receives the e-invoice's | only when no other partner holds that tax code; otherwise the posting is refused, naming them (step 2) | A partner without a tax code picked while another holds it is most likely the wrong partner, and filling it would leave two partners with one tax code, which the next import then cannot resolve (§5.2's *several*) |
 | 5 | §6.2: a file dropped on the purchases journal or a draft bill creates the bill | only for vendor bills (`in_invoice`); a file uploaded as a refund or a customer document is refused, and so is a replacement or adjustment invoice (step 2) | Refunds and adjustments are step 3 (design §9); customer invoices are issued by the provider, not read back into new documents (design §1) |
+| 6 | §9: the original bill is never cancelled automatically | still never cancelled, and **posting a document whose e-invoice has been replaced is refused** (step 3) | Posting it would book a superseded invoice next to its replacement. A posted original is left to the accountant to reverse, as before |
+| 7 | §9: positive adjustments as bills, negative ones and commercial discounts as refunds against the original bill | **no document is created from an adjustment** (`TCHDon` 2, 4, 5): its upload is refused, and the accountant enters the bill or refund by hand and attaches the XML (step 3) | Received adjustments are rare (none among the October purchases) and none has been seen; the sign handling a refund needs would rest on made-up files only. An adjustment is always booked as its own document, in the period it was issued (Peter, 2026-10-31), which the manual entry does |
 
 ## Decisions
 
@@ -53,6 +55,11 @@ Design: `docs/Accounting/VN E-Invoice — Design.md`. Format reference:
 | D23 | **Core's purchase-order match is left to run** (step 2). After a decoder succeeds, core links the bill to purchase orders (`account_move.py:4457-4460`); with `purchase` installed and no order reference, its last resort takes the one open order of that vendor with the same total and replaces the bill's lines with the order's (`purchase/models/account_invoice.py:432-442`, `:461-465`). An uploaded e-invoice of a PO purchase thus lands on its order when the supplier is found and the totals agree. The import message and the corrections describe the lines as read, before that replacement; the e-invoice's `amounts_differ` is computed live and shows the result |
 | D24 | **An uploaded file is not posted twice** (step 2): core already posts it on the new bill (`account_journal.py:981-984`), so `_import_document` calls `_link_or_create` with `notify=False` and writes its own import message instead |
 | D25 | **The attach message is posted with `no_new_invoice`** (step 2). Core's chatter hook reads every file posted on a draft or posted bill as a possible import (`account_move.py:6452-6502`) and stops only on that flag (`:6491`), which core's own upload sets for the same reason (`account_journal.py:981-984`). Without it, attaching to an empty draft would run the decoder and fill the bill, against design §6.1; a bill with lines or a posted one would get core's "not updated from the attachment" note |
+| D26 | **The relation is read with the header** (step 3): `_read_v2_1` adds the `TTHDLQuan` fields, so attaching and uploading both store it. `SHDCLQuan` is normalised like a number (`00010867` → `10867`); the related seller is `MSTCLQuan` when present, else the e-invoice's own seller |
+| D27 | **Originals and corrections link in either order** (step 3): a new e-invoice looks for its original by the related key, and for the corrections already read that name it, in its company. A correction read before its original keeps its related key and is linked when the original arrives |
+| D28 | **Only a replacement is uploaded** (step 3): it is a complete invoice and becomes a vendor bill like any other, from its own lines; the original's are not copied. Adjustments (`TCHDon` 2, 4, 5) and replacements of several invoices (3) are refused on upload with a message saying to enter the document by hand and attach the XML (divergence 7). The adjustment samples write a decrease as a negative price on an ordinary line (`C26TQP-958`), which a document entered by hand reproduces |
+| D29 | **Comparisons turn the e-invoice's sign on a refund or credit note** (step 3): an adjustment that decreases writes negative totals, while the refund or credit note entered for it holds positive ones. `_document_sign` is −1 for `in_refund` and `out_refund`, and `amounts_differ` and the wizard's preview compare the e-invoice's amounts times it |
+| D30 | **`correction_state` reads the corrections:** *replaced* when one replaces (`TCHDon` 1 or 3), else *adjusted* when one adjusts or discounts (2, 4, 5). Stored, so reconciliation and the lists can filter on it |
 
 ## Folder structure
 
@@ -80,13 +87,29 @@ l10n_vn_einvoice/
 │   ├── test_l10n_vn_einvoice_read.py
 │   ├── test_l10n_vn_einvoice_attach.py
 │   ├── test_l10n_vn_einvoice_bill.py                     # 2
+│   ├── test_l10n_vn_einvoice_correction.py               # 3
 │   └── data/   1602181122_1C26TTD_130.xml, 1_001_C26TAA_21013_8446.xml,
 │               2_001_C26TMX_41_10860.xml, C26TQL394.xml, K26TDB122621.xml,
-│               invoice_xml_0317253698_C26TQP_2160.xml
+│               invoice_xml_0317253698_C26TQP_2160.xml,
+│               C26THM_10867.xml, C26THM_10868.xml, C26THM_10870.xml,  # 3
+│               C26TQP_950.xml, C26TQP_1118.xml,
+│               C26TQP_931.xml, C26TQP_958.xml
 └── readme/ DESCRIPTION.md, USAGE.md
 ```
 
 The files in `tests/data/` are copies of the first six samples (kept outside the repo in `Odoo-Build/accounting-samples/old/`), lookup codes redacted.
+
+Step 3 adds, from `accounting-samples/new/` (the `invoice.xml` of each portal ZIP):
+
+| File | From | Changes |
+|---|---|---|
+| `C26THM_10867.xml` | Hoàn Mỹ's invoice to the trading company | none (no lookup code, no private data) |
+| `C26THM_10868.xml` | its replacement (`TCHDon` 1) | none |
+| `C26TQP_950.xml`, `C26TQP_1118.xml` | the trading company's invoice to Hồng Nhựt and its replacement | *Số bảo mật* → `REDACTED` |
+| `C26TQP_931.xml`, `C26TQP_958.xml` | the trading company's invoice to a consumer and its information-only adjustment (`TCHDon` 2, total 0) | *Số bảo mật* → `REDACTED`; the buyer's `HVTNMHang`, `DChi`, `STKNHang`, `TNHang` → made-up values |
+| `C26THM_10870.xml` | made up from `10867` | number `10870`; `TTHDLQuan` adjusting `10867`; one line 500 × −1,022 = −511,000 at 8%; per-rate row −511,000 / −40,880; totals −511,000 / −40,880 / −551,880 |
+
+The signatures of every changed file no longer verify; the module does not check them.
 
 ## Manifest
 
@@ -113,7 +136,7 @@ The wizard's views load before `account_move_views.xml`, whose button calls the 
 | `__init__.py` | `from . import models`, `from . import wizard` |
 | `models/__init__.py` | `from . import l10n_vn_einvoice`, `from . import l10n_vn_einvoice_tax`, `from . import account_move` |
 | `wizard/__init__.py` | `from . import l10n_vn_einvoice_attach` |
-| `tests/__init__.py` | `from . import test_l10n_vn_einvoice_read`, `from . import test_l10n_vn_einvoice_attach`, `from . import test_l10n_vn_einvoice_bill` (step 2) |
+| `tests/__init__.py` | `from . import test_l10n_vn_einvoice_read`, `from . import test_l10n_vn_einvoice_attach`, `from . import test_l10n_vn_einvoice_bill` (step 2), `from . import test_l10n_vn_einvoice_correction` (step 3) |
 
 ## Access — `security/ir.model.access.csv`
 
@@ -170,6 +193,15 @@ D12. *Administrator* implies *Invoicing* (`account/security/account_security.xml
 
 | `move_partner_id` | Many2one → `res.partner` | step 2; `related="move_id.partner_id"`, `string="Document Partner"` — read by the form's *Create Supplier* button |
 | `amounts_differ` | Boolean | step 2; `compute="_compute_amounts_differ"`, not stored |
+| `relation_type` | Selection `[("1", "Replaces one invoice"), ("2", "Adjusts one invoice"), ("3", "Replaces several invoices"), ("4", "Adjusts several invoices"), ("5", "Commercial discount")]` | step 3; `string="Correction"`, `readonly=True` — `TTHDLQuan/TCHDon` |
+| `related_regime` | Char | step 3; `readonly=True` — `LHDCLQuan` |
+| `related_vat` | Char | step 3; `string="Corrected Seller Tax Code"`, `readonly=True`, `index=True` — `MSTCLQuan`, else `seller_vat` (D26) |
+| `related_form`, `related_symbol`, `related_number` | Char | step 3; `readonly=True`, `index=True` — `KHMSHDCLQuan`, `KHHDCLQuan`, `SHDCLQuan`, normalised as the key |
+| `related_date` | Date | step 3; `readonly=True` — `NLHDCLQuan` |
+| `adjust_reason` | Char | step 3; `readonly=True` — `LDDCTThe` (2.1.1 only) |
+| `related_einvoice_id` | Many2one → `l10n_vn.einvoice` | step 3; `string="Corrects"`, `readonly=True`, `index=True`, `copy=False`, `ondelete="set null"`, `check_company=True` (D27) |
+| `correction_ids` | One2many → `l10n_vn.einvoice` | step 3; inverse `related_einvoice_id`, `string="Corrections"` |
+| `correction_state` | Selection `[("replaced", "Replaced"), ("adjusted", "Adjusted")]` | step 3; `compute="_compute_correction_state"`, `store=True`, `index=True` (D30) |
 
 `readonly=True` binds the views only; the reader writes the fields through the ORM.
 
@@ -207,7 +239,10 @@ e-invoices need.
 | `_line_gives_amount` | `@api.model` | step 2; `_line_gives_amount(quantity, price, discount, amount, currency)`: quantity and price rounded to `Product Unit of Measure` and `Product Price` (`float_round`), the subtotal rounded by the currency, compared with `amount` (D16) |
 | `_bill_line_values` | `@api.model` | step 2; `_bill_line_values(line, taxes, currency)` → `(values, note)`: the `invoice_line_ids` values of one read line by the line table below, and the note for the import message when the line fell back to 1 × `ThTien`, else `None` |
 | `_correct_taxes` | `@api.model` | step 2; `_correct_taxes(move, tax_rows, tax_map)` → the notes for the corrections not applied (D17). Runs inside `move._get_edi_creation()`; `sign` is 1 for a vendor bill (`account_edi_xml_ubl_20.py:992`) |
-| `_compute_amounts_differ` | `@api.depends("move_id.amount_untaxed", "move_id.amount_tax", "move_id.amount_total", "move_id.currency_id", "amount_untaxed", "amount_tax", "amount_total", "currency_id")` | step 2; true when `move_id` is set and its currency differs, or any of the three amounts differs in `currency_id.compare_amounts` |
+| `_document_sign` | — | step 3; `ensure_one`; −1 when `move_id` is a refund or credit note (`in_refund`, `out_refund`), else 1 (D29) |
+| `_compute_correction_state` | `@api.depends("correction_ids.relation_type")` | step 3; D30 |
+| `_link_related` | — | step 3; for each record (D27): when it has a `relation_type` in `1`, `2`, `5` and a related key, `related_einvoice_id` = the e-invoice of its company with `seller_vat` = `related_vat`, `form`, `symbol`, `number` = the related ones (sudo search, as `_find_by_key`); and the e-invoices of its company whose related key is this record's key and whose `related_einvoice_id` is empty are linked to it. When a link is made and the original has a document, that document gets `"E-invoice %(correction)s %(verb)s the e-invoice of this document, %(original)s."` — *replaces* or *adjusts* (posted with `no_new_invoice`, D25) |
+| `_compute_amounts_differ` | `@api.depends("move_id.move_type", "move_id.amount_untaxed", "move_id.amount_tax", "move_id.amount_total", "move_id.currency_id", "amount_untaxed", "amount_tax", "amount_total", "currency_id")` | step 2; true when `move_id` is set and its currency differs, or any of the three amounts, times `_document_sign()` from step 3 (D29), differs in `currency_id.compare_amounts` |
 | `action_create_partner` | — | step 2; `ensure_one`; `received` only. `_read_party(attachment_id.raw, "NBan")` → a `res.partner` with `name`, `vat`, `street`, `phone`, `email`, `is_company=True`, `country_id` `base.vn`, created with the user's rights (D20); set as `move_id.partner_id` when the document is a draft without a partner; returns the partner's form |
 | `action_open_document` | — | `ensure_one`; the `move_id`'s form (`account.action_move_in_invoice_type` or `account.action_move_out_invoice_type` by direction, read with `_for_xml_id`, `res_id` set, form view only) |
 
@@ -232,6 +267,14 @@ empty treated as absent.
 | `amount_total` | `DLHDon/NDHDon/TToan/TgTTTBSo` | D3 |
 | `amount_untaxed` | `DLHDon/NDHDon/TToan/TgTCThue` | D3; form 2: `amount_total` (divergence 3) |
 | `amount_tax` | `DLHDon/NDHDon/TToan/TgTThue` | D3; form 2: 0 |
+| `relation_type` | `DLHDon/TTChung/TTHDLQuan/TCHDon` | step 3; as is; a value outside the selection refused; absent: no relation, and the related fields below stay empty |
+| `related_regime` | `…/TTHDLQuan/LHDCLQuan` | step 3; as is |
+| `related_vat` | `…/TTHDLQuan/MSTCLQuan` | step 3; `normalise_vat`; absent: `seller_vat` |
+| `related_form` | `…/TTHDLQuan/KHMSHDCLQuan` | step 3; as is |
+| `related_symbol` | `…/TTHDLQuan/KHHDCLQuan` | step 3; `normalise_symbol` |
+| `related_number` | `…/TTHDLQuan/SHDCLQuan` | step 3; `normalise_number` |
+| `related_date` | `…/TTHDLQuan/NLHDCLQuan` | step 3; as the invoice date |
+| `adjust_reason` | `…/TTHDLQuan/LDDCTThe` | step 3; as is |
 
 **`_attach_xml(content, filename, move)`**
 
@@ -256,7 +299,8 @@ empty treated as absent.
 1. `content = file_data["content"]`, `filename = file_data["filename"]`; `values = _read_xml(content)`.
 2. `direction = _get_direction(values, invoice.company_id)`. Unless it is `received` and
    `invoice.move_type == "in_invoice"`, refused (divergence 5).
-3. Refused when the root holds `DLHDon/TTChung/TTHDLQuan` (divergence 5).
+3. Step 2 refused any `TTHDLQuan`. From step 3 only a `relation_type` other than `1` is refused (D28,
+   divergence 7); a replacement goes on as an ordinary invoice.
 4. `existing = _find_by_key(...)`. With a `move_id` that is not cancelled and is not `invoice`:
    `RedirectWarning` with the message below, the e-invoice's form as action (`res_model`, `res_id`,
    `views` form), button *Open E-Invoice* (D14).
@@ -271,6 +315,10 @@ empty treated as absent.
 9. The totals compared with `values` (D18).
 10. `_link_or_create(values, "received", content, filename, invoice, existing, notify=False)` (D24).
 11. One message on the bill: `"Created from e-invoice %(name)s."`, then the notes of 6–9 as a list.
+   Step 3 adds, for a replacement, `"It replaces e-invoice %(original)s."` when the original is in
+   Odoo, else `"It replaces invoice %(symbol)s-%(number)s of %(date)s, which is not in Odoo."`
+
+`_link_or_create` calls `_link_related` on a new record (step 3), in the attach path as in the upload.
 
 Core then marks the new lines `is_imported` (`account_move.py:4456`), which keeps their taxes and
 prices when the partner is changed later (`account/models/account_move_line.py:863`, `:883`).
@@ -333,7 +381,9 @@ The D16 fallback is `quantity` 1, `price_unit` = `amount`, `discount` 0, and the
 | Unreadable date | `"The e-invoice has an unreadable date: %(value)s"` |
 | Duplicate | `"E-invoice %(name)s is already attached to %(document)s."` |
 | Not a received vendor bill (step 2) | `"Only received e-invoices create vendor bills. Attach this one to its document with Attach E-Invoice."` |
-| Replacement or adjustment (step 2) | `"E-invoice %(name)s replaces or adjusts another invoice, which is not created as a bill yet. Enter the bill by hand and attach the XML."` |
+| Unknown correction type (step 3) | `"The e-invoice has an unknown correction type: %(value)s"` |
+| Adjustment or several invoices (step 3, replacing the next row) | `"E-invoice %(name)s adjusts an invoice or corrects several, which is not created as a document. Enter the bill or refund by hand and attach the XML."` |
+| Replacement or adjustment (step 2 only) | `"E-invoice %(name)s replaces or adjusts another invoice, which is not created as a bill yet. Enter the bill by hand and attach the XML."` |
 | Line without a code (step 2) | `"Line %(line)s of e-invoice %(name)s has no VAT code."` |
 | Codes without a row (step 2) | `"VAT codes %(codes)s have no row in E-Invoice VAT Codes for %(company)s."` |
 | Duplicate on upload (step 2) | `RedirectWarning`: `"E-invoice %(name)s is already on %(document)s."` |
@@ -385,7 +435,9 @@ No rows are seeded (design §5.3, D8). Step 2 reads the table.
 | `action_l10n_vn_einvoice_attach` | — | `ensure_one`; the wizard's action (`l10n_vn_einvoice.l10n_vn_einvoice_attach_action`, read with `_for_xml_id`) with `context` `{"default_move_id": self.id}` |
 | `action_l10n_vn_einvoice_open` | — | `ensure_one`; the e-invoice's form, `res_id` `l10n_vn_einvoice_id` |
 | `_get_edi_decoder` | — | step 2; `_get_edi_decoder(file_data, new=False)`: when `file_data["type"] == "xml"` and the root's local name is `HDon`, `self.env["l10n_vn.einvoice"]._import_document`; else `super()` (D13) |
-| `_post` | — | step 2; `_post(soft=True)`: `self._l10n_vn_einvoice_check_partners()`, then `super()` |
+| `l10n_vn_einvoice_correction_state` | — | step 3; field, Selection `related="l10n_vn_einvoice_id.correction_state"`, `string="E-Invoice Correction"` — read by the form's banners |
+| `_post` | — | step 2; `_post(soft=True)`: `self._l10n_vn_einvoice_check_partners()`, then `super()`. Step 3: `_l10n_vn_einvoice_check_replaced()` first |
+| `_l10n_vn_einvoice_check_replaced` | — | step 3; a document whose e-invoice is `replaced` refuses the posting (divergence 7), naming the replacing e-invoices |
 | `_l10n_vn_einvoice_check_partners` | — | step 2; for each document with an e-invoice (D19): the tax code to hold is `seller_vat` (vendor documents) or `buyer_vat` (customer documents), none skipped; with `normalise_vat(commercial_partner_id.vat)` equal, nothing; empty, the partners holding that tax code (`_find_partner`) other than this one refuse the posting, else the code is written with `sudo()` and the partner gets `"Tax code %(vat)s set from e-invoice %(name)s when %(document)s was posted."`; different, the posting is refused |
 
 **Posting refusals** (step 2), `UserError`:
@@ -393,6 +445,7 @@ No rows are seeded (design §5.3, D8). Step 2 reads the table.
 | Case | Message |
 |---|---|
 | Different tax code | `"%(document)s: its partner %(partner)s has tax code %(partner_vat)s, but e-invoice %(name)s names %(vat)s. Choose the partner with that tax code, or correct the partner's."` |
+| Replaced (step 3) | `"%(document)s: its e-invoice %(name)s was replaced by %(replacements)s. Book the replacement instead, and cancel this document."` |
 | Code held elsewhere | `"%(document)s: its partner %(partner)s has no tax code, while %(others)s already hold %(vat)s, the tax code on e-invoice %(name)s. Choose that partner."` |
 
 ### `l10n_vn.einvoice.attach` — `wizard/l10n_vn_einvoice_attach.py`
@@ -410,7 +463,8 @@ No rows are seeded (design §5.3, D8). Step 2 reads the table.
 | `partner_vat` | Char | `related="move_id.commercial_partner_id.vat"` |
 | `partner_differs` | Boolean | `compute="_compute_preview"`: the document's partner tax code, normalised, differs from the seller's (vendor documents) or the buyer's (customer documents) |
 | `date_differs` | Boolean | `compute="_compute_preview"`: `invoice_date` differs from the document's |
-| `amounts_differ` | Boolean | `compute="_compute_preview"`: the total differs from the document's `amount_total` in the document's currency, beyond the currency's rounding |
+| `amounts_differ` | Boolean | `compute="_compute_preview"`: the total differs from the document's `amount_total` in the document's currency, beyond the currency's rounding; from step 3 the read total times −1 on a refund or credit note (D29) |
+| `preview_relation` | Char | step 3; `compute="_compute_preview"`: `"Replaces C26THM-10867"` (1), `"Adjusts …"` (2), `"Discounts …"` (5), `"Corrects several invoices"` (3, 4), else empty; shown under `preview_name` when set |
 
 | Method | Decorator | Behaviour |
 |---|---|---|
@@ -426,8 +480,8 @@ mismatched partner.
 | XML id | Type | Content |
 |---|---|---|
 | `l10n_vn_einvoice_view_list` | list | `name`, `invoice_date`, `seller_name`, `seller_vat`, `buyer_name`, `buyer_vat`, `amount_total`, `currency_id` (`column_invisible="True"`), `move_id`, `state` (badge: `decoration-success="state == 'booked'"`, `decoration-info="state == 'draft'"`, `decoration-warning="state == 'not_booked'"`), `company_id` (`groups="base.group_multi_company"`); `create="0"` |
-| `l10n_vn_einvoice_view_form` | form | `create="0"`, `edit="0"`. Header: `state` as statusbar. Button box: `action_open_document` (`invisible="not move_id"`, icon `fa-file-text-o`, text *Document*). Title: `name`. Group *Invoice*: `direction`, `form`, `symbol`, `number`, `invoice_date`, `tax_authority_code`, `format_version`, `provider_vat`. Group *Parties*: `seller_name`, `seller_vat`, `buyer_name`, `buyer_vat`. Group *Amounts*: `amount_untaxed`, `amount_tax`, `amount_total`, `currency_id`, `exchange_rate`. Group *Booking*: `move_id`, `attachment_id`, `company_id` (`groups="base.group_multi_company"`). Chatter. Step 2: header button *Create Supplier* (`action_create_partner`, `groups="account.group_account_invoice"`, `invisible="direction != 'received' or state != 'draft' or move_partner_id"`); an `alert-warning` between the header and the sheet, `invisible="not amounts_differ"`: *The amounts differ from the document's.*; `move_partner_id` and `amounts_differ` invisible in the sheet |
-| `l10n_vn_einvoice_view_search` | search | `name`, `seller_vat`, `seller_name`, `buyer_vat`, `tax_authority_code`; filters *Not booked* / *Draft* / *Booked* by `state`; group by `state`, `seller_name`, `invoice_date` (month) |
+| `l10n_vn_einvoice_view_form` | form | `create="0"`, `edit="0"`. Header: `state` as statusbar. Button box: `action_open_document` (`invisible="not move_id"`, icon `fa-file-text-o`, text *Document*). Title: `name`. Group *Invoice*: `direction`, `form`, `symbol`, `number`, `invoice_date`, `tax_authority_code`, `format_version`, `provider_vat`. Group *Parties*: `seller_name`, `seller_vat`, `buyer_name`, `buyer_vat`. Group *Amounts*: `amount_untaxed`, `amount_tax`, `amount_total`, `currency_id`, `exchange_rate`. Group *Booking*: `move_id`, `attachment_id`, `company_id` (`groups="base.group_multi_company"`). Chatter. Step 2: header button *Create Supplier* (`action_create_partner`, `groups="account.group_account_invoice"`, `invisible="direction != 'received' or state != 'draft' or move_partner_id"`); an `alert-warning` between the header and the sheet, `invisible="not amounts_differ"`: *The amounts differ from the document's.*; `move_partner_id` and `amounts_differ` invisible in the sheet. Step 3: group *Correction* (`invisible="not relation_type"`): `relation_type`, `related_symbol`, `related_number`, `related_date`, `related_vat`, `adjust_reason`, `related_einvoice_id`; a page *Corrections* (`invisible="not correction_ids"`) listing `correction_ids` (`name`, `relation_type`, `invoice_date`, `amount_total`, `state`); an `alert-danger` beside the amounts banner, `invisible="correction_state != 'replaced'"`: *This e-invoice has been replaced; see its corrections.*, and an `alert-info`, `invisible="correction_state != 'adjusted'"`: *This e-invoice has been adjusted; see its corrections.*; `correction_state` invisible |
+| `l10n_vn_einvoice_view_search` | search | `name`, `seller_vat`, `seller_name`, `buyer_vat`, `tax_authority_code`; filters *Not booked* / *Draft* / *Booked* by `state`; group by `state`, `seller_name`, `invoice_date` (month). Step 3: filters *Replaced*, *Adjusted* (`correction_state`) and *Corrections* (`relation_type != False`) |
 | `l10n_vn_einvoice_received_action` | window action | *E-Invoices*, `domain="[('direction', '=', 'received')]"` |
 | `l10n_vn_einvoice_issued_action` | window action | *E-Invoices*, `domain="[('direction', '=', 'issued')]"` |
 
@@ -452,6 +506,7 @@ One record, `view_move_form`, inheriting `account.view_move_form`.
 |---|---|
 | `//header` inside, last | button `action_l10n_vn_einvoice_attach`, `string="Attach E-Invoice"`, `type="object"`, `groups="account.group_account_invoice"`, `invisible="l10n_vn_einvoice_id or state == 'cancel' or move_type not in ('in_invoice', 'in_refund', 'out_invoice', 'out_refund')"` |
 | `//div[@name='button_box']` inside | button `action_l10n_vn_einvoice_open`, `class="oe_stat_button"`, `icon="fa-file-code-o"`, `type="object"`, `invisible="not l10n_vn_einvoice_id"`, showing *E-Invoice*; the field `l10n_vn_einvoice_id` invisible beside it |
+| `//sheet` before (step 3) | `l10n_vn_einvoice_correction_state` invisible; an `alert-danger`, `invisible="l10n_vn_einvoice_correction_state != 'replaced'"`: *This document's e-invoice has been replaced. Do not post it; if it is posted, reverse it.*; an `alert-info`, `invisible="l10n_vn_einvoice_correction_state != 'adjusted'"`: *This document's e-invoice has been adjusted; the adjustment is booked on its own document.* |
 
 ## Views — `wizard/l10n_vn_einvoice_attach_views.xml`
 
@@ -477,7 +532,11 @@ package's `__init__`, which imports test files importing `odoo.addons.mail.tests
 `account.chart.template.try_loading(..., install_demo=False)`, as core's helpers do
 (`odoo/odoo/addons/base/tests/common.py:124-131`, `account/tests/common.py:295-303`). `setUpClass`
 creates the test company with `vat` `0317253698`, the trading company's, to which four of the six
-samples are addressed; puts it in the env's `allowed_company_ids`; and creates `partner_a`. The tests
+samples are addressed; puts it in the env's `allowed_company_ids`; and creates `partner_a`. Before
+that (step 3), it clears the tax code of every partner on the instance holding one of the samples'
+other parties' codes (`SAMPLE_PARTY_VATS` in `tests/common.py`): partners are shared across
+companies, so the lookups by tax code would otherwise find real ones. The test transaction rolls the
+change back. The tests
 run as the superuser, so they never meet the instance's e-invoices, taxes or journals; access is
 tested with a user of its own. **Helpers:** `_sample(name)` returns the bytes of `tests/data/<name>`
 through `file_open("l10n_vn_einvoice/tests/data/<name>", "rb")`; `_edited(name, old, new)` returns
@@ -549,7 +608,7 @@ count.
 | `test_duplicate_upload_redirects` | `C26TQL394.xml` uploaded twice: the second raises `RedirectWarning` (inside a savepoint); one e-invoice |
 | `test_upload_after_cancelled_attach` | attached to a bill then cancelled; the upload links the same e-invoice record to the new bill |
 | `test_attach_never_imports` | *Attach* on an empty draft, on a draft with one line, and on a posted bill: the empty draft stays without lines, and each document gains exactly one message, counted by a `mail.message` search, since core's notes are translated (D25) |
-| `test_upload_refusals` | the issued sample, `1602181122_1C26TTD_130.xml` (another company), `C26TQL394.xml` with a `TTHDLQuan` block inserted after `HDCTTChinh`, and `C26TQL394.xml` uploaded with `default_move_type` `in_refund`: each a draft without lines whose chatter holds the refusal; no e-invoice |
+| `test_upload_refusals` | the issued sample, `1602181122_1C26TTD_130.xml` (another company), `C26TQL394.xml` with a `TTHDLQuan` block inserted after `HDCTTChinh`, and `C26TQL394.xml` uploaded with `default_move_type` `in_refund`: each a draft without lines whose chatter holds the refusal; no e-invoice. **Step 3:** the inserted block (`TCHDon` 2) is refused by D28 with step 3's message, which the assertion reads |
 | `test_partner_never_matched_by_name` | `supplier`'s tax code removed and a partner named exactly `CÔNG TY TNHH QUANG QUANG LINH` created: the bill has no partner |
 | `test_several_partners` | a second partner with `0308965730`: no partner; the message says *Several partners* |
 | `test_create_supplier` | `1_001…` uploaded; `action_create_partner`: a company partner `CÔNG TY CỔ PHẦN VIỆC LÀM 24H`, tax code `0314071202`, the seller's address and phone, country Vietnam; the bill's partner |
@@ -561,9 +620,31 @@ count.
 | `test_vat_table_refuses_unsuitable_taxes` | a row naming a sale tax, and one naming a price-included purchase tax: `ValidationError` each |
 | `test_access_invoicing_user_upload` | a user with *Invoicing* only, no *Contact Creation*: uploads `1_001…`, sets `partner_a`, posts — the tax code is filled; *Create Supplier* raises `AccessError` for that user |
 
+### `tests/test_l10n_vn_einvoice_correction.py` (step 3)
+
+`TestEInvoiceCorrection(EInvoiceCase)`, with the fixtures of `TestEInvoiceBill` taken into
+`tests/common.py` as `EInvoiceBillCase` (the 8% tax, the VAT-code rows, `supplier`, the purchase
+journal, `_upload`, `_replaced`, `_messages`, `_bodies`, `_message_count`, `_einvoices`), from which
+both classes derive. `_messages` searches `mail.message` by model and id, so `_bodies` and
+`_message_count` never read a stale `message_ids`. The class adds `hoan_my` (`vat` `3700150535`) and
+`hong_nhut` (`0301097482`, the buyer of `950` and `1118`), and `_refund(amount)`, a draft vendor refund
+for `hoan_my` with one line at *Test 8%*.
+
+| Test | Asserts |
+|---|---|
+| `test_read_relation` | `C26THM_10868.xml`: `relation_type` `1`, `related_regime` `1`, `related_vat` `3700150535`, `related_form` `1`, `related_symbol` `C26THM`, `related_number` `10867` (read `00010867`), `related_date` 2026-09-07; `C26THM_10867.xml` has no relation |
+| `test_replacement_after_original` | `10867` then `10868` uploaded: two bills; the second's e-invoice `related_einvoice_id` is the first's; the first's `correction_state` `replaced`; the first bill's chatter names `C26THM-10868`; the second's import message says it replaces `C26THM-10867` |
+| `test_replacement_before_original` | `10868` first: its message says `C26THM-10867` is not in Odoo, no link; `10867` uploaded after: linked, `replaced` |
+| `test_replaced_document_cannot_post` | after the pair: posting the `10867` bill raises `UserError` naming `C26THM-10868`; the `10868` bill posts |
+| `test_replaced_posted_original` | `10867` posted, then `10868` uploaded: the first bill stays posted; its `l10n_vn_einvoice_correction_state` is `replaced` |
+| `test_adjustment_upload_refused` | `10867` uploaded, then `C26THM_10870.xml`: a draft without lines whose chatter holds the refusal, no e-invoice. A refund of 551,880 entered by hand for `hoan_my`, then `10870` attached to it: the e-invoice is linked to the refund and to `10867`'s e-invoice, its amounts negative and `amounts_differ` false; `10867` is `adjusted` and still posts |
+| `test_several_invoices_refused` | `10868` with `<TCHDon>1</TCHDon>` replaced by `3`: a draft without lines whose chatter holds the refusal; no e-invoice |
+| `test_issued_corrections_by_attach` | `C26TQP_950.xml` and `C26TQP_1118.xml` attached to two customer invoices: linked, the first `replaced`, its posting refused; `C26TQP_931.xml` and `C26TQP_958.xml` attached to two more: linked, the first `adjusted` and posting |
+| `test_wizard_preview_relation_and_sign` | the wizard with `C26THM_10868.xml` on a draft bill shows `preview_relation` *Replaces C26THM-10867*; with `C26THM_10870.xml` on a draft refund of 551,880, *Adjusts C26THM-10867* and `amounts_differ` false |
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | What a Vietnamese e-invoice record is, that it is read from the invoice's XML (formats 2.1.0 and 2.1.1, forms 1 and 2), and that it links to the bill or invoice booking it |
-| `readme/USAGE.md` | Attaching: *Attach E-Invoice* on a bill or invoice, choose the XML, check what was read, *Attach*. The lists under *Customers* and *Vendors*. The VAT codes under *Configuration → Accounting*. Step 2: *Upload* on the Bills list creates the draft bill; what to do when no supplier is found (*Create Supplier*, or choose one); the import message; the posting check |
+| `readme/USAGE.md` | Attaching: *Attach E-Invoice* on a bill or invoice, choose the XML, check what was read, *Attach*. The lists under *Customers* and *Vendors*. The VAT codes under *Configuration → Accounting*. Step 2: *Upload* on the Bills list creates the draft bill; what to do when no supplier is found (*Create Supplier*, or choose one); the import message; the posting check. Step 3: a replacement uploaded like any invoice; an adjustment entered by hand as its own bill or refund, then attached; a replaced document refused at posting and, when already posted, to be reversed by hand; the banners |

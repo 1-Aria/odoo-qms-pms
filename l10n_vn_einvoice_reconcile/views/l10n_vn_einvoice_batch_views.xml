@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="l10n_vn_einvoice_batch_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.batch.list</field>
+        <field name="model">l10n_vn.einvoice.batch</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="direction"/>
+                <field name="list_kind"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="import_date"/>
+                <field name="invoice_count"/>
+                <field name="error_count"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_batch_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.batch.form</field>
+        <field name="model">l10n_vn.einvoice.batch</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_import" type="object" string="Import"
+                            class="btn-primary"
+                            groups="account.group_account_user,account.group_account_manager"
+                            invisible="not id"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group name="list">
+                            <field name="direction"/>
+                            <field name="list_kind"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="template_id"/>
+                        </group>
+                        <group string="Imported" name="imported">
+                            <field name="filename"/>
+                            <field name="import_date"/>
+                            <field name="list_title"/>
+                            <field name="period_text"/>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="row_count"/>
+                            <field name="invoice_count"/>
+                            <field name="error_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Invoices" name="invoices">
+                            <field name="invoice_ids" context="{'list_view_ref': 'l10n_vn_einvoice_reconcile.l10n_vn_einvoice_portal_view_list'}"/>
+                        </page>
+                        <page string="Rows" name="rows">
+                            <field name="row_ids" context="{'list_view_ref': 'l10n_vn_einvoice_reconcile.l10n_vn_einvoice_portal_row_view_list'}"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_batch_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.batch.search</field>
+        <field name="model">l10n_vn.einvoice.batch</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <filter name="filter_purchase" string="Purchases"
+                        domain="[('direction', '=', 'purchase')]"/>
+                <filter name="filter_sale" string="Sales"
+                        domain="[('direction', '=', 'sale')]"/>
+                <separator/>
+                <filter name="filter_cash_register" string="Cash Register"
+                        domain="[('list_kind', '=', 'cash_register')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_direction" string="Direction"
+                            context="{'group_by': 'direction'}"/>
+                    <filter name="group_list_kind" string="List"
+                            context="{'group_by': 'list_kind'}"/>
+                    <filter name="group_month" string="Period"
+                            context="{'group_by': 'date_from:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_batch_action" model="ir.actions.act_window">
+        <field name="name">Portal Lists</field>
+        <field name="res_model">l10n_vn.einvoice.batch</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Import a list from the tax portal</p>
+            <p>Export the month's purchase or sales list from the portal, create a portal list here,
+                choose the direction and the list, and use <i>Import</i>.</p>
+        </field>
+    </record>
+</odoo>

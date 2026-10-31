@@ -128,6 +128,45 @@ class L10nVnEinvoice(models.Model):
     amount_tax = fields.Monetary(string="VAT", readonly=True)
     amount_total = fields.Monetary(string="Total", readonly=True)
     amounts_differ = fields.Boolean(compute="_compute_amounts_differ")
+    # Step 3: the invoice this one replaces or adjusts (TTHDLQuan).
+    relation_type = fields.Selection(
+        selection=[
+            ("1", "Replaces one invoice"),
+            ("2", "Adjusts one invoice"),
+            ("3", "Replaces several invoices"),
+            ("4", "Adjusts several invoices"),
+            ("5", "Commercial discount"),
+        ],
+        string="Correction",
+        readonly=True,
+    )
+    related_regime = fields.Char(readonly=True)
+    related_vat = fields.Char(string="Corrected Seller Tax Code", readonly=True, index=True)
+    related_form = fields.Char(readonly=True, index=True)
+    related_symbol = fields.Char(readonly=True, index=True)
+    related_number = fields.Char(readonly=True, index=True)
+    related_date = fields.Date(readonly=True)
+    adjust_reason = fields.Char(readonly=True)
+    related_einvoice_id = fields.Many2one(
+        comodel_name="l10n_vn.einvoice",
+        string="Corrects",
+        readonly=True,
+        index=True,
+        copy=False,
+        ondelete="set null",
+        check_company=True,
+    )
+    correction_ids = fields.One2many(
+        comodel_name="l10n_vn.einvoice",
+        inverse_name="related_einvoice_id",
+        string="Corrections",
+    )
+    correction_state = fields.Selection(
+        selection=[("replaced", "Replaced"), ("adjusted", "Adjusted")],
+        compute="_compute_correction_state",
+        store=True,
+        index=True,
+    )
     attachment_id = fields.Many2one(
         comodel_name="ir.attachment",
         string="XML File",
@@ -165,7 +204,25 @@ class L10nVnEinvoice(models.Model):
             else:
                 einvoice.state = "not_booked"
 
+    @api.depends("correction_ids.relation_type")
+    def _compute_correction_state(self):
+        for einvoice in self:
+            kinds = set(einvoice.correction_ids.mapped("relation_type"))
+            if kinds & {"1", "3"}:
+                einvoice.correction_state = "replaced"
+            elif kinds & {"2", "4", "5"}:
+                einvoice.correction_state = "adjusted"
+            else:
+                einvoice.correction_state = False
+
+    def _document_sign(self):
+        """-1 on a refund or credit note, whose totals are positive while a
+        decreasing adjustment's are negative (D29)."""
+        self.ensure_one()
+        return -1 if self.move_id.move_type in ("in_refund", "out_refund") else 1
+
     @api.depends(
+        "move_id.move_type",
         "move_id.amount_untaxed",
         "move_id.amount_tax",
         "move_id.amount_total",
@@ -182,8 +239,9 @@ class L10nVnEinvoice(models.Model):
                 einvoice.amounts_differ = False
                 continue
             currency = einvoice.currency_id
+            sign = einvoice._document_sign()
             einvoice.amounts_differ = move.currency_id != currency or any(
-                currency.compare_amounts(ours, theirs)
+                currency.compare_amounts(sign * ours, theirs)
                 for ours, theirs in (
                     (einvoice.amount_untaxed, move.amount_untaxed),
                     (einvoice.amount_tax, move.amount_tax),
@@ -282,7 +340,47 @@ class L10nVnEinvoice(models.Model):
             amount_untaxed = self._read_amount(root, "DLHDon/NDHDon/TToan/TgTCThue")
             amount_tax = self._read_amount(root, "DLHDon/NDHDon/TToan/TgTThue")
 
+        relation = {
+            "relation_type": False,
+            "related_regime": False,
+            "related_vat": False,
+            "related_form": False,
+            "related_symbol": False,
+            "related_number": False,
+            "related_date": False,
+            "adjust_reason": False,
+        }
+        if root.find(_path("DLHDon/TTChung/TTHDLQuan")) is not None:
+            base = "DLHDon/TTChung/TTHDLQuan/"
+            related_date = _text(root, base + "NLHDCLQuan")
+            try:
+                related_date = fields.Date.to_date(related_date[:10]) if related_date else False
+            except ValueError as exc:
+                raise UserError(
+                    _("The e-invoice has an unreadable date: %(value)s", value=related_date)
+                ) from exc
+            relation = {
+                "relation_type": _text(root, base + "TCHDon") or False,
+                "related_regime": _text(root, base + "LHDCLQuan") or False,
+                "related_vat": normalise_vat(_text(root, base + "MSTCLQuan"))
+                or normalise_vat(_text(root, "DLHDon/NDHDon/NBan/MST"))
+                or False,
+                "related_form": _text(root, base + "KHMSHDCLQuan") or False,
+                "related_symbol": normalise_symbol(_text(root, base + "KHHDCLQuan")) or False,
+                "related_number": normalise_number(_text(root, base + "SHDCLQuan")) or False,
+                "related_date": related_date,
+                "adjust_reason": _text(root, base + "LDDCTThe") or False,
+            }
+            if relation["relation_type"] not in dict(self._fields["relation_type"].selection):
+                raise UserError(
+                    _(
+                        "The e-invoice has an unknown correction type: %(value)s",
+                        value=relation["relation_type"] or "?",
+                    )
+                )
+
         return {
+            **relation,
             "format_version": _text(root, "DLHDon/TTChung/PBan"),
             "form": form,
             "symbol": normalise_symbol(_text(root, "DLHDon/TTChung/KHHDon")),
@@ -494,6 +592,7 @@ class L10nVnEinvoice(models.Model):
                     "res_id": einvoice.id,
                 }
             )
+            einvoice._link_related()
         if notify:
             # no_new_invoice: core's chatter hook would otherwise read the posted
             # XML as an import (account_move.py:6490-6502), filling an empty draft
@@ -503,6 +602,54 @@ class L10nVnEinvoice(models.Model):
                 attachments=[(filename, content)],
             )
         return einvoice
+
+    def _link_related(self):
+        """Link this e-invoice to the invoice it corrects, and the corrections
+        already read to it, in its company (D27). Searched as superuser, like
+        _find_by_key; the links are written as the user."""
+        Einvoice = self.sudo()
+        for einvoice in self:
+            pairs = []
+            if einvoice.relation_type in ("1", "2", "5") and einvoice.related_number:
+                original = Einvoice.search(
+                    [
+                        ("company_id", "=", einvoice.company_id.id),
+                        ("seller_vat", "=", einvoice.related_vat),
+                        ("form", "=", einvoice.related_form),
+                        ("symbol", "=", einvoice.related_symbol),
+                        ("number", "=", einvoice.related_number),
+                        ("id", "!=", einvoice.id),
+                    ],
+                    limit=1,
+                )
+                if original:
+                    pairs.append((einvoice, self.browse(original.id)))
+            corrections = Einvoice.search(
+                [
+                    ("company_id", "=", einvoice.company_id.id),
+                    ("related_einvoice_id", "=", False),
+                    ("relation_type", "in", ("1", "2", "5")),
+                    ("related_vat", "=", einvoice.seller_vat),
+                    ("related_form", "=", einvoice.form),
+                    ("related_symbol", "=", einvoice.symbol),
+                    ("related_number", "=", einvoice.number),
+                    ("id", "!=", einvoice.id),
+                ]
+            )
+            pairs += [(self.browse(correction.id), einvoice) for correction in corrections]
+            for correction, original in pairs:
+                correction.related_einvoice_id = original
+                if original.move_id:
+                    verb = _("replaces") if correction.relation_type == "1" else _("adjusts")
+                    original.move_id.with_context(no_new_invoice=True).message_post(
+                        body=_(
+                            "E-invoice %(correction)s %(verb)s the e-invoice of this "
+                            "document, %(original)s.",
+                            correction=correction.name,
+                            verb=verb,
+                            original=original.name,
+                        )
+                    )
 
     @api.model
     def _attach_xml(self, content, filename, move):
@@ -546,12 +693,13 @@ class L10nVnEinvoice(models.Model):
                     "its document with Attach E-Invoice."
                 )
             )
-        root, _version = self._parse_xml(content)
-        if root.find(_path("DLHDon/TTChung/TTHDLQuan")) is not None:
+        if values["relation_type"] and values["relation_type"] != "1":
+            # Only a replacement is a complete invoice (D28).
             raise UserError(
                 _(
-                    "E-invoice %(name)s replaces or adjusts another invoice, which is "
-                    "not created as a bill yet. Enter the bill by hand and attach the XML.",
+                    "E-invoice %(name)s adjusts an invoice or corrects several, which is "
+                    "not created as a document. Enter the bill or refund by hand and "
+                    "attach the XML.",
                     name=name,
                 )
             )
@@ -674,9 +822,29 @@ class L10nVnEinvoice(models.Model):
                 )
             )
 
-        self._link_or_create(
+        einvoice = self._link_or_create(
             values, "received", content, filename, invoice, existing, notify=False
         )
+        if values["relation_type"] == "1":
+            if einvoice.related_einvoice_id:
+                notes.insert(
+                    0,
+                    _(
+                        "It replaces e-invoice %(original)s.",
+                        original=einvoice.related_einvoice_id.name,
+                    ),
+                )
+            else:
+                notes.insert(
+                    0,
+                    _(
+                        "It replaces invoice %(symbol)s-%(number)s of %(date)s, which is "
+                        "not in Odoo.",
+                        symbol=values["related_symbol"] or "?",
+                        number=values["related_number"] or "?",
+                        date=values["related_date"] or "?",
+                    ),
+                )
         body = Markup("<p>%s</p>") % _("Created from e-invoice %(name)s.", name=name)
         if notes:
             body += Markup("<ul>%s</ul>") % Markup().join(

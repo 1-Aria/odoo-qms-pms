@@ -38,9 +38,16 @@
                 <div class="alert alert-warning mb-0" role="alert" invisible="not amounts_differ">
                     The amounts differ from the document's.
                 </div>
+                <div class="alert alert-danger mb-0" role="alert" invisible="correction_state != 'replaced'">
+                    This e-invoice has been replaced; see its corrections.
+                </div>
+                <div class="alert alert-info mb-0" role="alert" invisible="correction_state != 'adjusted'">
+                    This e-invoice has been adjusted; see its corrections.
+                </div>
                 <sheet>
                     <field name="move_partner_id" invisible="1"/>
                     <field name="amounts_differ" invisible="1"/>
+                    <field name="correction_state" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_document" type="object"
                                 class="oe_stat_button" icon="fa-file-text-o"
@@ -82,7 +89,30 @@
                             <field name="attachment_id"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
+                        <group string="Correction" name="correction" invisible="not relation_type">
+                            <field name="relation_type"/>
+                            <field name="related_symbol"/>
+                            <field name="related_number"/>
+                            <field name="related_date"/>
+                            <field name="related_vat"/>
+                            <field name="adjust_reason" invisible="not adjust_reason"/>
+                            <field name="related_einvoice_id"/>
+                        </group>
                     </group>
+                    <notebook invisible="not correction_ids">
+                        <page string="Corrections" name="corrections">
+                            <field name="correction_ids">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="relation_type"/>
+                                    <field name="invoice_date"/>
+                                    <field name="amount_total"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
                 <chatter/>
             </form>
@@ -105,6 +135,13 @@
                         domain="[('state', '=', 'draft')]"/>
                 <filter name="filter_booked" string="Booked"
                         domain="[('state', '=', 'booked')]"/>
+                <separator/>
+                <filter name="filter_replaced" string="Replaced"
+                        domain="[('correction_state', '=', 'replaced')]"/>
+                <filter name="filter_adjusted" string="Adjusted"
+                        domain="[('correction_state', '=', 'adjusted')]"/>
+                <filter name="filter_corrections" string="Corrections"
+                        domain="[('relation_type', '!=', False)]"/>
                 <group expand="0" string="Group By">
                     <filter name="group_state" string="Status"
                             context="{'group_by': 'state'}"/>

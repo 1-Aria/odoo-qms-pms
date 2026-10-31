@@ -1,6 +1,6 @@
 # VN E-Invoice Reconciliation — Design
 
-Oct 24, 2026 · @Peter · Revised Oct 31, 2026 · Status: draft
+Oct 24, 2026 · @Peter · Revised Oct 31, 2026 (twice) · Status: draft
 
 Checks the e-invoices in Odoo against the tax authority's list of the same invoices, for sales and
 purchases. A module of its own, `l10n_vn_einvoice_reconcile`, depending on `l10n_vn_einvoice`
@@ -41,19 +41,18 @@ so the accountant reviews only the exceptions.
 | R2 | **Every portal invoice is matched or flagged** | Each is linked to its e-invoice, or marked as missing from Odoo |
 | R3 | **Odoo's own gaps show** | E-invoices of the period with no portal invoice, and posted documents with no e-invoice, are listed |
 | R4 | **Differences are named** | Amount and status differences are flagged per invoice, not just "unmatched" |
-| R5 | **The check is evidence** | Each import keeps its file, date and results |
+| R5 | **The check is evidence** | Each import keeps its filename, date, rows and results; the rows hold every cell of the list, so the file itself is not kept (D5) |
 
 ### Scope
 
 | Capability | v1 | Reason |
 |---|---|---|
-| Import of the portal's list, sales and purchases | In | R1 |
+| Import of the portal's lists, ordinary and cash-register, sales and purchases | In | R1 |
 | Grouping a list's rows into invoices (§5.3) | In | One invoice can span several rows |
 | Matching portal invoices to e-invoices; booking state through the e-invoice | In | R2, R4 |
 | The Odoo-only lists | In | R3 |
 | Portal-only invoices booked from the list | **Not needed** | The accountant downloads that invoice from the portal, unzips it, and uploads its XML (`l10n_vn_einvoice`); the next match finds it |
 | Summing the amounts of an invoice spread over several rows | Later | No export has shown one yet (§5.3, O2) |
-| The cash-register list | Later | Only a recreation has been seen (§4, O1) |
 | A validity check when a bill is posted, against the last import | Later | Builds on v1's data |
 | Downloading from the portal automatically | **Out** | §4: no public API, captcha-protected login |
 | Imports, foreign suppliers, purchases from individuals | Out | Not Vietnamese e-invoices, so absent from the portal |
@@ -109,9 +108,11 @@ row 6 and data from row 7 down to the first empty row.
   re-imported later therefore carries the corrections made since.
 - **An information-only adjustment shows zero amounts** (`881`, `958`): the adjusting invoice's own
   totals, which its XML also gives as 0.
-- **The cash-register list** (*Hóa đơn có mã khởi tạo từ máy tính tiền*) is known only from a recreation:
-  the same structure with some headers different (a seller address, a citizen-ID column, no currency,
-  rate or fees). Its template waits for an official export (O1).
+- **The cash-register list** (*Hóa đơn có mã khởi tạo từ máy tính tiền*) is known from Peter's
+  recreation, whose values match the official exports: the same frame, with a seller address and a
+  citizen-ID column and no currency, rate or fees. Its template is built from the recreation; the
+  header check (§5.1) refuses the first official file if a header differs, naming it, and the expected
+  text is then corrected (O1).
 - **One account per company,** so each import belongs to one company.
 
 ## 5. Design
@@ -129,12 +130,17 @@ an **XLSX template** whose *instruction* maps cells to fields. From its source:
 - **Date conversion assumes `.xls` cells** (`models/common.py:270-271` reads `cell.ctype`, which
   `openpyxl` cells for `.xlsx` files lack). So **every column is imported into a text field,** and the
   module parses dates and amounts itself (§5.4). This also keeps the raw values as the evidence.
-- **The import wizard keeps no copy of the file** (`wizard/import_xlsx_wizard.py:140-160`). So the
-  batch holds the file and calls the importer itself (`xlsx.import.import_xlsx`,
-  `models/xlsx_import.py:360-378`), then runs the grouping and matching. The wizard is not used.
+- **The file is not kept.** The module's own import dialog passes it to the importer
+  (`xlsx.import.import_xlsx`, `models/xlsx_import.py:356-378`) and runs the checks and the grouping;
+  the dialog holds the file in a database column, not as an attachment, and Odoo's cleanup of
+  temporary records removes it. The rows hold every cell, so nothing is lost (Peter, 2026-10-31: the
+  instance keeps attachments to a minimum). OCA's import wizard is not used.
+- **The file is checked before it is trusted:** its title must fit the batch's list, seven header
+  cells must hold the expected headers, and every row's tax code on the company's side must be the
+  company's. A refusal names what did not fit and rolls the import back.
 
-**One template ships with the module** for the list above, targeting the batch's rows; the
-cash-register list gets its own when an official export exists. The template is a data record with
+**Two templates ship with the module,** one per list, both targeting the batch's rows; the batch's
+*list* field picks one. Each is a data record with
 `noupdate="1"`. If the portal changes its columns, the accountant edits the instruction in
 *Settings → Technical → Excel Import/Export → XLSX Templates*, and an upgrade does not overwrite the
 edit. A layout that changes beyond editing gets a new template; the old one is archived, and batches
@@ -144,7 +150,7 @@ imported with it keep it.
 
 | Model | One record per | Content |
 |---|---|---|
-| **`l10n_vn.einvoice.batch`** | import | `company_id`; `direction` (sale / purchase); `template_id` (which list); `date_from`, `date_to`; `file`, `filename`, `import_date`; `row_ids`, `invoice_ids`; counts per match state |
+| **`l10n_vn.einvoice.batch`** | import | `company_id`; `direction` (sale / purchase); `list_kind` (ordinary / cash register) and its `template_id`; `date_from`, `date_to`; `filename`, `import_date`; `row_ids`, `invoice_ids`; counts per match state |
 | **`l10n_vn.einvoice.portal.row`** | row of the file | `batch_id`; every column as text, as imported (§4); `invoice_id` (its group, §5.3) |
 | **`l10n_vn.einvoice.portal`** | invoice of the list | `batch_id`; the normalised key (seller tax code, form, symbol, number), date, buyer tax code; untaxed, VAT, total; status and check result; `row_count`; `row_ids`; `einvoice_id`; `match_state` and the differences (§5.5) |
 
@@ -235,16 +241,21 @@ or adjustment issued this month changes the status of last month's original.
 
 ### 5.6 Views and access
 
-- **Batches:** list and form. The form holds the file, the template, *Import* and *Match again*, the
-  portal invoices grouped by `match_state`, and the two Odoo-only smart buttons.
+- **Batches:** list and form. The form holds the direction, the list and its template, *Import*
+  (a dialog asking for the file) and *Match again*, the portal invoices grouped by `match_state`, and
+  the two Odoo-only smart buttons.
 - **Portal invoices:** list with filters per `match_state` and direction; a record shows its rows and
   opens its e-invoice.
 - **E-invoice form** (base module): the portal lists that confirmed it.
 - **Menu:** *Accounting → Accounting → E-Invoice Reconciliation* (core's `account.menu_finance_entries`).
-- **Access:** importing and matching for `account.group_account_manager`; reading for
-  `account.group_account_user`. Record rules by company. A sales list's buyer columns hold private
+- **Access:** importing and matching for accountants (`account.group_account_user`), deleting lists
+  for administrators (`account.group_account_manager`), reading for read-only accounting
+  (`account.group_account_readonly`). Importing creates only review records, so it is accountants'
+  work (Peter, 2026-10-31). Record rules by company. A sales list's buyer columns hold private
   customers' names, addresses and citizen IDs, as the issued invoices themselves do; the rows carry
-  the same access as the batch.
+  the same access as the batch. The cash-register list's citizen-ID column is not restricted further:
+  the import writes every column, and on the company's cash-register purchase lists the buyer is the
+  company, so the column is empty in practice.
 
 ## 6. Decisions
 
@@ -254,7 +265,7 @@ or adjustment issued this month changes the status of last month's original.
 | D2 | **The input is the Excel list;** an invoice's XML, unzipped outside Odoo, goes through `l10n_vn_einvoice` (§4) |
 | D3 | **The import uses `excel_import_export`, one template per layout, editable and kept across upgrades** (§5.1) |
 | D4 | **Every column is imported as text** and parsed by the module (§5.1, §5.4) |
-| D5 | **The batch keeps the file and runs the importer itself;** the wizard is not used (§5.1) |
+| D5 | **The file is read into rows and not kept;** the module's import dialog runs the importer, OCA's wizard is not used (§5.1; Peter, 2026-10-31) |
 | D6 | **Rows and portal invoices are separate records:** rows are the evidence, invoices are matched (§5.2) |
 | D7 | **Rows are grouped by key, and an invoice on several rows is never summed by guess:** it is matched by key and marked `amounts_to_check` until a real case shows how its rows combine (§5.3; Peter, 2026-10-31) |
 | D8 | **Portal invoices match e-invoices, not documents;** booking is read through the e-invoice (§5.5) |
@@ -267,11 +278,10 @@ or adjustment issued this month changes the status of last month's original.
 
 | # | Scope | Waits on |
 |---|---|---|
-| 1 | Models, access, views; the template for the list; import from the batch | — |
-| 2 | Normalisation, grouping (§5.3), matching and `match_state`, the Odoo-only searches | — |
-| 3 | The cash-register template | An official cash-register export (O1) |
-| 4 | Summing an invoice spread over several rows | A real case (O2) |
-| 5 | Later: a check at posting time against the last import | step 2 in use |
+| 1 | Models, access, views; both templates; the import dialog and its checks; normalisation and grouping (§5.3) | — |
+| 2 | Matching and `match_state`, the Odoo-only searches | — |
+| 3 | Summing an invoice spread over several rows | A real case (O2) |
+| 4 | Later: a check at posting time against the last import | step 2 in use |
 
 Tests build their lists from the official layout with made-up values, so no export is committed; the
 multi-row case is a made-up list of its own, into the trading company.
@@ -291,7 +301,7 @@ multi-row case is a made-up list of its own, into the trading company.
 
 | # | Question | Settles |
 |---|---|---|
-| O1 | An official export of the **cash-register list**. The ordinary list is settled (§4) | The cash-register template (step 3) |
+| O1 | An official export of the **cash-register list**, to confirm the recreation's headers. The ordinary list is settled (§4) | The cash-register template's expected headers |
 | O2 | **An invoice spread over several rows:** which columns repeat, which vary, how the amounts combine | The summing rule (step 4); until then §5.3 |
 | O3 | The wording for a **cancelled** invoice, and any check result besides *Đã cấp mã hóa đơn* | The status table (§5.5) |
 | O4 | Whether 1 đồng per amount is the right tolerance, or exact equality | `amount_diff` |
@@ -322,7 +332,8 @@ O5 (whether a later correction changes an earlier month's list) is settled: it d
 
 | Oct 28 | Oct 31 | Why |
 |---|---|---|
-| Layout from recreated lists, two templates | Layout from three official exports; one template for the ordinary list, the cash-register one later | Official exports of the ordinary list, sales and purchases; none of the cash-register list |
+| Layout from recreated lists, two templates | Layout from three official exports for the ordinary list; the cash-register template from Peter's recreation, checked by its headers | Official exports of the ordinary list; the recreation's values match them |
+| The batch keeps the file | The file is read into rows and not kept (D5) | The rows hold every cell; the instance keeps attachments to a minimum (Peter, Oct 31) |
 | Repairs for lost leading zeros and `25.0` numbers | Kept as a no-cost trim; the official values are text | The repairs answered the recreation's formats |
 | A self-checking rule summing an invoice's rows, `amounts_unclear` otherwise | No summing; a multi-row invoice is matched by key and marked `amounts_to_check` | No case seen; the safe rule never guesses (D7) |
 | Statuses expected | Statuses confirmed from the April export; only *đã bị hủy* still unseen | Peter's April export, Oct 31 |

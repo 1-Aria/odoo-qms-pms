@@ -338,6 +338,10 @@ the module doc named.
   the test count, never just `exit=0`. (`qms_catalog`)
 - Build fixture codes from `unique_code_prefix()` — `ref_code` is unique per table and the
   instance holds real data. (`qms_catalog`)
+- Tests that look records up by a business key, such as a partner's tax code, meet the instance's
+  real records, including ones made during UI checks — partners are shared across companies, so a
+  test company of its own does not hide them. Clear or neutralise them in `setUpClass`; the test
+  transaction rolls it back. (`l10n_vn_einvoice`, step 3)
 - Asserting on tracking takes two `self.env.cr.precommit.run()` calls: `create()` discards
   tracking for the rest of the transaction, and messages post only at commit. (`qms_nonconformity`)
 - A dependency or constraint trigger that no test exercises is decoration. Write the test
@@ -399,10 +403,22 @@ the module doc named.
   source it does not depend on therefore copies that source's value at the first read, not at
   the write — so a test that edits the source before reading the snapshot sees the edit copied.
   Read the field before changing the source. (`qms_fabric_inspection`)
+- A required stored compute needs `precompute=True`. Without it the value is computed after the
+  INSERT, and the column's NOT NULL refuses the row on every `create()` — the batch's template, computed
+  from its list kind, failed all 13 tests this way. Core does it for the move's `date`
+  (`account/models/account_move.py:145`). (`l10n_vn_einvoice_reconcile`, step 1)
 - Odoo 18 lets only *Settings* read `ir.actions.act_window` records, so `env.ref(action).read()`
   raises for everyone else — some OCA 18 ports still do it. Read an action with
   `self.env["ir.actions.act_window"]._for_xml_id(xmlid)`, which reads it as superuser.
   (`qms_quality_control`, step 6)
+
+**OCA modules**
+- `excel_import_export` cannot read a template's `_HEAD_` cells from an `.xlsx`: for a head cell it
+  passes the cell's value to its converter (`oca/server-tools/excel_import_export/models/xlsx_import.py:209`),
+  which reads `.value` from it (`models/common.py:301`); the error is swallowed and every head cell
+  arrives empty. Row columns get the cell itself and work. It also never checks a file's title or
+  headers: it reads by position. Read single cells with `openpyxl` and check the layout yourself.
+  (`l10n_vn_einvoice_reconcile`, step 1)
 
 **Views**
 - View inheritance may not select on a translated attribute such as `@string`; select

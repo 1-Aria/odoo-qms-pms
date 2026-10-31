@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="l10n_vn_einvoice_portal_row_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.portal.row.list</field>
+        <field name="model">l10n_vn.einvoice.portal.row</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" decoration-danger="error">
+                <field name="col_stt"/>
+                <field name="col_form"/>
+                <field name="col_symbol"/>
+                <field name="col_number"/>
+                <field name="col_date"/>
+                <field name="col_seller_vat"/>
+                <field name="col_seller_name"/>
+                <field name="col_seller_address" optional="hide"/>
+                <field name="col_buyer_vat"/>
+                <field name="col_buyer_name"/>
+                <field name="col_buyer_address" optional="hide"/>
+                <field name="col_citizen_id" optional="hide"/>
+                <field name="col_untaxed"/>
+                <field name="col_tax"/>
+                <field name="col_discount" optional="hide"/>
+                <field name="col_fees" optional="hide"/>
+                <field name="col_total"/>
+                <field name="col_currency" optional="hide"/>
+                <field name="col_rate" optional="hide"/>
+                <field name="col_status"/>
+                <field name="col_check" optional="hide"/>
+                <field name="invoice_id" optional="hide"/>
+                <field name="error"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_portal_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.portal.list</field>
+        <field name="model">l10n_vn.einvoice.portal</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="name"/>
+                <field name="invoice_date"/>
+                <field name="seller_name"/>
+                <field name="seller_vat"/>
+                <field name="buyer_name" optional="hide"/>
+                <field name="buyer_vat" optional="hide"/>
+                <field name="amount_untaxed" sum="Untaxed"/>
+                <field name="amount_tax" sum="VAT"/>
+                <field name="amount_total" sum="Total"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="status_kind" widget="badge"
+                       decoration-danger="status_kind in ('replaced', 'adjusted', 'cancelled', 'unknown')"
+                       decoration-info="status_kind in ('replacing', 'adjusting')"/>
+                <field name="row_count" optional="hide"/>
+                <field name="batch_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_portal_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.portal.form</field>
+        <field name="model">l10n_vn.einvoice.portal</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0">
+                <div class="alert alert-warning mb-0" role="alert" invisible="row_count &lt; 2">
+                    This invoice spans several rows of the list; its amounts are not compared.
+                </div>
+                <div class="alert alert-warning mb-0" role="alert" invisible="not rows_disagree">
+                    Its rows disagree on date, status or check result.
+                </div>
+                <sheet>
+                    <field name="rows_disagree" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group string="Invoice" name="invoice">
+                            <field name="seller_vat"/>
+                            <field name="form"/>
+                            <field name="symbol"/>
+                            <field name="number"/>
+                            <field name="invoice_date"/>
+                            <field name="seller_name"/>
+                            <field name="buyer_vat"/>
+                            <field name="buyer_name"/>
+                        </group>
+                        <group string="Amounts" name="amounts">
+                            <field name="amount_untaxed"/>
+                            <field name="amount_tax"/>
+                            <field name="amount_discount"/>
+                            <field name="amount_total"/>
+                            <field name="currency_id"/>
+                        </group>
+                        <group string="Status" name="status">
+                            <field name="status"/>
+                            <field name="status_kind"/>
+                            <field name="check_result"/>
+                        </group>
+                        <group string="List" name="list">
+                            <field name="batch_id"/>
+                            <field name="row_count"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Rows" name="rows">
+                            <field name="row_ids" context="{'list_view_ref': 'l10n_vn_einvoice_reconcile.l10n_vn_einvoice_portal_row_view_list'}"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_portal_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.einvoice.portal.search</field>
+        <field name="model">l10n_vn.einvoice.portal</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="seller_vat"/>
+                <field name="seller_name"/>
+                <field name="buyer_vat"/>
+                <filter name="filter_replaced" string="Replaced"
+                        domain="[('status_kind', '=', 'replaced')]"/>
+                <filter name="filter_adjusted" string="Adjusted"
+                        domain="[('status_kind', '=', 'adjusted')]"/>
+                <filter name="filter_cancelled" string="Cancelled"
+                        domain="[('status_kind', '=', 'cancelled')]"/>
+                <filter name="filter_unknown" string="Unknown Status"
+                        domain="[('status_kind', '=', 'unknown')]"/>
+                <separator/>
+                <filter name="filter_several_rows" string="Several Rows"
+                        domain="[('row_count', '>', 1)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_status_kind" string="Status Kind"
+                            context="{'group_by': 'status_kind'}"/>
+                    <filter name="group_seller" string="Seller"
+                            context="{'group_by': 'seller_name'}"/>
+                    <filter name="group_batch" string="Portal List"
+                            context="{'group_by': 'batch_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_einvoice_portal_action" model="ir.actions.act_window">
+        <field name="name">Portal Invoices</field>
+        <field name="res_model">l10n_vn.einvoice.portal</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No portal invoices yet</p>
+            <p>Import a portal list to see the invoices the tax authority holds.</p>
+        </field>
+    </record>
+</odoo>

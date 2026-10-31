@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="l10n_vn_einvoice_reconcile_menu"
+              name="E-Invoice Reconciliation"
+              parent="account.menu_finance_entries"
+              groups="account.group_account_readonly,account.group_account_manager"
+              sequence="40"/>
+
+    <menuitem id="l10n_vn_einvoice_batch_menu"
+              name="Portal Lists"
+              parent="l10n_vn_einvoice_reconcile_menu"
+              action="l10n_vn_einvoice_batch_action"
+              sequence="10"/>
+
+    <menuitem id="l10n_vn_einvoice_portal_menu"
+              name="Portal Invoices"
+              parent="l10n_vn_einvoice_reconcile_menu"
+              action="l10n_vn_einvoice_portal_action"
+              sequence="20"/>
+</odoo>

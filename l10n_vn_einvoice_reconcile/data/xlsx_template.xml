@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- The rows only: the title (A3), period (A4) and header row (6) are read by the
+         module itself, since excel_import_export cannot read head cells from an
+         .xlsx. The header check takes each column's header from the row above its
+         cell here, so moving a column moves its check. -->
+    <record id="xlsx_template_portal_list" model="xlsx.template">
+        <field name="name">GDT portal invoice list (DANH SÁCH HÓA ĐƠN)</field>
+        <field name="res_model">l10n_vn.einvoice.batch</field>
+        <field name="description">The portal's ordinary list of sales or purchase invoices: title in A3, period in A4, headers on row 6, data from row 7</field>
+        <field name="input_instruction">{
+    "__IMPORT__": {
+        1: {
+            "row_ids": {
+                "A7": "col_stt",
+                "B7": "col_form",
+                "C7": "col_symbol",
+                "D7": "col_number",
+                "E7": "col_date",
+                "F7": "col_seller_vat",
+                "G7": "col_seller_name",
+                "H7": "col_buyer_vat",
+                "I7": "col_buyer_name",
+                "J7": "col_buyer_address",
+                "K7": "col_untaxed",
+                "L7": "col_tax",
+                "M7": "col_discount",
+                "N7": "col_fees",
+                "O7": "col_total",
+                "P7": "col_currency",
+                "Q7": "col_rate",
+                "R7": "col_status",
+                "S7": "col_check",
+            },
+        },
+    },
+}</field>
+    </record>
+
+    <record id="xlsx_template_cash_register_list" model="xlsx.template">
+        <field name="name">GDT portal cash-register invoice list (DANH SÁCH HÓA ĐƠN MÁY TÍNH TIỀN)</field>
+        <field name="res_model">l10n_vn.einvoice.batch</field>
+        <field name="description">The portal's list of invoices issued from cash registers, same frame; laid out from a recreation, to be checked against the first official file</field>
+        <field name="input_instruction">{
+    "__IMPORT__": {
+        1: {
+            "row_ids": {
+                "A7": "col_stt",
+                "B7": "col_form",
+                "C7": "col_symbol",
+                "D7": "col_number",
+                "E7": "col_date",
+                "F7": "col_seller_vat",
+                "G7": "col_seller_name",
+                "H7": "col_seller_address",
+                "I7": "col_buyer_vat",
+                "J7": "col_buyer_name",
+                "K7": "col_citizen_id",
+                "L7": "col_untaxed",
+                "M7": "col_tax",
+                "N7": "col_discount",
+                "O7": "col_total",
+                "P7": "col_status",
+                "Q7": "col_check",
+            },
+        },
+    },
+}</field>
+    </record>
+</odoo>

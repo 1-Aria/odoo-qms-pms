@@ -11,6 +11,17 @@
                         groups="account.group_account_invoice"
                         invisible="l10n_vn_einvoice_id or state == 'cancel' or move_type not in ('in_invoice', 'in_refund', 'out_invoice', 'out_refund')"/>
             </xpath>
+            <xpath expr="//sheet" position="before">
+                <field name="l10n_vn_einvoice_correction_state" invisible="1"/>
+                <div class="alert alert-danger mb-0" role="alert"
+                     invisible="l10n_vn_einvoice_correction_state != 'replaced'">
+                    This document's e-invoice has been replaced. Do not post it; if it is posted, reverse it.
+                </div>
+                <div class="alert alert-info mb-0" role="alert"
+                     invisible="l10n_vn_einvoice_correction_state != 'adjusted'">
+                    This document's e-invoice has been adjusted; the adjustment is booked on its own document.
+                </div>
+            </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <field name="l10n_vn_einvoice_id" invisible="1"/>
                 <button name="action_l10n_vn_einvoice_open" type="object"
