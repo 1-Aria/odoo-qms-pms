@@ -86,7 +86,7 @@ l10n_vn_einvoice/
 └── readme/ DESCRIPTION.md, USAGE.md
 ```
 
-The files in `tests/data/` are copies of `docs/Accounting/samples/`, lookup codes redacted.
+The files in `tests/data/` are copies of the first six samples (kept outside the repo in `Odoo-Build/accounting-samples/old/`), lookup codes redacted.
 
 ## Manifest
 

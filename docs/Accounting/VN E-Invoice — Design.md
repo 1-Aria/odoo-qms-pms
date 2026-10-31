@@ -1,6 +1,6 @@
 # VN E-Invoice — Design
 
-Oct 28, 2026 · @Peter · Status: draft
+Oct 28, 2026 · @Peter · Revised Oct 31, 2026 · Status: draft
 
 Vietnamese e-invoices as records in Odoo, read from their XML. A module of its own,
 `l10n_vn_einvoice`, outside the QMS-PMS and IE-MES suites, depending only on `account` and `l10n_vn`.
@@ -8,7 +8,7 @@ It is the base of `l10n_vn_einvoice_reconcile` (`VN E-Invoice Reconciliation —
 reads the shared rules from here: the e-invoice record, its key and how the key is normalised.
 
 The XML format is described field by field in `vn_einvoice_field_dictionary.json` (from QĐ 1233/QĐ-CT,
-format 2.1.1, and the samples in `samples/`). The dictionary is the format reference. This document
+format 2.1.1, and the first samples, kept outside the repo in `Odoo-Build/accounting-samples/old/`). The dictionary is the format reference. This document
 decides what Odoo stores and what it is called. Where the dictionary's *odoo* column names a field,
 that is a proposal.
 
@@ -32,11 +32,12 @@ that is a proposal.
 | Attaching an XML to an existing vendor bill or customer invoice | In | E3 |
 | Creating a draft vendor bill from an XML | In | E2 |
 | VAT codes mapped to Odoo taxes, per company | In | E2; §5.3 |
-| Replacement and adjustment invoices (`TTHDLQuan`) | Step 3 | Rare; a sample of each is needed first (§9) |
+| Replacement and adjustment invoices (`TTHDLQuan`) | Step 3 | Rare; samples of both arrived on Oct 31 (§9) |
 | E-invoices created from Viettel's files for invoices Odoo issued | Later | A bridge module with `l10n_vn_edi_viettel` (§9) |
 | Product matching, units, supplier bank accounts | Later | Lines are text in v1 (§5.4) |
 | Signature checking | Later | No XML-signature library in the image; the portal list confirms each invoice (§9) |
-| Intake by e-mail, ZIP files, provider links | Later | Upload only in v1 |
+| Intake by e-mail, provider links | Later | Upload only in v1 |
+| ZIP files: the portal's per-invoice download (`invoice.xml` with a viewer) | **Out** | Unzipped outside Odoo, which is simpler there (D10) |
 | Forms 3–9 (public assets, reserves, tickets, delivery notes, commercial, receipts) | Out | Not received by this business. Form 7 returns with the issued side |
 
 ## 2. Facts that shape the design
@@ -255,6 +256,12 @@ lines: the decoder (§2) reads the file, creates the e-invoice and fills the bil
   symbol, number, date, reason); link to the related e-invoice when present; positive adjustments as
   bills, negative ones and commercial discounts as refunds against the original bill. The original bill
   is never cancelled automatically. Several related invoices (`TCHDon` 3, 4) are left to the accountant.
+  The Oct 31 samples (`accounting-samples/new/`) give three pairs, all format 2.1.0: a supplier's
+  **replacement** (`C26THM-10868` replaces `10867` the same day, at a new price, with a note line naming
+  the original); a **replacement** of the trading company's own invoice (`C26TQP-1118` replaces `950`,
+  one line fewer); and an **information-only adjustment** (`C26TQP-958` adjusts `931`: a line of
+  −23 × 896,135.266 and one of +230 × 89,613.526, totals 0, no per-rate rows). A decrease is written
+  as a negative price on an ordinary line (`TChat` 1), not as a commercial-discount line.
 - **Products and units:** `MHHDVu` through the supplier's product codes, `DVTinh` through a mapping
   table.
 - **Supplier bank accounts:** `STKNHang` proposed, never trusted automatically.
@@ -274,6 +281,7 @@ lines: the decoder (§2) reads the file, creates the e-invoice and fills the bil
 | D7 | **Posting a bill whose partner's tax code differs from its e-invoice's seller is blocked** (§5.2). A wrong seller tax code in the VAT return is a compliance error, not a preference (Peter, 2026-10-28) |
 | D8 | **VAT codes map to taxes through a per-company table, seeded empty** (§5.3) |
 | D9 | **A line's untaxed amount is `ThTien`;** the per-rate tax is the XML's (§5.4) |
+| D10 | **No ZIP support.** The portal delivers each invoice as a ZIP; it is unzipped outside Odoo and its `invoice.xml` uploaded or attached (Peter, 2026-10-31) |
 
 ## 11. Steps (provisional)
 
@@ -284,7 +292,8 @@ lines: the decoder (§2) reads the file, creates the e-invoice and fills the bil
 | 3 | Replacement and adjustment invoices (§9) |
 | 4 | Later: the Viettel bridge module |
 
-Tests read the files in `samples/`, with the trading company (`0317253698`) as the buyer. The sample
+Tests read the files in `l10n_vn_einvoice/tests/data/`, copies of the first six samples with their
+lookup codes redacted, with the trading company (`0317253698`) as the buyer. The sample
 addressed to `0317253698-001` tests the wrong-company refusal, and the trading company's own invoice
 tests the issued direction. No 2.1.1 file exists yet, so 2.1.1 fixtures are 2.1.0 samples edited per
 the dictionary, replaced when real ones arrive (O2). Tests that create partners or companies are
@@ -296,7 +305,7 @@ the dictionary, replaced when real ones arrive (O2). Tests that create partners 
 |---|---|
 | `vn_einvoice_field_dictionary.json` | Every tag, its meaning, requirement per form, the code tables |
 | `Quyết-định-1233-QĐ-CT.docx` | Format 2.1.1; the transition dates (§7) |
-| `samples/` | Six XML invoices (2.1.0) and two recreated portal lists. The lookup codes in three files are replaced by `REDACTED`, so their signatures no longer verify |
+| `Odoo-Build/accounting-samples/` (outside the repo) | `old/`: the first six XML invoices and the recreated cash-register list. `new/`: the official portal exports and six portal ZIPs (§9). Not committed: they hold lookup codes and private buyers' data. The tests' copies of the first six (`tests/data/`) have their lookup codes replaced by `REDACTED`, so their signatures no longer verify |
 | `odoo/addons/account/models/account_move.py` | Import hook, existing-line and posted-bill rules, error handling, EDI creation context (§2) |
 | `odoo/addons/account/models/account_journal.py` | Upload entry point (§2) |
 | `odoo/addons/account/models/partner.py` | Core partner lookup, not used (§5.2) |

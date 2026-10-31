@@ -1,0 +1,358 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Payslip Profiles 2026</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a ledger page. Summary table of all profiles on top, then one full payslip beside its editable inputs. */
+:root{
+  --bg:#f3f5f8; --card:#ffffff; --ink:#151d27; --muted:#5a6673; --line:#dbe1e8; --line-soft:#eaeef3;
+  --accent:#1d4f91; --accent-soft:#e5edf8;
+  --si:#13706a; --si-soft:#dcf0ee;
+  --bonus:#6a3fa3; --bonus-soft:#eee6f8;
+  --ot:#a35a00; --ot-soft:#fbecd9;
+  --oth:#7d8a99; --oth-soft:#e9edf2;
+  --ok:#2c7a3f; --ok-soft:#e2f2e5;
+  --warn:#b3261e; --warn-soft:#fbe5e3;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",Roboto,Arial,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --card:#161d26; --ink:#e5eaf0; --muted:#98a4b2; --line:#283340; --line-soft:#1f2832;
+  --accent:#86aee6; --accent-soft:#1c2a3c;
+  --si:#5cc4bb; --si-soft:#163330; --bonus:#b79be4; --bonus-soft:#2a2140;
+  --ot:#f0a648; --ot-soft:#3a2a14; --oth:#8e9aa8; --oth-soft:#242d38;
+  --ok:#6cc583; --ok-soft:#173222; --warn:#f08a82; --warn-soft:#3b1d1b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --card:#161d26; --ink:#e5eaf0; --muted:#98a4b2; --line:#283340; --line-soft:#1f2832;
+  --accent:#86aee6; --accent-soft:#1c2a3c;
+  --si:#5cc4bb; --si-soft:#163330; --bonus:#b79be4; --bonus-soft:#2a2140;
+  --ot:#f0a648; --ot-soft:#3a2a14; --oth:#8e9aa8; --oth-soft:#242d38;
+  --ok:#6cc583; --ok-soft:#173222; --warn:#f08a82; --warn-soft:#3b1d1b; color-scheme:dark}
+
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(26px,4vw,36px);font-weight:800}
+h2{font-size:20px;font-weight:700}
+h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:0}
+.lede{color:var(--muted);max-width:68ch}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+header{display:flex;flex-direction:column;gap:8px}
+.eyebrow{font-family:var(--f-num);font-size:12px;color:var(--accent);letter-spacing:.04em}
+
+/* assumptions */
+.assume{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px}
+.assume .fact{display:flex;flex-direction:column;gap:1px}
+.assume .fact span{font-size:12px;color:var(--muted)}
+.assume .fact b{font-family:var(--f-num);font-weight:500;font-size:14px}
+.toggle{display:flex;align-items:center;gap:10px;margin-left:auto;cursor:pointer;font-size:14px}
+.toggle input{width:18px;height:18px;accent-color:var(--accent)}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* summary table */
+.tablebox{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:920px}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+th{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;background:var(--card);position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+td.bar{width:180px}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--accent-soft)}
+tbody tr.sel td{background:var(--accent-soft)}
+tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+tr.group td{font-family:var(--f-display);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg);cursor:default;padding:6px 12px}
+tr.group:hover td{background:var(--bg)}
+.pname{background:none;border:0;padding:0;color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-align:left}
+.pname:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+.pname small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.stack{display:flex;height:12px;border-radius:3px;overflow:hidden;background:var(--line-soft)}
+.stack span{display:block;height:100%}
+.zero{color:var(--muted)}
+
+/* detail */
+.detail{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.detail{grid-template-columns:1fr}}
+.slip{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.slip-head{padding:18px 20px 14px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.slip-head .t{display:flex;flex-direction:column;gap:2px}
+.slip-head .vn{font-family:var(--f-num);font-size:12px;color:var(--muted);letter-spacing:.05em}
+.slip-head .who{font-family:var(--f-display);font-size:22px;font-weight:700}
+.slip-head .meta{font-size:13px;color:var(--muted);text-align:right;display:flex;flex-direction:column;gap:2px}
+.sec{padding:14px 20px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:6px}
+.line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px;align-items:baseline}
+.line .lbl{min-width:0}
+.line .lbl small{display:block;font-size:12px;color:var(--muted)}
+.line .amt{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right;min-width:9ch}
+.chips{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font-family:var(--f-num);font-size:10.5px;padding:1px 6px;border-radius:3px;border:1px solid transparent;white-space:nowrap}
+.c-si{background:var(--si-soft);color:var(--si)}
+.c-ot{background:var(--ot-soft);color:var(--ot)}
+.c-free{background:var(--ok-soft);color:var(--ok)}
+.c-tax{background:var(--oth-soft);color:var(--muted)}
+.c-off{background:transparent;color:var(--muted);border-color:var(--line);text-decoration:line-through}
+.total{font-weight:700}
+.total .amt{font-weight:600}
+.net{background:var(--accent-soft);padding:14px 20px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.net .lbl{font-family:var(--f-display);font-weight:700;font-size:16px}
+.net .amt{font-family:var(--f-num);font-size:24px;font-weight:600;color:var(--accent)}
+.bases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line-soft);border-top:1px solid var(--line-soft)}
+.bases div{background:var(--card);padding:12px 16px;display:flex;flex-direction:column;gap:2px}
+.bases span{font-size:12px;color:var(--muted)}
+.bases b{font-family:var(--f-num);font-weight:500;font-size:15px}
+@media (max-width:520px){.bases{grid-template-columns:1fr}}
+.flags{padding:12px 20px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-soft)}
+.flag{font-size:13.5px;padding:7px 10px;border-radius:4px;background:var(--oth-soft);color:var(--ink)}
+.flag.warn{background:var(--warn-soft);color:var(--warn)}
+.flag.ok{background:var(--ok-soft);color:var(--ok)}
+.note{font-size:13px;color:var(--muted)}
+
+/* side panel */
+.side{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.field{display:flex;flex-direction:column;gap:3px;min-width:0}
+.field label{font-size:12px;color:var(--muted)}
+.field input[type=number]{font-family:var(--f-num);font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);width:100%;box-sizing:border-box}
+.field input:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.field.check{flex-direction:row;align-items:center;gap:8px;grid-column:span 2}
+.field.check input{accent-color:var(--accent);width:16px;height:16px}
+.btn{align-self:flex-start;background:none;border:1px solid var(--line);color:var(--ink);border-radius:4px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.er .line{grid-template-columns:minmax(0,1fr) auto}
+footer{display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:var(--muted);max-width:80ch}
+footer ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+@media (prefers-reduced-motion:no-preference){.stack span{transition:width .25s ease}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">REGION IV · RULES AS OF 29 OCT 2026</div>
+    <h1>Payslip Profiles 2026</h1>
+    <p class="lede">Nine example payslips showing how the proposed pay structure lands on SI, overtime and income tax. Wages are yours; every other amount is a placeholder you can change. Pick a profile in the table to open its payslip.</p>
+  </header>
+
+  <div class="assume" aria-label="Assumptions">
+    <div class="fact"><span>Regional minimum wage</span><b>3,700,000</b></div>
+    <div class="fact"><span>SI &amp; HI cap (20 × 2,530,000)</span><b>50,600,000</b></div>
+    <div class="fact"><span>UI cap (20 × min wage)</span><b>74,000,000</b></div>
+    <div class="fact"><span>Normal hours / month</span><b>26 d × 8 h = 208</b></div>
+    <label class="toggle" for="bonusInOT"><input type="checkbox" id="bonusInOT"> Count efficiency / KPI bonus in the OT base</label>
+  </div>
+
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+      <h2>All profiles</h2>
+      <div class="legend">
+        <span><i style="background:var(--si)"></i>Salary + fixed allowances (SI base)</span>
+        <span><i style="background:var(--bonus)"></i>Bonus</span>
+        <span><i style="background:var(--ot)"></i>Overtime</span>
+        <span><i style="background:var(--oth)"></i>Other allowances</span>
+      </div>
+    </div>
+    <div class="tablebox">
+      <table>
+        <thead><tr>
+          <th>Profile</th><th>Wage</th><th>Gross pay</th><th>Pay mix</th><th>OT share</th><th>Employee insurance</th><th>PIT</th><th>Net pay</th><th>Employer cost</th>
+        </tr></thead>
+        <tbody id="sumBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="detail">
+    <article class="slip" id="slip" aria-live="polite"></article>
+    <aside class="side">
+      <div class="panel">
+        <h3>Edit this profile</h3>
+        <div class="fields" id="fields"></div>
+        <button class="btn" id="reset" type="button">Reset this profile</button>
+      </div>
+      <div class="panel er" id="erPanel"></div>
+    </aside>
+  </section>
+
+  <footer>
+    <h3>How the numbers are worked out</h3>
+    <ul>
+      <li>Full-time roles carry all their pay in the grade salary. Only duties on top of a job, like leading a line, get an allowance.</li>
+      <li>SI base = grade salary + fixed allowance, floored at the regional minimum wage. Employee pays 8% SI + 1.5% HI on a base capped at 50.6M, and 1% UI on a base capped at 74M.</li>
+      <li>Employer pays 17.5% SI + 3% HI + 1% UI, plus the 2% union fee on the SI base.</li>
+      <li>OT hourly rate = (salary + fixed allowance) ÷ 208. Rates are 150% on workdays, 200% on Sundays and 300% on holidays. Bonuses are treated as Art. 104 bonuses and stay outside the OT base unless you switch the toggle.</li>
+      <li>OT pay is PIT-free for hours within the 40 h/month cap. Above the cap, the excess share of OT pay is taxed.</li>
+      <li>A cash meal allowance is PIT-free up to 1.2M. A phone lump-sum is assumed to be within the company's own rule, so it is PIT-free. Travel and attendance pay are taxable. Canteen meals for workers and staff don't appear on the payslip.</li>
+      <li>Union dues are 0.5% of the SI base, capped at 253,000, for members only. PIT uses the 2026 five-bracket scale after the 15.5M personal deduction and 6.2M per dependent.</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const MIN_WAGE=3700000, REF=2530000, STD_H=208, OT_CAP=40;
+  const SI_CAP=20*REF, UI_CAP=20*MIN_WAGE, MEAL_CAP=1200000, DUES_CAP=0.1*REF;
+  const PERSONAL=15500000, DEP=6200000;
+  const BR=[[10e6,.05],[30e6,.10],[60e6,.20],[100e6,.30],[Infinity,.35]];
+
+  const DEFAULTS=[
+    {id:'entry',group:'Workers',name:'Entry worker',vn:'Công nhân mới vào nghề',wage:4500000,fixed:0,fixedLabel:'',bonus:400000,bonusLabel:'Efficiency bonus',att:300000,travel:200000,phone:0,meal:0,wd:20,sun:0,hol:0,deps:0,union:true},
+    {id:'skilled',group:'Workers',name:'Skilled worker',vn:'Công nhân lành nghề',wage:6000000,fixed:0,fixedLabel:'',bonus:1500000,bonusLabel:'Efficiency bonus',att:300000,travel:200000,phone:0,meal:0,wd:30,sun:0,hol:0,deps:0,union:true},
+    {id:'peak',group:'Workers',name:'Skilled worker, peak month',vn:'Tháng cao điểm',wage:6000000,fixed:0,fixedLabel:'',bonus:1800000,bonusLabel:'Efficiency bonus',att:300000,travel:200000,phone:0,meal:0,wd:36,sun:16,hol:0,deps:0,union:true},
+    {id:'leader',group:'Workers',name:'Line leader',vn:'Tổ trưởng chuyền',wage:8000000,fixed:1000000,fixedLabel:'Responsibility allowance',bonus:2000000,bonusLabel:'Line efficiency bonus',att:300000,travel:200000,phone:0,meal:0,wd:30,sun:0,hol:0,deps:1,union:true},
+    {id:'qc',group:'QC and office',name:'QC staff',vn:'Nhân viên QC',wage:10000000,fixed:0,fixedLabel:'',bonus:1000000,bonusLabel:'KPI bonus',att:0,travel:300000,phone:0,meal:0,wd:16,sun:0,hol:0,deps:0,union:true},
+    {id:'qcs',group:'QC and office',name:'QC senior',vn:'QC cao cấp',wage:14000000,fixed:0,fixedLabel:'',bonus:1500000,bonusLabel:'KPI bonus',att:0,travel:300000,phone:200000,meal:0,wd:8,sun:0,hol:0,deps:0,union:true},
+    {id:'qcm',group:'QC and office',name:'QC manager',vn:'Trưởng phòng QC',wage:17000000,fixed:0,fixedLabel:'',bonus:3000000,bonusLabel:'KPI bonus',att:0,travel:500000,phone:500000,meal:0,wd:0,sun:0,hol:0,deps:1,union:true},
+    {id:'acct',group:'QC and office',name:'Accountant',vn:'Kế toán',wage:18000000,fixed:0,fixedLabel:'',bonus:2000000,bonusLabel:'KPI bonus',att:0,travel:300000,phone:300000,meal:0,wd:0,sun:0,hol:0,deps:0,union:true},
+    {id:'fm',group:'Management',name:'Factory manager',vn:'Giám đốc nhà máy',wage:45000000,fixed:0,fixedLabel:'',bonus:8000000,bonusLabel:'KPI bonus',att:0,travel:0,phone:1000000,meal:1200000,wd:0,sun:0,hol:0,deps:2,union:false},
+    {id:'gm',group:'Management',name:'General manager',vn:'Tổng giám đốc',wage:70000000,fixed:0,fixedLabel:'',bonus:15000000,bonusLabel:'KPI bonus',att:0,travel:0,phone:2000000,meal:1200000,wd:0,sun:0,hol:0,deps:1,union:false}
+  ];
+  let profiles=DEFAULTS.map(p=>({...p}));
+  let selected='skilled';
+  const bonusToggle=document.getElementById('bonusInOT');
+
+  const fmt=n=>Math.round(n).toLocaleString('en-US');
+  const pct=n=>(n*100).toFixed(0)+'%';
+
+  function pit(x){let t=0,lo=0;for(const [hi,r] of BR){if(x<=lo)break;t+=(Math.min(x,hi)-lo)*r;lo=hi;}return t;}
+
+  function calc(p){
+    const inOT=bonusToggle.checked;
+    const otBase=p.wage+p.fixed+(inOT?p.bonus:0);
+    const hourly=otBase/STD_H;
+    const otH=p.wd+p.sun+p.hol;
+    const otWd=hourly*1.5*p.wd, otSun=hourly*2*p.sun, otHol=hourly*3*p.hol;
+    const otPay=otWd+otSun+otHol;
+    const other=p.att+p.travel+p.phone+p.meal;
+    const gross=p.wage+p.fixed+p.bonus+other+otPay;
+    const siRaw=p.wage+p.fixed;
+    const siFloor=Math.max(siRaw,MIN_WAGE);
+    const siB=Math.min(siFloor,SI_CAP), uiB=Math.min(siFloor,UI_CAP);
+    const eSI=.08*siB,eHI=.015*siB,eUI=.01*uiB,empIns=eSI+eHI+eUI;
+    const rSI=.175*siB,rHI=.03*siB,rUI=.01*uiB,rUnion=.02*siB,erTotal=rSI+rHI+rUI+rUnion;
+    const dues=p.union?Math.min(.005*siB,DUES_CAP):0;
+    const otFreeShare=otH>0?Math.min(otH,OT_CAP)/otH:0;
+    const otFree=otPay*otFreeShare, otTaxed=otPay-otFree;
+    const mealFree=Math.min(p.meal,MEAL_CAP);
+    const exempt=otFree+mealFree+p.phone;
+    const taxableIncome=gross-exempt;
+    const assessable=Math.max(0,taxableIncome-empIns-PERSONAL-DEP*p.deps);
+    const tax=pit(assessable);
+    const net=gross-empIns-tax-dues;
+    return {hourly,otH,otWd,otSun,otHol,otPay,other,gross,siRaw,siB,uiB,eSI,eHI,eUI,empIns,rSI,rHI,rUI,rUnion,erTotal,dues,otFree,otTaxed,mealFree,exempt,taxableIncome,assessable,tax,net,erCost:gross+erTotal,inOT};
+  }
+
+  function renderSummary(){
+    const body=document.getElementById('sumBody');
+    let html='',lastGroup='';
+    for(const p of profiles){
+      const r=calc(p);
+      if(p.group!==lastGroup){html+=`<tr class="group"><td colspan="9">${p.group}</td></tr>`;lastGroup=p.group;}
+      const segs=[[p.wage+p.fixed,'var(--si)'],[p.bonus,'var(--bonus)'],[r.otPay,'var(--ot)'],[r.other,'var(--oth)']];
+      const bar=segs.map(([v,c])=>v>0?`<span style="width:${(v/r.gross*100).toFixed(2)}%;background:${c}"></span>`:'').join('');
+      const otShare=r.gross?r.otPay/r.gross:0;
+      html+=`<tr data-id="${p.id}" class="${p.id===selected?'sel':''}">
+        <td><button class="pname" type="button" data-id="${p.id}">${p.name}<small>${p.vn}</small></button></td>
+        <td class="num">${fmt(p.wage)}</td>
+        <td class="num">${fmt(r.gross)}</td>
+        <td class="bar"><div class="stack" role="img" aria-label="Pay mix">${bar}</div></td>
+        <td class="num ${otShare?'':'zero'}">${otShare?pct(otShare):'–'}</td>
+        <td class="num">${fmt(r.empIns)}</td>
+        <td class="num ${r.tax?'':'zero'}">${r.tax?fmt(r.tax):'0'}</td>
+        <td class="num"><b>${fmt(r.net)}</b></td>
+        <td class="num">${fmt(r.erCost)}</td></tr>`;
+    }
+    body.innerHTML=html;
+  }
+
+  function line(lbl,sub,amt,chips,cls=''){
+    return `<div class="line ${cls}"><div class="lbl">${lbl}${sub?`<small>${sub}</small>`:''}</div><div class="chips">${chips||''}</div><div class="amt">${amt}</div></div>`;
+  }
+  const C={si:'<span class="chip c-si">SI base</span>',ot:'<span class="chip c-ot">OT base</span>',otoff:'<span class="chip c-off">OT base</span>',free:'<span class="chip c-free">PIT-free</span>',tax:'<span class="chip c-tax">Taxable</span>'};
+
+  function renderSlip(){
+    const p=profiles.find(x=>x.id===selected);const r=calc(p);
+    const isWorker=p.group==='Workers';
+    let earn='';
+    earn+=line(isWorker?'Salary (skill step)':'Salary (grade)','Lương theo công việc',fmt(p.wage),C.si+C.ot+C.tax);
+    if(p.fixed) earn+=line(p.fixedLabel,'Phụ cấp lương',fmt(p.fixed),C.si+C.ot+C.tax);
+    if(p.bonus) earn+=line(p.bonusLabel,'Thưởng · Art. 104',fmt(p.bonus),(r.inOT?C.ot:C.otoff)+C.tax);
+    if(p.att) earn+=line('Attendance bonus','Thưởng chuyên cần',fmt(p.att),C.tax);
+    if(p.travel) earn+=line('Travel allowance','Hỗ trợ đi lại',fmt(p.travel),C.tax);
+    if(p.phone) earn+=line('Phone lump-sum','Khoán điện thoại',fmt(p.phone),C.free);
+    if(p.meal) earn+=line('Meal allowance (cash)','Tiền ăn giữa ca',fmt(p.meal),p.meal>MEAL_CAP?'<span class="chip c-free">PIT-free to 1.2M</span>':C.free);
+    if(p.wd) earn+=line(`Overtime, workday · ${p.wd} h × 150%`,`at ${fmt(r.hourly)}/h`,fmt(r.otWd),C.free);
+    if(p.sun) earn+=line(`Overtime, Sunday · ${p.sun} h × 200%`,`at ${fmt(r.hourly)}/h`,fmt(r.otSun),C.free);
+    if(p.hol) earn+=line(`Overtime, holiday · ${p.hol} h × 300%`,`at ${fmt(r.hourly)}/h`,fmt(r.otHol),C.free);
+    earn+=line('Gross pay','Tổng thu nhập',fmt(r.gross),'','total');
+
+    let ded='';
+    ded+=line('Social insurance 8%','BHXH',fmt(r.eSI));
+    ded+=line('Health insurance 1.5%','BHYT',fmt(r.eHI));
+    ded+=line('Unemployment insurance 1%','BHTN',fmt(r.eUI));
+    if(p.union) ded+=line('Union dues 0.5%','Đoàn phí công đoàn',fmt(r.dues));
+    ded+=line('Personal income tax','Thuế TNCN',fmt(r.tax));
+    ded+=line('Total deductions','',fmt(r.empIns+r.dues+r.tax),'','total');
+
+    const flags=[];
+    if(r.otH>OT_CAP) flags.push(['warn',`${r.otH} OT hours exceeds the 40 h monthly cap by ${r.otH-OT_CAP} h. That is a labour violation, and ${fmt(r.otTaxed)} of OT pay becomes taxable.`]);
+    if(p.wage+p.fixed<MIN_WAGE) flags.push(['warn','Salary plus fixed allowances is below the Region IV minimum wage. SI is charged on the minimum wage instead.']);
+    if(r.siRaw>SI_CAP) flags.push(['',`SI base is capped: ${fmt(r.siRaw)} is above 50.6M, so SI and HI stop at the cap. UI still applies up to 74M.`]);
+    if(r.tax===0) flags.push(['ok',`No income tax. Taxable income after insurance is ${fmt(Math.max(0,r.taxableIncome-r.empIns))}, below the ${fmt(PERSONAL+DEP*p.deps)} family deduction.`]);
+    else flags.push(['',`Taxed on ${fmt(r.assessable)} after ${fmt(r.exempt)} of exempt pay, insurance and ${fmt(PERSONAL+DEP*p.deps)} family deduction${p.deps?` (${p.deps} dependent${p.deps>1?'s':''})`:''}.`]);
+    if(r.inOT&&p.bonus&&r.otPay) flags.push(['',`Bonus counted in the OT base raises the hourly rate to ${fmt(r.hourly)}.`]);
+
+    document.getElementById('slip').innerHTML=`
+      <div class="slip-head"><div class="t"><span class="vn">PHIẾU LƯƠNG · THÁNG 10/2026</span><span class="who">${p.name}</span><span class="note">${p.vn}</span></div>
+        <div class="meta"><span>${p.group}</span><span>${p.deps} dependent${p.deps===1?'':'s'}</span><span>${p.union?'Union member':'Not a union member'}</span></div></div>
+      <div class="sec"><h3>Earnings</h3>${earn}</div>
+      <div class="sec"><h3>Deductions</h3>${ded}</div>
+      <div class="net"><span class="lbl">Net pay · Thực lĩnh</span><span class="amt">${fmt(r.net)}</span></div>
+      <div class="bases">
+        <div><span>SI base</span><b>${fmt(r.siB)}</b></div>
+        <div><span>OT hourly rate (100%)</span><b>${fmt(r.hourly)}</b></div>
+        <div><span>PIT taxable after deductions</span><b>${fmt(r.assessable)}</b></div>
+      </div>
+      <div class="flags">${flags.map(([c,t])=>`<div class="flag ${c}">${t}</div>`).join('')}</div>`;
+
+    document.getElementById('erPanel').innerHTML=`<h3>Employer side</h3>
+      ${line('Gross pay','',fmt(r.gross))}
+      ${line('Social insurance 17.5%','',fmt(r.rSI))}
+      ${line('Health insurance 3%','',fmt(r.rHI))}
+      ${line('Unemployment insurance 1%','',fmt(r.rUI))}
+      ${line('Union fee 2%','',fmt(r.rUnion))}
+      ${line('Total employer cost','',fmt(r.erCost),'','total')}
+      <p class="note">Net pay is ${pct(r.net/r.erCost)} of what this profile costs the company.</p>`;
+  }
+
+  const FIELDS=[['wage','Salary'],['fixed','Fixed allowance'],['bonus','Bonus'],['att','Attendance bonus'],['travel','Travel allowance'],['phone','Phone lump-sum'],['meal','Meal allowance (cash)'],['wd','OT workday (h)'],['sun','OT Sunday (h)'],['hol','OT holiday (h)'],['deps','Dependents']];
+  function renderFields(){
+    const p=profiles.find(x=>x.id===selected);
+    const f=document.getElementById('fields');
+    f.innerHTML=FIELDS.map(([k,l])=>{const step=['wd','sun','hol','deps'].includes(k)?1:100000;return `<div class="field"><label for="f-${k}">${l}</label><input type="number" id="f-${k}" data-k="${k}" min="0" step="${step}" value="${p[k]}"></div>`;}).join('')+
+      `<div class="field check"><input type="checkbox" id="f-union" data-k="union" ${p.union?'checked':''}><label for="f-union">Union member</label></div>`;
+  }
+  document.getElementById('fields').addEventListener('input',e=>{
+    const k=e.target.dataset.k;if(!k)return;
+    const p=profiles.find(x=>x.id===selected);
+    p[k]=k==='union'?e.target.checked:Math.max(0,Number(e.target.value)||0);
+    renderSummary();renderSlip();
+  });
+  document.getElementById('reset').addEventListener('click',()=>{
+    const i=profiles.findIndex(x=>x.id===selected);profiles[i]={...DEFAULTS[i]};renderAll();
+  });
+  document.getElementById('sumBody').addEventListener('click',e=>{
+    const tr=e.target.closest('tr[data-id]');if(!tr)return;selected=tr.dataset.id;renderAll();
+  });
+  bonusToggle.addEventListener('change',()=>{renderSummary();renderSlip();});
+  function renderAll(){renderSummary();renderSlip();renderFields();}
+  renderAll();
+})();
+</script>
+
+</body></html>

@@ -204,9 +204,13 @@ Outside the QMS-PMS and IE-MES suites.
 
 - The XML format reference is `docs/Accounting/vn_einvoice_field_dictionary.json` (Peter's, from
   QĐ 1233/QĐ-CT, also in that folder). The design documents decide what Odoo stores and names.
-- Sample XML invoices and recreated portal lists are in `docs/Accounting/samples/`. Lookup codes
-  (*Mã số bí mật*, *Số bảo mật*) are replaced by `REDACTED`; do the same with any new sample before it
-  is committed.
+- Samples live **outside the repo**, in `Odoo-Build/accounting-samples/`: `old/` the first XML invoices
+  and the recreated cash-register list, `new/` the official portal exports and per-invoice ZIPs. They
+  hold lookup codes (*Mã số bí mật*, *Số bảo mật*) and private buyers' names, addresses and citizen IDs,
+  so they are never committed. A test fixture made from one goes into the module's `tests/data/` with
+  its lookup codes replaced by `REDACTED` and any private buyer's data replaced by made-up values.
+- The portal delivers each invoice as a ZIP (`invoice.xml` with a viewer). The modules do not read ZIPs;
+  they are unzipped outside Odoo (Peter, 2026-10-31).
 - `l10n_vn_edi_viettel` (core, installed) issues sales invoices through Viettel SInvoice. A bridge to it
   is planned, not built.
 
