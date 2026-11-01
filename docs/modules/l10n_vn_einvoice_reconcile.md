@@ -10,8 +10,8 @@ the ordinary one and the cash-register one; step 2 matches. Design:
 
 | # | Scope | Status | Result |
 |---|---|---|---|
-| 1 | `l10n_vn.einvoice.batch`, `l10n_vn.einvoice.portal.row`, `l10n_vn.einvoice.portal`; the import dialog `l10n_vn.einvoice.batch.import`; the templates for the ordinary list (*DANH SÁCH HÓA ĐƠN*) and the cash-register list (*DANH SÁCH HÓA ĐƠN MÁY TÍNH TIỀN*); the title, header and company checks; normalisation and grouping into portal invoices; status reading; access, record rules, views, menu | done | 2026-10-31, two runs. First: `-i`, 13 tests, all erroring on the insert of a batch: `template_id`, required and computed, was computed after the insert without `precompute=True`; fixed. Second: `-u`, `exit=0`, 13 tests, 0 failures; UI checked: the October purchase list (14 invoices, `C26TMX-41` untaxed = total, VAT 0), the April sales list with its replaced and adjusted invoices, the purchase file refused on a sales list, a non-administrator seeing no *Import*. Then opened to accountants (D14, Peter): the access below, the *Import* button and the menu, `col_citizen_id` without groups, `test_access` rewritten; to be confirmed by the next run |
-| 2 | Matching portal invoices to e-invoices: `einvoice_id`, `match_state`, the differences; *Match again*; the Odoo-only smart buttons; `portal_ids` on the e-invoice | planned | |
+| 1 | `l10n_vn.einvoice.batch`, `l10n_vn.einvoice.portal.row`, `l10n_vn.einvoice.portal`; the import dialog `l10n_vn.einvoice.batch.import`; the templates for the ordinary list (*DANH SÁCH HÓA ĐƠN*) and the cash-register list (*DANH SÁCH HÓA ĐƠN MÁY TÍNH TIỀN*); the title, header and company checks; normalisation and grouping into portal invoices; status reading; access, record rules, views, menu | done | 2026-10-31, two runs. First: `-i`, 13 tests, all erroring on the insert of a batch: `template_id`, required and computed, was computed after the insert without `precompute=True`; fixed. Second: `-u`, `exit=0`, 13 tests, 0 failures; UI checked: the October purchase list (14 invoices, `C26TMX-41` untaxed = total, VAT 0), the April sales list with its replaced and adjusted invoices, the purchase file refused on a sales list, a non-administrator seeing no *Import*. Then opened to accountants (D14, Peter): the access below, the *Import* button and the menu, `col_citizen_id` without groups, `test_access` rewritten; confirmed by step 2's run |
+| 2 | Matching: `einvoice_id`, `match_state` and the differences on the portal invoice, stored and following the e-invoice; matching at import and by *Match again*; a new e-invoice linking its waiting portal invoices; the two Odoo-only searches as smart buttons; `portal_ids` and a *Portal* page on the e-invoice | done | 2026-11-01, one run: `-u`, `exit=0`, 21 tests, 0 failures — also confirming step 1's access change; UI checked by Peter as an accountant: matching on the October purchase list, *To Review* and *Without E-Invoice*, a newly attached XML resolving its portal invoice without *Match Again*, the *Portal* page on the e-invoice |
 | 3 | Summing an invoice spread over several rows (design O2) | planned | |
 
 ## Divergences from the design
@@ -21,6 +21,9 @@ the ordinary one and the cash-register one; step 2 matches. Design:
 | 1 | §7: grouping in step 2 with matching | grouping in step 1, with the import | A portal invoice is what every view and the matching show; an import that left only rows would have nothing to look at |
 | 2 | §5.1 says nothing of checking the file | the import refuses a file whose title, header cells or tax codes do not fit its batch (D5–D7) | `excel_import_export` reads by position: the other list's layout, a changed layout or another company's list would be read without complaint into the wrong fields |
 | 3 | §5.3 says nothing of a multi-row invoice's amounts | they are stored as 0, with `row_count` above 1 (D10) | The design never sums or guesses them (D7 there); storing the first row's would read as an invoice amount |
+| 4 | §5.5: `status_diff` when the portal shows the invoice replaced, adjusted or cancelled while its e-invoice is booked | replaced or cancelled: `status_diff` when booked, consistent (`matched`) when not; adjusted: `status_diff` only when Odoo holds no adjustment of it (step 2, D17) | An adjusted invoice stays valid and booked, its adjustment booked beside it (`l10n_vn_einvoice` D12); flagging every adjusted original would flag correct books. A replaced or cancelled invoice left unbooked is what Odoo should hold |
+| 5 | §5.5: documents without an e-invoice are those whose partner has a Vietnamese tax code | purchases: so; sales: every posted customer invoice and credit note (step 2, D20) | Every sale carries an e-invoice, consumers' included, and their partners have no tax code |
+| 6 | §5.5: matching runs at import and on *Match again* | also when an e-invoice is created: it links the portal invoices waiting with its key (step 2, D19) | An accountant who uploads the missing XML sees the portal invoice resolved without pressing anything |
 
 ## Decisions
 
@@ -41,6 +44,13 @@ the ordinary one and the cash-register one; step 2 matches. Design:
 | D13 | **Re-importing replaces rows and portal invoices** (design D11): `excel_import_export` deletes the batch's rows before loading (`xlsx_import.py:80-96`), and the grouping deletes the portal invoices before creating them again |
 | D14 | **Accountants import** (Peter, 2026-10-31): importing creates only review records and replaces only the list's own rows, so `account.group_account_user` reads, creates and edits lists and imports them, and holds every right on rows and portal invoices, which re-importing deletes; `account.group_account_readonly` reads; `account.group_account_manager` also deletes lists. Record rules by company. `col_citizen_id` carries no `groups`: the import writes every column, and a field outside the user's groups cannot be written. On the cash-register purchase lists the company is the buyer, so the column stays empty in practice |
 | D15 | **The title, the period and the header cells are read by the module with `openpyxl`,** before anything is imported, not through the template's `_HEAD_`: for an `.xlsx`, `excel_import_export` passes a head cell's *value* to its converter (`excel_import_export/models/xlsx_import.py:209`), which reads `.value` from it (`models/common.py:301`), so every head cell arrives empty. Rows are passed the cell itself and work. Each checked header is the cell above its column's first data cell in the template's `row_ids` mapping, so an edited layout still moves its check (D6) |
+| D16 | **`match_state` and the differences are stored computes** over `einvoice_id` and the e-invoice's state, correction state and amounts (step 2): once linked, a portal invoice follows its e-invoice — posting the bill turns `not_booked` into `matched` — while the link itself is made by matching, which searches |
+| D17 | **States in this order** (step 2): no e-invoice → `portal_only`; an unknown status → `status_diff`; replaced or cancelled → `status_diff` when the e-invoice is booked, else `matched`; adjusted with no adjustment in Odoo (`correction_state` empty) → `status_diff`; several rows → `amounts_to_check`; a difference above the tolerance → `amount_diff`; not booked → `not_booked`; else `matched` |
+| D18 | **The tolerance is the currency's rounding per amount,** 1 đồng in VND (design O4); differences are the portal's amount minus the e-invoice's, stored for untaxed, VAT and total, 0 when not compared |
+| D19 | **A new e-invoice links the portal invoices waiting for it** (step 2): `l10n_vn.einvoice.create` is extended to search the company's portal invoices with its key, its direction (received ↔ purchase, issued ↔ sale) and no `einvoice_id` |
+| D20 | **The Odoo-only searches are actions with domains, not records** (design D10): e-invoices of the company and direction dated in the batch's period with no `portal_ids`, from any list; posted documents of the period without an e-invoice — vendor bills and refunds of partners with a tax code and no country other than Vietnam, or every customer invoice and credit note |
+| D21 | **Matching is accountants' work** (D14): *Match again* for `account.group_account_user` and up; it writes the portal invoices, which read-only users cannot |
+| D22 | **The waiting portal invoices are linked as superuser, and `portal_ids` is limited to accounting users** (step 2): *Invoicing* users create e-invoices when they upload bills but cannot read portal invoices, so D19's search and write run with `sudo()`; the field carries `groups="account.group_account_readonly,account.group_account_manager"` and the *Portal* notebook the same `groups`, so their e-invoice form opens |
 
 ## Folder structure
 
@@ -51,7 +61,8 @@ l10n_vn_einvoice_reconcile/
 │   ├── __init__.py
 │   ├── l10n_vn_einvoice_batch.py
 │   ├── l10n_vn_einvoice_portal_row.py
-│   └── l10n_vn_einvoice_portal.py
+│   ├── l10n_vn_einvoice_portal.py
+│   └── l10n_vn_einvoice.py                               # 2
 ├── wizard/
 │   ├── __init__.py
 │   ├── l10n_vn_einvoice_batch_import.py
@@ -66,7 +77,8 @@ l10n_vn_einvoice_reconcile/
 │   └── menus.xml
 ├── tests/
 │   ├── __init__.py, common.py
-│   └── test_l10n_vn_einvoice_import.py
+│   ├── test_l10n_vn_einvoice_import.py
+│   └── test_l10n_vn_einvoice_match.py                   # 2
 └── readme/ DESCRIPTION.md, USAGE.md
 ```
 
@@ -84,7 +96,7 @@ l10n_vn_einvoice_reconcile/
 | `countries` | `["vn"]` |
 | `depends` | `l10n_vn_einvoice`, `excel_import_export` |
 | `external_dependencies` | `{"python": ["openpyxl"]}` (D15) |
-| `data` | `security/l10n_vn_einvoice_reconcile_security.xml`, `security/ir.model.access.csv`, `data/xlsx_template.xml`, `wizard/l10n_vn_einvoice_batch_import_views.xml`, `views/l10n_vn_einvoice_portal_views.xml`, `views/l10n_vn_einvoice_batch_views.xml`, `views/menus.xml` |
+| `data` | `security/l10n_vn_einvoice_reconcile_security.xml`, `security/ir.model.access.csv`, `data/xlsx_template.xml`, `wizard/l10n_vn_einvoice_batch_import_views.xml`, `views/l10n_vn_einvoice_portal_views.xml`, `views/l10n_vn_einvoice_batch_views.xml`, `views/menus.xml`; step 2: `views/l10n_vn_einvoice_views.xml` |
 | `installable` | `True` |
 
 ## Python packages
@@ -92,9 +104,9 @@ l10n_vn_einvoice_reconcile/
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models`, `from . import wizard` |
-| `models/__init__.py` | `from . import l10n_vn_einvoice_batch`, `from . import l10n_vn_einvoice_portal_row`, `from . import l10n_vn_einvoice_portal` |
+| `models/__init__.py` | `from . import l10n_vn_einvoice_batch`, `from . import l10n_vn_einvoice_portal_row`, `from . import l10n_vn_einvoice_portal`, `from . import l10n_vn_einvoice` (step 2) |
 | `wizard/__init__.py` | `from . import l10n_vn_einvoice_batch_import` |
-| `tests/__init__.py` | `from . import test_l10n_vn_einvoice_import` |
+| `tests/__init__.py` | `from . import test_l10n_vn_einvoice_import`, `from . import test_l10n_vn_einvoice_match` (step 2) |
 
 ## Access — `security/ir.model.access.csv`
 
@@ -234,6 +246,13 @@ read by the module (D15).
 | `_read_layout` | — | `_read_layout(content_b64)` → the A3 title, the A4 period and, for each checked column, `(header cell, its value)` — the cell above the column's cell in `_template_columns` (D15). A file `openpyxl` cannot open: `"The file is not an Excel (.xlsx) workbook."`; a template without a checked column: `"The template %(template)s has no cell for %(column)s."` |
 | `_check_layout` | — | `_check_layout(layout)`: D5, D6; writes `list_title`, `period_text` and the `header_*` fields; refusals below |
 | `_check_company_side` | — | D7: the tax codes of the rows without an `error` on the company's side — `col_buyer_vat` for purchases, `col_seller_vat` for sales, through `normalise_vat` after the `.0` trim — each equal to `normalise_vat(company_id.vat)`; the first other refused |
+| `action_match` | — | step 2; `invoice_ids._match()`; a message `"Matched: %(matched)s of %(invoices)s invoices; %(issues)s to review."` |
+| `issue_count` | — | step 2; field, Integer, `compute`: portal invoices whose `match_state` is not `matched` |
+| `odoo_only_einvoice_count`, `odoo_only_document_count` | — | step 2; fields, Integer, `compute`: the two searches of D20; 0 without a period |
+| `_odoo_only_einvoice_domain`, `_odoo_only_document_domain` | — | step 2; the domains of D20 |
+| `action_open_issues`, `action_open_odoo_only_einvoices`, `action_open_odoo_only_documents` | — | step 2; window actions on those records, the documents through `account.action_move_in_invoice_type` or `action_move_out_invoice_type` read with `_for_xml_id` |
+
+`_import_file` ends with `invoice_ids._match()` from step 2.
 
 The checks run after the importer, in the same transaction: a refusal rolls the whole import back.
 
@@ -306,6 +325,27 @@ the row column each stands above (`col_form` → `header_form`, …); texts comp
 | `_compute_status_kind` | `@api.depends("status")` | the table below, after NFC and case folding (D9) |
 | `_parse_row` | `@api.model` | `_parse_row(row, batch)` → the portal invoice's values by the table below, or `RowError` (a module-level exception) with the error text |
 | `_group_rows` | `@api.model` | `_group_rows(batch)`: the batch's portal invoices deleted (D13); each row parsed (below), a failure written to its `error`; the parsed rows grouped by key, one portal invoice per group created with its values (D10) and the rows' `invoice_id` set |
+| `_match` | — | step 2; for each portal invoice, `einvoice_id` = the e-invoice of its company and direction (received for a purchase list, issued for a sales list) with the same seller tax code, form, symbol and number, or empty |
+| `_compute_match` | `@api.depends("einvoice_id", "einvoice_id.state", "einvoice_id.correction_state", "einvoice_id.amount_untaxed", "einvoice_id.amount_tax", "einvoice_id.amount_total", "status_kind", "row_count", "amount_untaxed", "amount_tax", "amount_total", "currency_id")` | step 2; `match_state` by D17, the three differences by D18 |
+| `action_open_einvoice` | — | step 2; the e-invoice's form |
+
+**Step 2 fields** on the portal invoice:
+
+| Field | Type | Attributes |
+|---|---|---|
+| `einvoice_id` | Many2one → `l10n_vn.einvoice` | `string="E-Invoice"`, `index=True`, `ondelete="set null"`, `readonly=True` |
+| `match_state` | Selection `[("matched", "Matched"), ("not_booked", "Not Booked"), ("amount_diff", "Amounts Differ"), ("status_diff", "Status Differs"), ("amounts_to_check", "Amounts to Check"), ("portal_only", "Only on the Portal")]` | `compute="_compute_match"`, `store=True`, `index=True` |
+| `diff_untaxed`, `diff_tax`, `diff_total` | Monetary | same compute, `store=True` — the portal's amount minus the e-invoice's (D18) |
+| `einvoice_state` | Selection | `related="einvoice_id.state"`, `string="Booking"` |
+
+### `l10n_vn.einvoice` — `models/l10n_vn_einvoice.py` (step 2)
+
+`_inherit = "l10n_vn.einvoice"`
+
+| Field / method | Attributes / behaviour |
+|---|---|
+| `portal_ids` | One2many → `l10n_vn.einvoice.portal`, inverse `einvoice_id`, `string="On the Portal"` |
+| `create` | `@api.model_create_multi`; `super()`, then for each record the portal invoices of its company with its key, the matching direction and no `einvoice_id` get it (D19) |
 
 **Statuses** (design §5.5):
 
@@ -355,9 +395,9 @@ the row column each stands above (`col_form` → `header_form`, …); texts comp
 
 | XML id | Type | Content |
 |---|---|---|
-| `l10n_vn_einvoice_portal_view_list` | list | `create="0"`: `name`, `invoice_date`, `seller_name`, `seller_vat`, `buyer_name` (optional hide), `buyer_vat` (optional hide), `amount_untaxed`, `amount_tax`, `amount_total`, `currency_id` (column invisible), `status_kind` (badge: `decoration-danger` for `replaced`, `adjusted`, `cancelled`, `unknown`), `row_count` (optional hide), `batch_id` (optional hide) |
-| `l10n_vn_einvoice_portal_view_form` | form | `create="0"`, `edit="0"`; title `name`; group *Invoice*: `seller_vat`, `form`, `symbol`, `number`, `invoice_date`, `seller_name`, `buyer_vat`, `buyer_name`; group *Amounts*: the four amounts, `currency_id`; group *Status*: `status`, `status_kind`, `check_result`; an `alert-warning`, `invisible="row_count < 2"`: *This invoice spans several rows of the list; its amounts are not compared.*; an `alert-warning`, `invisible="not rows_disagree"`: *Its rows disagree on date, status or check result.*; a page *Rows* listing `row_ids` |
-| `l10n_vn_einvoice_portal_view_search` | search | `name`, `seller_vat`, `seller_name`, `buyer_vat`; filters by `status_kind` (*Replaced*, *Adjusted*, *Cancelled*, *Unknown status*) and *Several rows* (`row_count > 1`); group by `status_kind`, `seller_name`, `batch_id` |
+| `l10n_vn_einvoice_portal_view_list` | list | `create="0"`: `name`, `invoice_date`, `seller_name`, `seller_vat`, `buyer_name` (optional hide), `buyer_vat` (optional hide), `amount_untaxed`, `amount_tax`, `amount_total`, `currency_id` (column invisible), `status_kind` (badge: `decoration-danger` for `replaced`, `adjusted`, `cancelled`, `unknown`), `row_count` (optional hide), `batch_id` (optional hide). Step 2: `match_state` (badge: success `matched`, warning `not_booked` and `amounts_to_check`, danger the rest), `einvoice_id` (optional show), `diff_total` (optional hide) |
+| `l10n_vn_einvoice_portal_view_form` | form | `create="0"`, `edit="0"`; title `name`; group *Invoice*: `seller_vat`, `form`, `symbol`, `number`, `invoice_date`, `seller_name`, `buyer_vat`, `buyer_name`; group *Amounts*: the four amounts, `currency_id`; group *Status*: `status`, `status_kind`, `check_result`; an `alert-warning`, `invisible="row_count < 2"`: *This invoice spans several rows of the list; its amounts are not compared.*; an `alert-warning`, `invisible="not rows_disagree"`: *Its rows disagree on date, status or check result.*; a page *Rows* listing `row_ids`. Step 2: button box *E-Invoice* (`action_open_einvoice`, `invisible="not einvoice_id"`); group *Match*: `match_state`, `einvoice_id`, `einvoice_state`, `diff_untaxed`, `diff_tax`, `diff_total` |
+| `l10n_vn_einvoice_portal_view_search` | search | `name`, `seller_vat`, `seller_name`, `buyer_vat`; filters by `status_kind` (*Replaced*, *Adjusted*, *Cancelled*, *Unknown status*) and *Several rows* (`row_count > 1`); group by `status_kind`, `seller_name`, `batch_id`. Step 2: filters per `match_state` and *To review* (`match_state != 'matched'`), group by `match_state` |
 | `l10n_vn_einvoice_portal_row_view_list` | list | `create="0"`, `edit="0"`: the row's columns (the less used ones `optional="hide"`), `invoice_id`, `error` (`decoration-danger="error"`) |
 
 ## Views — `views/l10n_vn_einvoice_batch_views.xml`
@@ -365,7 +405,7 @@ the row column each stands above (`col_form` → `header_form`, …); texts comp
 | XML id | Type | Content |
 |---|---|---|
 | `l10n_vn_einvoice_batch_view_list` | list | `name`, `direction`, `list_kind`, `date_from`, `date_to`, `import_date`, `invoice_count`, `error_count`, `company_id` (`groups="base.group_multi_company"`) |
-| `l10n_vn_einvoice_batch_view_form` | form | header: button *Import* (`action_import`, `type="object"`, `class="btn-primary"`, `groups="account.group_account_user,account.group_account_manager"`, `invisible="not id"`). Sheet: title `name`; group: `direction`, `list_kind`, `company_id` (`groups="base.group_multi_company"`), `template_id`; group *Imported*: `filename`, `import_date`, `list_title`, `period_text`, `date_from`, `date_to`, `row_count`, `invoice_count`, `error_count`; notebook: *Invoices* (`invoice_ids`, the portal list view), *Rows* (`row_ids`, the row list view). Chatter |
+| `l10n_vn_einvoice_batch_view_form` | form | header: button *Import* (`action_import`, `type="object"`, `class="btn-primary"`, `groups="account.group_account_user,account.group_account_manager"`, `invisible="not id"`). Sheet: title `name`; group: `direction`, `list_kind`, `company_id` (`groups="base.group_multi_company"`), `template_id`; group *Imported*: `filename`, `import_date`, `list_title`, `period_text`, `date_from`, `date_to`, `row_count`, `invoice_count`, `error_count`; notebook: *Invoices* (`invoice_ids`, the portal list view), *Rows* (`row_ids`, the row list view). Chatter. Step 2: header button *Match Again* (`action_match`, `groups="account.group_account_user,account.group_account_manager"`, `invisible="not import_date"`); button box: *To Review* (`issue_count`), *Not on the Portal* (`odoo_only_einvoice_count`), *Without E-Invoice* (`odoo_only_document_count`), each `invisible` without an import |
 | `l10n_vn_einvoice_batch_view_search` | search | `name`; filters *Purchases*, *Sales*, *Cash register*; group by `direction`, `list_kind`, `date_from` (month) |
 | `l10n_vn_einvoice_batch_action` | window action | *Portal Lists* |
 | `l10n_vn_einvoice_portal_action` | window action | *Portal Invoices* |
@@ -418,6 +458,33 @@ content, kind)` does both. Every value is made up; no export is committed (desig
 | `test_layout_title_refused` | a cash-register file on an ordinary batch, and an ordinary file on a cash-register batch: `UserError` each |
 | `test_access` | an accountant creates a cash-register list and imports it (positive control), the citizen ID stored, and cannot delete the list (`AccessError`); a read-only user reads the list's invoices and rows and cannot create a list; an administrator deletes it |
 
+## Views — `views/l10n_vn_einvoice_views.xml` (step 2)
+
+One record, `l10n_vn_einvoice_view_form`, inheriting `l10n_vn_einvoice.l10n_vn_einvoice_view_form`,
+`//sheet` inside, last: a notebook of its own, `invisible="not portal_ids"`, with a page *Portal*
+listing `portal_ids` (`batch_id`, `status_kind`, `match_state`). The base form's notebook is shown only
+when there are corrections (`l10n_vn_einvoice` spec), so the page cannot go there.
+
+### `tests/test_l10n_vn_einvoice_match.py` (step 2)
+
+`TestPortalMatch(PortalListCase)`, `@tagged("post_install", "-at_install")`. **Helpers:**
+`_einvoice(number, booking="posted", **values)` creates an e-invoice of the test company — received,
+seller `0314071202`, form 1, symbol `C26TAA`, the given number, 1,000,000 / 80,000 / 1,080,000 — linked
+to a bill created and posted before the link (`booking="posted"`), left draft (`"draft"`), or to
+nothing (`None`).
+
+| Test | Asserts |
+|---|---|
+| `test_match_states` | one list holding one invoice per case: booked and equal → `matched`; within 1 đồng → `matched`; no document → `not_booked`; total off by 5,000 → `amount_diff`, `diff_total` 5,000; no e-invoice → `portal_only`; two rows → `amounts_to_check`; *đã bị thay thế* with a booked e-invoice → `status_diff`; *đã bị thay thế* unbooked → `matched`; *đã bị điều chỉnh* with an adjustment e-invoice linked (`relation_type` 2) → `matched`; *đã bị điều chỉnh* without → `status_diff`; an unknown status → `status_diff` |
+| `test_state_follows_booking` | a portal invoice on a draft bill's e-invoice is `not_booked`; posting the bill makes it `matched` without matching again |
+| `test_new_einvoice_links` | a `portal_only` invoice; an e-invoice with its key created afterwards: linked, `matched` |
+| `test_match_again` | the link removed by hand; *Match again* restores it |
+| `test_direction_respected` | an issued e-invoice with the same key does not match a purchase list |
+| `test_odoo_only_einvoices` | an e-invoice dated in the period and on no list is counted; one outside the period, and one matched, are not |
+| `test_documents_without_einvoice` | purchases: a posted bill of a partner with a Vietnamese tax code and no e-invoice is counted; one with an e-invoice, one of a partner in the United States and a draft are not. Sales: a posted customer invoice of a partner without a tax code is counted |
+| `test_match_access` | an accountant runs *Match again* (positive control); a read-only user cannot (`AccessError`) |
+
+## Readme
 ## Readme
 
 | File | Content |

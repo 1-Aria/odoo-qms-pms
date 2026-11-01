@@ -21,6 +21,7 @@
         "wizard/l10n_vn_einvoice_batch_import_views.xml",
         "views/l10n_vn_einvoice_portal_views.xml",
         "views/l10n_vn_einvoice_batch_views.xml",
+        "views/l10n_vn_einvoice_views.xml",
         "views/menus.xml",
     ],
     "installable": True,

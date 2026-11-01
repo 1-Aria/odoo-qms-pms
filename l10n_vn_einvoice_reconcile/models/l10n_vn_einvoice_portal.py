@@ -127,6 +127,35 @@ class L10nVnEinvoicePortal(models.Model):
     )
     row_count = fields.Integer(string="Rows on the List")
     rows_disagree = fields.Boolean()
+    # Step 2: matching.
+    einvoice_id = fields.Many2one(
+        comodel_name="l10n_vn.einvoice",
+        string="E-Invoice",
+        index=True,
+        ondelete="set null",
+        readonly=True,
+    )
+    einvoice_state = fields.Selection(related="einvoice_id.state", string="Booking")
+    match_state = fields.Selection(
+        selection=[
+            ("matched", "Matched"),
+            ("not_booked", "Not Booked"),
+            ("amount_diff", "Amounts Differ"),
+            ("status_diff", "Status Differs"),
+            ("amounts_to_check", "Amounts to Check"),
+            ("portal_only", "Only on the Portal"),
+        ],
+        compute="_compute_match",
+        store=True,
+        index=True,
+    )
+    diff_untaxed = fields.Monetary(
+        string="Untaxed Difference", compute="_compute_match", store=True
+    )
+    diff_tax = fields.Monetary(string="VAT Difference", compute="_compute_match", store=True)
+    diff_total = fields.Monetary(
+        string="Total Difference", compute="_compute_match", store=True
+    )
 
     _sql_constraints = [
         (
@@ -245,3 +274,92 @@ class L10nVnEinvoicePortal(models.Model):
             invoice = self.create(values)
             rows.write({"invoice_id": invoice.id})
         return True
+
+    # ----------------------------------------------------------------------
+    # Matching (step 2)
+    # ----------------------------------------------------------------------
+
+    def _match(self):
+        """Link each portal invoice to the e-invoice with its key (D16)."""
+        Einvoice = self.env["l10n_vn.einvoice"]
+        for invoice in self:
+            einvoice = Einvoice.search(
+                [
+                    ("company_id", "=", invoice.company_id.id),
+                    (
+                        "direction",
+                        "=",
+                        "received" if invoice.direction == "purchase" else "issued",
+                    ),
+                    ("seller_vat", "=", invoice.seller_vat),
+                    ("form", "=", invoice.form),
+                    ("symbol", "=", invoice.symbol),
+                    ("number", "=", invoice.number),
+                ],
+                limit=1,
+            )
+            if invoice.einvoice_id != einvoice:
+                invoice.einvoice_id = einvoice
+        return True
+
+    @api.depends(
+        "einvoice_id",
+        "einvoice_id.state",
+        "einvoice_id.correction_state",
+        "einvoice_id.amount_untaxed",
+        "einvoice_id.amount_tax",
+        "einvoice_id.amount_total",
+        "status_kind",
+        "row_count",
+        "amount_untaxed",
+        "amount_tax",
+        "amount_total",
+        "currency_id",
+    )
+    def _compute_match(self):
+        for invoice in self:
+            einvoice = invoice.einvoice_id
+            currency = invoice.currency_id or invoice.company_id.currency_id
+            diffs = {"diff_untaxed": 0.0, "diff_tax": 0.0, "diff_total": 0.0}
+            if einvoice and invoice.row_count <= 1:
+                diffs = {
+                    "diff_untaxed": currency.round(invoice.amount_untaxed - einvoice.amount_untaxed),
+                    "diff_tax": currency.round(invoice.amount_tax - einvoice.amount_tax),
+                    "diff_total": currency.round(invoice.amount_total - einvoice.amount_total),
+                }
+            invoice.update(diffs)
+            invoice.match_state = invoice._get_match_state(diffs, currency)
+
+    def _get_match_state(self, diffs, currency):
+        """D17, in this order."""
+        self.ensure_one()
+        einvoice = self.einvoice_id
+        if not einvoice:
+            return "portal_only"
+        booked = einvoice.state == "booked"
+        if self.status_kind == "unknown":
+            return "status_diff"
+        if self.status_kind in ("replaced", "cancelled"):
+            # Left unbooked is what Odoo should hold.
+            return "status_diff" if booked else "matched"
+        if self.status_kind == "adjusted" and not einvoice.correction_state:
+            # Adjusted on the portal, and Odoo holds no adjustment of it.
+            return "status_diff"
+        if self.row_count > 1:
+            return "amounts_to_check"
+        tolerance = currency.rounding + currency.rounding / 100
+        if any(abs(value) > tolerance for value in diffs.values()):
+            return "amount_diff"
+        if not booked:
+            return "not_booked"
+        return "matched"
+
+    def action_open_einvoice(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "l10n_vn.einvoice",
+            "res_id": self.einvoice_id.id,
+            "views": [(False, "form")],
+            "view_mode": "form",
+        }

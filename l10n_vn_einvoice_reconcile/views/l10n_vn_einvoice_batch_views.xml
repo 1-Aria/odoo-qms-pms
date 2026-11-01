@@ -28,8 +28,25 @@
                             class="btn-primary"
                             groups="account.group_account_user,account.group_account_manager"
                             invisible="not id"/>
+                    <button name="action_match" type="object" string="Match Again"
+                            groups="account.group_account_user,account.group_account_manager"
+                            invisible="not import_date"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box" invisible="not import_date">
+                        <button name="action_open_issues" type="object"
+                                class="oe_stat_button" icon="fa-exclamation-triangle">
+                            <field name="issue_count" widget="statinfo" string="To Review"/>
+                        </button>
+                        <button name="action_open_odoo_only_einvoices" type="object"
+                                class="oe_stat_button" icon="fa-file-code-o">
+                            <field name="odoo_only_einvoice_count" widget="statinfo" string="Not on the Portal"/>
+                        </button>
+                        <button name="action_open_odoo_only_documents" type="object"
+                                class="oe_stat_button" icon="fa-file-text-o">
+                            <field name="odoo_only_document_count" widget="statinfo" string="Without E-Invoice"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <h1><field name="name"/></h1>
                     </div>

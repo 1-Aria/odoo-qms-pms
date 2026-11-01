@@ -50,6 +50,12 @@
                 <field name="status_kind" widget="badge"
                        decoration-danger="status_kind in ('replaced', 'adjusted', 'cancelled', 'unknown')"
                        decoration-info="status_kind in ('replacing', 'adjusting')"/>
+                <field name="match_state" widget="badge"
+                       decoration-success="match_state == 'matched'"
+                       decoration-warning="match_state in ('not_booked', 'amounts_to_check')"
+                       decoration-danger="match_state in ('amount_diff', 'status_diff', 'portal_only')"/>
+                <field name="einvoice_id" optional="show"/>
+                <field name="diff_total" optional="hide"/>
                 <field name="row_count" optional="hide"/>
                 <field name="batch_id" optional="hide"/>
             </list>
@@ -69,6 +75,15 @@
                 </div>
                 <sheet>
                     <field name="rows_disagree" invisible="1"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_einvoice" type="object"
+                                class="oe_stat_button" icon="fa-file-code-o"
+                                invisible="not einvoice_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">E-Invoice</span>
+                            </div>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <h1><field name="name"/></h1>
                     </div>
@@ -94,6 +109,14 @@
                             <field name="status"/>
                             <field name="status_kind"/>
                             <field name="check_result"/>
+                        </group>
+                        <group string="Match" name="match">
+                            <field name="match_state"/>
+                            <field name="einvoice_id"/>
+                            <field name="einvoice_state"/>
+                            <field name="diff_untaxed"/>
+                            <field name="diff_tax"/>
+                            <field name="diff_total"/>
                         </group>
                         <group string="List" name="list">
                             <field name="batch_id"/>
@@ -129,9 +152,24 @@
                 <filter name="filter_unknown" string="Unknown Status"
                         domain="[('status_kind', '=', 'unknown')]"/>
                 <separator/>
+                <filter name="filter_to_review" string="To Review"
+                        domain="[('match_state', '!=', 'matched')]"/>
+                <filter name="filter_matched" string="Matched"
+                        domain="[('match_state', '=', 'matched')]"/>
+                <filter name="filter_not_booked" string="Not Booked"
+                        domain="[('match_state', '=', 'not_booked')]"/>
+                <filter name="filter_amount_diff" string="Amounts Differ"
+                        domain="[('match_state', '=', 'amount_diff')]"/>
+                <filter name="filter_status_diff" string="Status Differs"
+                        domain="[('match_state', '=', 'status_diff')]"/>
+                <filter name="filter_portal_only" string="Only on the Portal"
+                        domain="[('match_state', '=', 'portal_only')]"/>
+                <separator/>
                 <filter name="filter_several_rows" string="Several Rows"
                         domain="[('row_count', '>', 1)]"/>
                 <group expand="0" string="Group By">
+                    <filter name="group_match_state" string="Match"
+                            context="{'group_by': 'match_state'}"/>
                     <filter name="group_status_kind" string="Status Kind"
                             context="{'group_by': 'status_kind'}"/>
                     <filter name="group_seller" string="Seller"

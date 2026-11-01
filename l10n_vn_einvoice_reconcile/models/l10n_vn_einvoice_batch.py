@@ -108,6 +108,14 @@ class L10nVnEinvoiceBatch(models.Model):
     row_count = fields.Integer(compute="_compute_counts")
     invoice_count = fields.Integer(compute="_compute_counts")
     error_count = fields.Integer(string="Rows with Errors", compute="_compute_counts")
+    # Step 2: matching.
+    issue_count = fields.Integer(string="To Review", compute="_compute_match_counts")
+    odoo_only_einvoice_count = fields.Integer(
+        string="Not on the Portal", compute="_compute_match_counts"
+    )
+    odoo_only_document_count = fields.Integer(
+        string="Without E-Invoice", compute="_compute_match_counts"
+    )
 
     @api.depends("direction", "list_kind", "date_from", "date_to")
     def _compute_name(self):
@@ -155,6 +163,111 @@ class L10nVnEinvoiceBatch(models.Model):
             batch.error_count = len(batch.row_ids.filtered("error"))
 
     # ----------------------------------------------------------------------
+    # Matching (step 2)
+    # ----------------------------------------------------------------------
+
+    @api.depends("invoice_ids.match_state", "date_from", "date_to", "direction")
+    def _compute_match_counts(self):
+        for batch in self:
+            batch.issue_count = len(
+                batch.invoice_ids.filtered(lambda invoice: invoice.match_state != "matched")
+            )
+            if batch.date_from and batch.date_to:
+                batch.odoo_only_einvoice_count = self.env["l10n_vn.einvoice"].search_count(
+                    batch._odoo_only_einvoice_domain()
+                )
+                batch.odoo_only_document_count = self.env["account.move"].search_count(
+                    batch._odoo_only_document_domain()
+                )
+            else:
+                batch.odoo_only_einvoice_count = batch.odoo_only_document_count = 0
+
+    def _odoo_only_einvoice_domain(self):
+        """E-invoices of the period on no list (D20)."""
+        self.ensure_one()
+        return [
+            ("company_id", "=", self.company_id.id),
+            ("direction", "=", "received" if self.direction == "purchase" else "issued"),
+            ("invoice_date", ">=", self.date_from),
+            ("invoice_date", "<=", self.date_to),
+            ("portal_ids", "=", False),
+        ]
+
+    def _odoo_only_document_domain(self):
+        """Posted documents of the period without an e-invoice (D20): vendor
+        documents of partners with a Vietnamese tax code, every customer one."""
+        self.ensure_one()
+        purchase = self.direction == "purchase"
+        domain = [
+            ("company_id", "=", self.company_id.id),
+            (
+                "move_type",
+                "in",
+                ("in_invoice", "in_refund") if purchase else ("out_invoice", "out_refund"),
+            ),
+            ("state", "=", "posted"),
+            ("invoice_date", ">=", self.date_from),
+            ("invoice_date", "<=", self.date_to),
+            ("l10n_vn_einvoice_ids", "=", False),
+        ]
+        if purchase:
+            domain += [
+                ("commercial_partner_id.vat", "!=", False),
+                "|",
+                ("commercial_partner_id.country_id", "=", False),
+                ("commercial_partner_id.country_id.code", "=", "VN"),
+            ]
+        return domain
+
+    def action_match(self):
+        self.ensure_one()
+        self.invoice_ids._match()
+        self.message_post(
+            body=_(
+                "Matched: %(matched)s of %(invoices)s invoices; %(issues)s to review.",
+                matched=len(self.invoice_ids.filtered(lambda i: i.match_state == "matched")),
+                invoices=len(self.invoice_ids),
+                issues=self.issue_count,
+            )
+        )
+        return True
+
+    def action_open_issues(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("To Review"),
+            "res_model": "l10n_vn.einvoice.portal",
+            "domain": [("batch_id", "=", self.id), ("match_state", "!=", "matched")],
+            "views": [(False, "list"), (False, "form")],
+            "view_mode": "list,form",
+        }
+
+    def action_open_odoo_only_einvoices(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Not on the Portal"),
+            "res_model": "l10n_vn.einvoice",
+            "domain": self._odoo_only_einvoice_domain(),
+            "views": [(False, "list"), (False, "form")],
+            "view_mode": "list,form",
+        }
+
+    def action_open_odoo_only_documents(self):
+        self.ensure_one()
+        xmlid = (
+            "account.action_move_in_invoice_type"
+            if self.direction == "purchase"
+            else "account.action_move_out_invoice_type"
+        )
+        action = self.env["ir.actions.act_window"]._for_xml_id(xmlid)
+        action.update(
+            {"name": _("Without E-Invoice"), "domain": self._odoo_only_document_domain()}
+        )
+        return action
+
+    # ----------------------------------------------------------------------
     # Import
     # ----------------------------------------------------------------------
 
@@ -177,6 +290,7 @@ class L10nVnEinvoiceBatch(models.Model):
         self.invalidate_recordset()
         self._check_company_side()
         self.env["l10n_vn.einvoice.portal"]._group_rows(self)
+        self.invoice_ids._match()
         self.write({"filename": filename, "import_date": fields.Datetime.now()})
         self.message_post(
             body=_(

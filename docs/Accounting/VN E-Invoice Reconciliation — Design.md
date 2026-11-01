@@ -219,9 +219,9 @@ per amount (O4).
 | *Hóa đơn mới* | Normal |
 | *Hóa đơn thay thế* | Normal: this invoice replaces another |
 | *Hóa đơn điều chỉnh* | Normal: this invoice adjusts another |
-| *Hóa đơn đã bị thay thế* | Replaced: `status_diff` when booked |
-| *Hóa đơn đã bị điều chỉnh* | Adjusted: `status_diff` when booked |
-| *Hóa đơn đã bị hủy* | Cancelled: `status_diff` when booked. Expected, not yet seen (O3) |
+| *Hóa đơn đã bị thay thế* | Replaced: `status_diff` when booked; consistent when left unbooked |
+| *Hóa đơn đã bị điều chỉnh* | Adjusted: `status_diff` only when Odoo holds no adjustment of it; an adjusted invoice stays booked, its adjustment booked beside it |
+| *Hóa đơn đã bị hủy* | Cancelled: `status_diff` when booked; consistent when unbooked. Expected, not yet seen (O3) |
 
 An unknown value is shown as such and makes the invoice `status_diff`, so a change on the portal is
 noticed rather than misread. The check result is stored and shown; only *Đã cấp mã hóa đơn* has been
@@ -231,9 +231,14 @@ seen.
 
 - **E-invoices without a portal invoice:** e-invoices of the batch's company and direction, dated in
   the batch's period, with no `portal_ids`.
-- **Documents without an e-invoice:** posted vendor bills (purchase) or customer invoices (sale) of the
-  company and period whose partner has a Vietnamese tax code, with no e-invoice. These are bills whose
-  XML was never attached.
+- **Documents without an e-invoice:** posted vendor bills and refunds of the company and period whose
+  partner has a Vietnamese tax code, or every posted customer invoice and credit note (every sale
+  carries an e-invoice, consumers' included), with no e-invoice. These are documents whose XML was
+  never attached.
+
+**A portal invoice follows its e-invoice:** once linked, its state changes when the bill is posted or
+corrected, without matching again. Matching runs at import and on *Match again*, and an e-invoice
+created later links the portal invoices waiting with its key.
 
 **The period** is the invoice date, not the accounting date, because the portal lists invoices by
 issue date. **Earlier months** are re-imported to pick up their later corrections (§4): a replacement
