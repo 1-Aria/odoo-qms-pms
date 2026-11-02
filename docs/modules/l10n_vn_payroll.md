@@ -12,8 +12,8 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 
 | # | Scope | Status | Result |
 |---|---|---|---|
-| 1 | Components, scales, contract pay lines and the wage they set; payroll groups, the officer record rule, the new-user template, the parameter group for payroll managers; statutory parameters per Vietnamese company; configuration views and menus | planned | |
-| 2 | Participant types; contract fields (participant type, declared SI base, probation form); employee fields; dependents on `hr_employee_relative` | planned | |
+| 1 | Components, scales, contract pay lines and the wage they set; payroll groups, the officer record rule, the new-user template, the parameter group for payroll managers; statutory parameters per Vietnamese company; configuration views and menus | done | 2026-11-02, two runs. First: `-i` installed; 32 tests, 29 passed, 3 errors in `test_security`, all *Access to unauthorized or invalid companies*: the fixtures' environment allows the superuser's companies, and `with_user` kept them for test users who belong to the test company only; fixed with `_as(user)`. Second: `-u`, `exit=0`, 32 tests, 0 failures; UI checked by Peter: the configuration menus, the statutory parameters of both companies, the *Pay Lines* page, a component refused with its missing setting, the new-user template without payroll roles |
+| 2 | Participant types; contract fields (participant type, declared SI base, probation form) and the PIT method; employee fields; dependents on `hr_employee_relative`, with officers' write access to relatives | done | 2026-11-02, one run: `-i hr_employee_relative`, then `-u l10n_vn_payroll`, `exit=0`, 51 tests, 0 failures; UI checked by Peter: participant types, the declared SI base shown and required for a manager, the attendance mode following the pay group, a dependent refused on a date other than the 1st, no *Payroll* tab or PIT columns for an HR user without a payroll role |
 | 3 | Periods; monthly inputs with segments and entered lines; the Excel import template; entry lists for supervisors and managers | planned | |
 | 4 | Calculation I: payslip contract choice, worked days from inputs, the pay context, component lines, OT, the `l10n_vn_component` rule type, exact lines, the snapshot | planned | |
 | 5 | Calculation II: SI, HI, UI and union; PIT; damage compensation; the advance hook for `l10n_vn_payroll_account` | planned | |
@@ -30,6 +30,8 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | 2 | §3.2: officers, reviewers and readers read parameters | only payroll managers see parameters, through OCA's *Manage Time Parameters* group, which their group now implies (D7) | The calculation reads parameters as superuser (`base_time_parameter_strict` D1), so other roles need no access; the design's convention of not granting another module's models through `ir.model.access` rows is kept |
 | 3 | §7: `wage` follows "the base salary line" | follows the lines whose component has `sets_wage` (D5) | The design names no field that marks the base salary component |
 | 4 | §3.2: approver and reader read payslips | in step 7, with the run workflow | Their access is tested where they use it, approving and reading runs |
+| 5 | §8.1: participant types without a word on companies | one list for all companies, no `company_id` (step 2, D12) | They describe the law's participant categories, which are the same for every Vietnamese company |
+| 6 | §8.3: the region defaults from `vn.policy.region` | the same, and left empty when the company has no such parameter (step 2, D15) | The parameter ships with the garment module; before it, a guessed region would be wrong for a company in another region |
 
 ## Decisions
 
@@ -46,6 +48,14 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | D9 | **Statutory parameters per Vietnamese company:** the table `STATUTORY_PARAMETERS` in `models/res_company.py` holds each code, name, type and dated versions. `res.company._l10n_vn_payroll_ensure_parameters()` creates, for every company with country `VN`, each missing parameter and each missing version (by `date_from`); it never changes an existing version, so edits made in the UI stay. A data `<function>` runs it at every install and upgrade, so a new company or a new statutory version arrives with the next upgrade. Each company is processed in a savepoint; a failure is logged and the install continues (safe to fail) |
 | D10 | **Officers see every payslip of their companies:** a rule for `payroll.group_payroll_user` with domain `[(1, '=', 1)]` on `hr.payslip`. Rules of a user's groups combine with OR, so OCA's narrower officer rule (`oca/payroll/payroll/security/hr_payroll_security.xml:28-36`) no longer limits them; OCA's global company rule still applies |
 | D11 | **Pay lines are visible only to payroll groups:** `l10n_vn_line_ids` on the contract carries `groups="payroll.group_payroll_user"`, and the page that shows it the same |
+| D12 | **Participant types are statutory data shared by all companies** (step 2): four records in a `noupdate` data file — `LABOUR`, `PROBATION`, `MANAGER`, `SHORT` (design §8.1) — editable by payroll managers, kept on upgrade |
+| D13 | **A new contract is a labour contract by default** (step 2): `l10n_vn_participant_type_id` defaults to `LABOUR`. Existing contracts are left empty; setting them is go-live work (design §29 step 4) |
+| D14 | **Every pay field on the employee, the contract and the relative carries `groups="payroll.group_payroll_user"`** (step 2, design §2), so other users neither see nor export them. Checks that read them run as superuser, since an HR user editing a contract's dates must not be refused because of a field they cannot see |
+| D15 | **The employee's region defaults from the parameter `vn.policy.region` of the employee's company** on its creation date (step 2); with no such parameter it stays empty |
+| D16 | **The attendance mode follows the pay group** (step 2): a stored compute, editable, set to `scan` for workers, production support and daily-paid workers and `exception` for office and managers (Attendance Specification §5) |
+| D17 | **A dependent counts in a month** when it is a PIT dependent, its `l10n_vn_from` is on or before the month's first day, and its `l10n_vn_to` is empty or on or after it (step 2). Both dates are first days of months, as dependents are registered by month (FR-06) |
+| D18 | **Payroll officers write relatives** (step 2): OCA lets every internal user read them and only HR managers write them (`oca/hr/hr_employee_relative/security/ir.model.access.csv`); registering dependents is the payroll officer's work (FR-06), so the officer group gets full access to `hr.employee.relative` |
+| D19 | **The PIT method of a contract on a date** (design §8.2), `hr.contract._l10n_vn_pit_method(date)` (step 2): the employee not resident → `flat_nonresident`; else the participant type's method when it is not `progressive`; else, for a contract with an end date running under 3 months and no commitment form for that year, `flat_short`; else `progressive` |
 
 ## Folder structure
 
@@ -58,9 +68,13 @@ l10n_vn_payroll/
 │   ├── l10n_vn_payroll_scale.py
 │   ├── l10n_vn_payroll_contract_line.py
 │   ├── hr_contract.py
-│   └── res_company.py
+│   ├── res_company.py
+│   ├── l10n_vn_payroll_participant_type.py          # 2
+│   ├── hr_employee.py                               # 2
+│   └── hr_employee_relative.py                      # 2
 ├── data/
-│   └── l10n_vn_payroll_parameters.xml
+│   ├── l10n_vn_payroll_parameters.xml
+│   └── l10n_vn_payroll_participant_types.xml        # 2
 ├── security/
 │   ├── l10n_vn_payroll_security.xml
 │   └── ir.model.access.csv
@@ -68,6 +82,9 @@ l10n_vn_payroll/
 │   ├── l10n_vn_payroll_component_views.xml
 │   ├── l10n_vn_payroll_scale_views.xml
 │   ├── hr_contract_views.xml
+│   ├── l10n_vn_payroll_participant_type_views.xml   # 2
+│   ├── hr_employee_views.xml                        # 2
+│   ├── hr_employee_relative_views.xml               # 2
 │   └── menus.xml
 ├── tests/
 │   ├── __init__.py, common.py
@@ -75,7 +92,11 @@ l10n_vn_payroll/
 │   ├── test_scale.py
 │   ├── test_contract_line.py
 │   ├── test_statutory_parameters.py
-│   └── test_security.py
+│   ├── test_security.py
+│   ├── test_participant_type.py                     # 2
+│   ├── test_contract_profile.py                     # 2
+│   ├── test_employee_payroll.py                     # 2
+│   └── test_pit_method.py                           # 2
 └── readme/
     ├── DESCRIPTION.md
     └── USAGE.md
@@ -96,7 +117,7 @@ Files of later steps are added to this tree with their step.
 | `category` | `Human Resources/Payroll` |
 | `countries` | `["vn"]` |
 | `depends` | `payroll`, `base_time_parameter_strict` (step 1); `hr_employee_relative` (step 2); `excel_import_export` (step 3) |
-| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/hr_contract_views.xml`, `views/menus.xml` |
+| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/menus.xml` |
 | `installable` | `True` |
 
 The security file loads first: the access file names its groups.
@@ -106,8 +127,8 @@ The security file loads first: the access file names its groups.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company` |
-| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security` |
+| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company`, `from . import l10n_vn_payroll_participant_type` (2), `from . import hr_employee` (2), `from . import hr_employee_relative` (2) |
+| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security`, `from . import test_participant_type`, `from . import test_contract_profile`, `from . import test_employee_payroll`, `from . import test_pit_method` (2) |
 
 ## Groups and rules — `security/l10n_vn_payroll_security.xml`
 
@@ -139,6 +160,10 @@ The security file loads first: the access file names its groups.
 | `access_scale_cell_user` | `model_l10n_vn_payroll_scale_cell` | `payroll.group_payroll_user` | 1 | 0 | 0 | 0 |
 | `access_scale_cell_manager` | `model_l10n_vn_payroll_scale_cell` | `payroll.group_payroll_manager` | 1 | 1 | 1 | 1 |
 | `access_contract_line_user` | `model_l10n_vn_payroll_contract_line` | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
+| `access_participant_type_user` (2) | `model_l10n_vn_payroll_participant_type` | `payroll.group_payroll_user` | 1 | 0 | 0 | 0 |
+| `access_participant_type_reader` (2) | `model_l10n_vn_payroll_participant_type` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_participant_type_manager` (2) | `model_l10n_vn_payroll_participant_type` | `payroll.group_payroll_manager` | 1 | 1 | 1 | 1 |
+| `access_relative_payroll_user` (2) | `hr_employee_relative.model_hr_employee_relative` | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
 
 The reviewer and the manager reach these through the officer group they imply.
 
@@ -146,7 +171,7 @@ The reviewer and the manager reach these through the officer group they imply.
 
 ### `l10n_vn.payroll.component` — `models/l10n_vn_payroll_component.py`
 
-`_name = "l10n_vn.payroll.component"`, `_description = "Payroll Component"`, `_order = "sequence, code"`, `_check_company_auto = True`.
+`_name = "l10n_vn.payroll.component"`, `_description = "Payroll Component"`, `_order = "sequence, code"`, `_check_company_auto = True`. Module constant `LINE_SOURCES = ("line", "parameter", "scale", "scale_remainder")`, the sources that sit on pay lines, also used by the pay line's domain and checks. `_configuration_problem()` returns the first broken rule's message, or False; `_check_configuration` raises it.
 
 | Field | Type | Attributes |
 |---|---|---|
@@ -187,7 +212,7 @@ The reviewer and the manager reach these through the officer group they imply.
 | `parameter` needs `amount_parameter`; `ot` with `ot_category = all` needs it too |
 | `engine` needs `engine_code`; other sources have none |
 | `ot` needs `ot_category` and `kind = earning` |
-| `kind = earning` needs `pit_treatment`; with a source other than `ot` and `engine`, also `proration` |
+| `kind = earning` needs `pit_treatment`; with a source that sits on pay lines (`line`, `parameter`, `scale`, `scale_remainder`), also `proration` |
 | `pit_treatment = exempt_cap` needs `pit_cap_parameter` |
 | `variable` only with `kind = earning`, and needs `attainment_source` |
 | `per_day` proration only with source `line` |
@@ -292,6 +317,76 @@ Two lines overlap when `a.date_from ≤ (b.date_to or max)` and `b.date_from ≤
 | `_l10n_vn_sync_wage()` | per contract, as superuser: today = `fields.Date.context_today(contract)`; lines = `l10n_vn_line_ids._l10n_vn_in_force(today)` with `component_id.sets_wage`; none → nothing. Otherwise the sum of `_l10n_vn_amount_on(today)`; a `UserError` while reading is caught, logged at `info` with the contract and the message, and `wage` left as it is (D5). Writes `wage` only when it differs |
 | `_check_l10n_vn_line_dates` | `@api.constrains("date_start", "date_end")`: runs the lines' `_check_line` again, so a contract cannot be shortened past its lines |
 
+### `hr.contract` additions — `models/hr_contract.py` (step 2)
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_participant_type_id` | Many2one `l10n_vn.payroll.participant.type` | string *Participant Type*, `ondelete="restrict"`, default `l10n_vn_payroll.participant_labour` (looked up with `raise_if_not_found=False`), payroll groups (D13, D14) |
+| `l10n_vn_base_source` | Selection | related `l10n_vn_participant_type_id.base_source`, payroll groups |
+| `l10n_vn_declared_si_base` | Monetary | string *Declared SI Base*, payroll groups |
+| `l10n_vn_probation_form` | Selection | string *Probation*, required, default `none`: `none` *No probation*, `clause` *Clause in this contract*, `contract` *Separate probation contract*; payroll groups |
+
+| Method | Behaviour |
+|---|---|
+| `_check_l10n_vn_profile` | `@api.constrains("l10n_vn_participant_type_id", "l10n_vn_declared_si_base", "l10n_vn_probation_form", "trial_date_end")`, as superuser, `ValidationError`: a participant type whose `base_source` is `declared` needs `l10n_vn_declared_si_base` above 0; `clause` needs `trial_date_end` |
+| `_l10n_vn_pit_method(date)` | D19. "Under 3 months": `date_end` set and `date_start + relativedelta(months=3) > date_end + 1 day`. "Commitment form for that year": the employee's `l10n_vn_pit_commitment_year == date.year`. Runs as superuser. Returns `progressive`, `flat_short` or `flat_nonresident` |
+
+### `l10n_vn.payroll.participant.type` — `models/l10n_vn_payroll_participant_type.py` (step 2)
+
+`_description = "Payroll Participant Type"`, `_order = "code"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `code` | Char | required |
+| `name` | Char | required, `translate=True` |
+| `active` | Boolean | default True |
+| `fund_pension`, `fund_sickness`, `fund_accident`, `fund_hi`, `fund_ui`, `fund_union_fee` | Boolean | strings *Pension and survivorship*, *Sickness and maternity*, *Occupational accident*, *Health insurance*, *Unemployment insurance*, *Union fee (employer)* |
+| `dues_allowed` | Boolean | string *Union dues for members* |
+| `base_source` | Selection | required, default `components`: `components` *Contract components in the SI base*, `declared` *Declared on the contract* |
+| `floor` | Selection | required, default `min_wage`: `min_wage` *Regional minimum wage*, `reference_level` *SI reference level*, `none` *None* |
+| `pit_method` | Selection | required, default `progressive`: `progressive` *Progressive*, `flat_short` *Flat 10%, short contracts*, `flat_nonresident` *Flat 20%, non-residents* |
+| `note` | Text | |
+
+SQL: `code_unique`: `unique(code)`.
+
+### `hr.employee` — `models/hr_employee.py` (step 2)
+
+`_inherit = "hr.employee"`. Every field with `groups="payroll.group_payroll_user"` (D14).
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_pay_group` | Selection | string *Pay Group*: `worker` *Worker*, `support` *Production support*, `office` *Office*, `daily` *Daily-paid*, `manager` *Manager without labour contract* |
+| `l10n_vn_attendance_mode` | Selection | string *Attendance Mode*: `scan` *Scans decide time*, `exception` *Present unless on leave*; stored compute from `l10n_vn_pay_group`, `readonly=False` (D16) |
+| `l10n_vn_region` | Selection | string *Minimum Wage Region*: `I`, `II`, `III`, `IV`; default D15 |
+| `l10n_vn_resident` | Boolean | string *Tax Resident*, default True |
+| `l10n_vn_union_member` | Boolean | string *Union Member* |
+| `l10n_vn_pit_commitment_year` | Integer | string *PIT Commitment Form Year* |
+
+| Method | Behaviour |
+|---|---|
+| `_compute_l10n_vn_attendance_mode` | `@api.depends("l10n_vn_pay_group")`: `worker`, `support`, `daily` → `scan`; `office`, `manager` → `exception`; no pay group → leaves the value |
+| `_default_l10n_vn_region` | `base.time.parameter._strict_get("vn.policy.region", today, company=self.env.company)`, its value when it is one of the four regions; a `UserError` gives False (D15) |
+| `_l10n_vn_dependent_count(date)` | as superuser, the number of `relative_ids` counted in the month of `date` (D17) |
+
+### `hr.employee.relative` — `models/hr_employee_relative.py` (step 2)
+
+`_inherit = "hr.employee.relative"`. Every field with `groups="payroll.group_payroll_user"` (D14).
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_pit_dependent` | Boolean | string *PIT Dependent* |
+| `l10n_vn_tax_code` | Char | string *Dependent Tax Code* |
+| `l10n_vn_from` | Date | string *Registered From* |
+| `l10n_vn_to` | Date | string *Registered To* |
+| `l10n_vn_document_ref` | Char | string *Registration Document* |
+| `l10n_vn_document` | Binary | string *Document File*, `attachment=True` |
+| `l10n_vn_document_name` | Char | the file name |
+
+| Method | Behaviour |
+|---|---|
+| `_check_l10n_vn_dependent` | `@api.constrains("l10n_vn_pit_dependent", "l10n_vn_from", "l10n_vn_to")`, as superuser, `ValidationError`: a PIT dependent needs `l10n_vn_from`; `l10n_vn_from` and `l10n_vn_to` are first days of months; `l10n_vn_to ≥ l10n_vn_from` |
+| `_l10n_vn_counts_in(month_start)` | D17, for one relative |
+
 ### `res.company` — `models/res_company.py`
 
 `_inherit = "res.company"`.
@@ -340,6 +435,19 @@ Two lines overlap when `a.date_from ≤ (b.date_to or max)` and `b.date_from ≤
 
 `<function model="res.company" name="_l10n_vn_payroll_ensure_parameters_all"/>`, not in a `noupdate` block, so it runs at every install and upgrade (D9).
 
+## Data — `data/l10n_vn_payroll_participant_types.xml` (step 2)
+
+`noupdate="1"` (D12):
+
+| XML id | Code | Name | Funds | Dues | Base | Floor | PIT |
+|---|---|---|---|---|---|---|---|
+| `participant_labour` | `LABOUR` | Labour contract of 1 month or more | all six | yes | components | min_wage | progressive |
+| `participant_probation` | `PROBATION` | Probation contract | none | no | components | none | flat_short |
+| `participant_manager` | `MANAGER` | Manager paid without a labour contract | pension, sickness, accident, HI, union fee | yes | declared | reference_level | progressive |
+| `participant_short` | `SHORT` | Contract under 1 month | none | no | components | none | flat_short |
+
+`MANAGER`'s `note`: *Funds and floor to confirm with the SI office (Regulation Reference v0.2).*
+
 ## Views
 
 ### `views/l10n_vn_payroll_component_views.xml`
@@ -366,6 +474,30 @@ Two lines overlap when `a.date_from ≤ (b.date_to or max)` and `b.date_from ≤
 |---|---|---|
 | `hr_contract_view_form_l10n_vn_payroll` | `hr_contract.hr_contract_view_form` | after the page `information`, a page *Pay Lines* (`name="l10n_vn_pay_lines"`, `groups="payroll.group_payroll_user"`) with `l10n_vn_line_ids` as an editable list: `component_id`, `scale_key`, `amount`, `in_cell`, `date_from`, `date_to`, `granted_by` (optional), `review_date` (optional), `note` (optional); the list's context sets `default_contract_id` |
 
+### `views/l10n_vn_payroll_participant_type_views.xml` (step 2)
+
+| XML id | Type | Content |
+|---|---|---|
+| `l10n_vn_payroll_participant_type_view_list` | list | `code`, `name`, the six funds, `dues_allowed`, `base_source`, `floor`, `pit_method`, `active` (hidden) |
+| `l10n_vn_payroll_participant_type_view_form` | form | title `name`; `code`, `active`; group *Funds* (the six, `dues_allowed`); group *Base and tax* (`base_source`, `floor`, `pit_method`); `note` |
+| `l10n_vn_payroll_participant_type_action` | action | *Participant Types*, list, form |
+
+### `views/hr_contract_views.xml` additions (step 2)
+
+In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, before `l10n_vn_line_ids`: a group with `l10n_vn_participant_type_id`, `l10n_vn_declared_si_base` (visible when `l10n_vn_base_source == 'declared'`, with the hidden `l10n_vn_base_source`), `l10n_vn_probation_form`.
+
+### `views/hr_employee_views.xml` (step 2)
+
+| XML id | Inherits | Content |
+|---|---|---|
+| `hr_employee_view_form_l10n_vn_payroll` | `hr.view_employee_form` | inside `//notebook`, a page *Payroll* (`name="l10n_vn_payroll"`, `groups="payroll.group_payroll_user"`) with `l10n_vn_pay_group`, `l10n_vn_attendance_mode`, `l10n_vn_region`, `l10n_vn_resident`, `l10n_vn_union_member`, `l10n_vn_pit_commitment_year` |
+
+### `views/hr_employee_relative_views.xml` (step 2)
+
+| XML id | Inherits | Content |
+|---|---|---|
+| `hr_employee_relative_view_tree_l10n_vn_payroll` | `hr_employee_relative.hr_employee_relative_view_tree` | after `notes`, each with `groups="payroll.group_payroll_user"`: `l10n_vn_pit_dependent`, `l10n_vn_tax_code`, `l10n_vn_from`, `l10n_vn_to`, `l10n_vn_document_ref` (optional), `l10n_vn_document` with `filename="l10n_vn_document_name"` (optional), `l10n_vn_document_name` (column invisible) |
+
 ### `views/menus.xml`
 
 Under `payroll.payroll_menu_configuration` (*Payroll → Configuration*, payroll managers):
@@ -375,12 +507,13 @@ Under `payroll.payroll_menu_configuration` (*Payroll → Configuration*, payroll
 | `menu_l10n_vn_payroll_component` | Pay Components | `l10n_vn_payroll_component_action` | 30 |
 | `menu_l10n_vn_payroll_scale` | Pay Scales | `l10n_vn_payroll_scale_action` | 31 |
 | `menu_l10n_vn_payroll_parameter` | Time Parameters | `base_time_parameter.base_time_parameter_action` | 32 |
+| `menu_l10n_vn_payroll_participant_type` (2) | Participant Types | `l10n_vn_payroll_participant_type_action` | 33 |
 
 ## Tests
 
 All classes derive from `PayrollCase(TransactionCase)` in `tests/common.py`, which holds no test methods, and are `@tagged("post_install", "-at_install")`: the fixtures create a company, employees and users, core records later modules extend. No import from any core `tests` package.
 
-**Fixtures** (`setUpClass`): `company` — a new `res.company` with `country_id` `base.vn`, `currency_id` `base.VND`, added to the env's `allowed_company_ids`; `calendar` — the company's `resource_calendar_id`; `department`; `employee` in that company and department; `contract` — `hr.contract` for `employee`, `date_start` 2026-01-01, `wage` 1, `resource_calendar_id` `calendar`, state `open`. Codes are prefixed `TEST_`. **Helpers:** `_component(code, **values)` creates a component in `company` with `kind` `earning`, `legal_nature` `job_salary`, `pit_treatment` `taxable`, `proration` `paid_days`, `amount_source` `line` unless given; `_scale(code, kind, versions)` creates a scale with versions from `{date_from: {key: amount}}`; `_line(component, **values)` creates a pay line on `contract`; `_parameter(code, versions)` creates a float `base.time.parameter` in `company`; `_user(login, groups)` creates an internal user in `company` with the groups' XML ids.
+**Fixtures** (`setUpClass`): `company` — a new `res.company` with `country_id` `base.vn`, `currency_id` `base.VND`, added to the env's `allowed_company_ids`; `calendar` — the company's `resource_calendar_id`; `department`; `employee` in that company and department; `contract` — `hr.contract` for `employee`, `date_start` 2026-01-01, `wage` 1, `resource_calendar_id` `calendar`, state `open`. Codes are prefixed `TEST_`. **Helpers:** `_component(code, **values)` creates a component in `company` with `kind` `earning`, `legal_nature` `job_salary`, `pit_treatment` `taxable`, `proration` `paid_days`, `amount_source` `line` unless given; `_scale(code, kind, versions)` creates a scale with versions from `{date_from: {key: amount}}`; `_line(component, **values)` creates a pay line on `contract`; `_parameter(code, versions)` creates a float `base.time.parameter` in `company`; `_user(login, groups)` creates an internal user in `company` with the groups' XML ids; `_as(user)` returns an environment for that user whose `allowed_company_ids` is `company` only. Tests act as a user through `_as`, never `with_user`: the fixtures' environment also allows the superuser's companies, which a test user does not belong to, and `with_user` keeps them (step 1, first run).
 
 ### `tests/test_component.py` — `TestComponent(PayrollCase)`
 
@@ -392,7 +525,8 @@ All classes derive from `PayrollCase(TransactionCase)` in `tests/common.py`, whi
 | `test_earning_needs_treatment` | an earning with source `line` and no `proration` raises; with no `pit_treatment` raises |
 | `test_variable_needs_source` | `variable` without `attainment_source` raises; `variable` on a deduction raises |
 | `test_exempt_cap_needs_parameter` | `exempt_cap` without `pit_cap_parameter` raises |
-| `test_code_unique_per_company` | a second component with the same code in `company` raises; in another company it is accepted |
+| `test_entered_needs_no_proration` | an earning with source `entered` and no `proration` is accepted |
+| `test_code_unique_per_company` | a component in another company with the same code is accepted; a second one in `company` raises `IntegrityError` (inside a savepoint) |
 | `test_valid_examples` | `BASE` (parameter), `PROD` (scale, variable, supervisor), `PERF` (scale_remainder), `OT_WD` (ot, `WD`), `PIT` (engine) are created without error |
 
 ### `tests/test_scale.py` — `TestScale(PayrollCase)`
@@ -402,7 +536,7 @@ All classes derive from `PayrollCase(TransactionCase)` in `tests/common.py`, whi
 | `test_cell_by_date` | versions 2026-01-01 `{S4: 2800000}` and 2027-01-01 `{S4: 3000000}`: 2026-12-31 → 2,800,000; 2027-01-01 → 3,000,000 |
 | `test_missing_cell_raises` | key `S9` raises `UserError`; a date before the first version raises `UserError` |
 | `test_has_key` | `S4` True; `S9` False |
-| `test_unique_version_date` | a second version on the same date raises |
+| `test_unique_version_date` | a second version on the same date raises `IntegrityError` (inside a savepoint) |
 
 ### `tests/test_contract_line.py` — `TestContractLine(PayrollCase)`
 
@@ -438,9 +572,48 @@ All classes derive from `PayrollCase(TransactionCase)` in `tests/common.py`, whi
 | `test_hr_user_cannot_read_pay_lines` | a user in `hr_contract.group_hr_contract_manager` without payroll groups reads `contract.name` (positive control) and gets `AccessError` reading `l10n_vn.payroll.contract.line` |
 | `test_officer_writes_pay_lines` | an officer creates and edits a pay line (positive), and cannot create a component (`AccessError`) |
 
+### `tests/test_participant_type.py` — `TestParticipantType(PayrollCase)` (step 2)
+
+| Test | Asserts |
+|---|---|
+| `test_data_records` | the four records exist by XML id with their codes |
+| `test_labour` | all six funds, dues allowed, `components`, `min_wage`, `progressive` |
+| `test_manager` | no UI, the other five funds; `declared`, `reference_level`, `progressive` |
+| `test_probation_and_short` | no fund, no dues, `flat_short` |
+
+### `tests/test_contract_profile.py` — `TestContractProfile(PayrollCase)` (step 2)
+
+| Test | Asserts |
+|---|---|
+| `test_default_labour` | a new contract gets `participant_labour` |
+| `test_manager_needs_declared_base` | switching to `participant_manager` without a declared base raises `ValidationError`; with 10,000,000 it is accepted |
+| `test_clause_needs_trial_date` | `clause` without `trial_date_end` raises; with it, accepted |
+| `test_hr_user_edits_contract_dates` | a user with contract rights and no payroll role changes `date_end` of a contract with a pay profile without error (D14) |
+
+### `tests/test_employee_payroll.py` — `TestEmployeePayroll(PayrollCase)` (step 2)
+
+| Test | Asserts |
+|---|---|
+| `test_attendance_mode_follows_pay_group` | `worker` → `scan`; `office` → `exception`; set by hand to `scan` on an office employee, it stays `scan` |
+| `test_region_default` | with a string parameter `vn.policy.region` = `IV` in `company`, a new employee of `company` has region `IV`; without the parameter (another company), empty |
+| `test_dependent_count` | a child PIT dependent from 2026-03-01 to 2026-08-01, and a parent who is not a PIT dependent: February 0, March 1, August 1, September 0 |
+| `test_dependent_dates` | a PIT dependent without `l10n_vn_from` raises; `l10n_vn_from` 2026-03-15 raises; `l10n_vn_to` before `l10n_vn_from` raises |
+| `test_hr_user_cannot_read_pay_fields` | a user with HR rights and no payroll role reads the employee's `name` (positive control) and gets `AccessError` reading `l10n_vn_pay_group` through `read` |
+| `test_officer_registers_dependent` | an officer creates a relative with `relation_id` `hr_employee_relative.relation_child` and the PIT fields (D18) |
+
+### `tests/test_pit_method.py` — `TestPitMethod(PayrollCase)` (step 2)
+
+| Test | Asserts |
+|---|---|
+| `test_labour_open_ended` | `progressive` |
+| `test_non_resident` | `l10n_vn_resident` False → `flat_nonresident` |
+| `test_short_contract` | `date_end` 2 months after `date_start` → `flat_short`; with `l10n_vn_pit_commitment_year` = that year → `progressive`; the previous year → `flat_short` |
+| `test_three_months_is_not_short` | 2026-01-01 to 2026-03-31 → `progressive` |
+| `test_probation_type` | `participant_probation` on an open-ended contract → `flat_short` |
+
 ## Readme
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
-| `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role |
+| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
+| `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month) |

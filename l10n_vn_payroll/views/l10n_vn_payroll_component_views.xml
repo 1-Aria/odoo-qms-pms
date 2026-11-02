@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_component_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.component.list</field>
+        <field name="model">l10n_vn.payroll.component</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle" />
+                <field name="code" />
+                <field name="name" />
+                <field name="kind" />
+                <field name="legal_nature" />
+                <field name="amount_source" />
+                <field name="in_si_base" />
+                <field name="in_ot_base" />
+                <field name="pit_treatment" />
+                <field name="proration" />
+                <field name="variable" />
+                <field name="company_id" groups="base.group_multi_company" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_component_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.component.form</field>
+        <field name="model">l10n_vn.payroll.component</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="Archived"
+                        bg_color="text-bg-danger"
+                        invisible="active"
+                    />
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code" />
+                            <field name="company_id" groups="base.group_multi_company" />
+                            <field name="active" invisible="1" />
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Treatment" name="treatment">
+                            <field name="kind" />
+                            <field name="legal_nature" />
+                            <field name="in_si_base" />
+                            <field name="in_ot_base" />
+                            <field name="pit_treatment" />
+                            <field
+                                name="pit_cap_parameter"
+                                invisible="pit_treatment != 'exempt_cap'"
+                            />
+                        </group>
+                        <group string="Amount" name="amount">
+                            <field name="amount_source" />
+                            <field
+                                name="amount_parameter"
+                                invisible="amount_source not in ('parameter', 'ot')"
+                            />
+                            <field
+                                name="scale_id"
+                                invisible="amount_source not in ('scale', 'scale_remainder')"
+                            />
+                            <field name="proration" />
+                            <field name="probation_applies" />
+                            <field name="variable" />
+                            <field name="attainment_source" invisible="not variable" />
+                            <field name="condition" />
+                            <field name="ot_category" invisible="amount_source != 'ot'" />
+                            <field name="engine_code" invisible="amount_source != 'engine'" />
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Payslip and posting" name="payslip">
+                            <field name="section" />
+                            <field name="sequence" />
+                            <field name="register_id" />
+                            <field name="sets_wage" />
+                        </group>
+                        <group string="Legal" name="legal">
+                            <field name="legal_reference" />
+                            <field name="note" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_component_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.component.search</field>
+        <field name="model">l10n_vn.payroll.component</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="code" />
+                <field name="name" />
+                <filter name="earning" string="Earnings" domain="[('kind', '=', 'earning')]" />
+                <filter
+                    name="deduction"
+                    string="Deductions"
+                    domain="[('kind', '=', 'deduction')]"
+                />
+                <filter
+                    name="employer"
+                    string="Employer contributions"
+                    domain="[('kind', '=', 'employer')]"
+                />
+                <separator />
+                <filter name="variable" string="Variable" domain="[('variable', '=', True)]" />
+                <separator />
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]" />
+                <group expand="0" string="Group By">
+                    <filter name="group_kind" string="Kind" context="{'group_by': 'kind'}" />
+                    <filter
+                        name="group_nature"
+                        string="Legal nature"
+                        context="{'group_by': 'legal_nature'}"
+                    />
+                    <filter
+                        name="group_source"
+                        string="Amount source"
+                        context="{'group_by': 'amount_source'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_component_action" model="ir.actions.act_window">
+        <field name="name">Pay Components</field>
+        <field name="res_model">l10n_vn.payroll.component</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="l10n_vn_payroll_component_view_search" />
+    </record>
+</odoo>

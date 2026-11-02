@@ -100,6 +100,12 @@ class TestEInvoiceCorrection(EInvoiceBillCase):
         self.assertEqual(original_bill.state, "posted")
         self.assertEqual(original_bill.l10n_vn_einvoice_correction_state, "replaced")
 
+    def test_correction_state_follows_einvoice(self):
+        original_bill = self._upload(ORIGINAL)
+        self.assertFalse(original_bill.l10n_vn_einvoice_correction_state)
+        self._upload(REPLACEMENT)
+        self.assertEqual(original_bill.l10n_vn_einvoice_correction_state, "replaced")
+
     def test_adjustment_upload_refused(self):
         original_bill = self._upload(ORIGINAL)
         refused = self._upload(DECREASE)

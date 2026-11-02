@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Runs at every install and upgrade: creates missing statutory parameters
+         and versions for Vietnamese companies, never changes existing ones. -->
+    <function model="res.company" name="_l10n_vn_payroll_ensure_parameters_all" />
+</odoo>

@@ -1,0 +1,15 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_component_user,l10n_vn.payroll.component user,model_l10n_vn_payroll_component,payroll.group_payroll_user,1,0,0,0
+access_component_reader,l10n_vn.payroll.component reader,model_l10n_vn_payroll_component,group_payroll_reader,1,0,0,0
+access_component_manager,l10n_vn.payroll.component manager,model_l10n_vn_payroll_component,payroll.group_payroll_manager,1,1,1,1
+access_scale_user,l10n_vn.payroll.scale user,model_l10n_vn_payroll_scale,payroll.group_payroll_user,1,0,0,0
+access_scale_manager,l10n_vn.payroll.scale manager,model_l10n_vn_payroll_scale,payroll.group_payroll_manager,1,1,1,1
+access_scale_version_user,l10n_vn.payroll.scale.version user,model_l10n_vn_payroll_scale_version,payroll.group_payroll_user,1,0,0,0
+access_scale_version_manager,l10n_vn.payroll.scale.version manager,model_l10n_vn_payroll_scale_version,payroll.group_payroll_manager,1,1,1,1
+access_scale_cell_user,l10n_vn.payroll.scale.cell user,model_l10n_vn_payroll_scale_cell,payroll.group_payroll_user,1,0,0,0
+access_scale_cell_manager,l10n_vn.payroll.scale.cell manager,model_l10n_vn_payroll_scale_cell,payroll.group_payroll_manager,1,1,1,1
+access_contract_line_user,l10n_vn.payroll.contract.line user,model_l10n_vn_payroll_contract_line,payroll.group_payroll_user,1,1,1,1
+access_participant_type_user,l10n_vn.payroll.participant.type user,model_l10n_vn_payroll_participant_type,payroll.group_payroll_user,1,0,0,0
+access_participant_type_reader,l10n_vn.payroll.participant.type reader,model_l10n_vn_payroll_participant_type,group_payroll_reader,1,0,0,0
+access_participant_type_manager,l10n_vn.payroll.participant.type manager,model_l10n_vn_payroll_participant_type,payroll.group_payroll_manager,1,1,1,1
+access_relative_payroll_user,hr.employee.relative payroll officer,hr_employee_relative.model_hr_employee_relative,payroll.group_payroll_user,1,1,1,1

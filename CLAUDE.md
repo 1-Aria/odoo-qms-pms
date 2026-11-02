@@ -1,14 +1,14 @@
 # CLAUDE.md
 
-Working context for the custom Odoo modules in this repo: the QMS/PMS suite, the IE-MES suite and
-the VN e-invoice modules.
+Working context for the custom Odoo modules in this repo: the QMS/PMS suite, the IE-MES suite, the
+VN e-invoice modules and the VN payroll modules.
 
 ---
 
 ## What this is
 
 Custom Odoo 18.0 CE modules, built on top of OCA modules, in two suites, plus the Vietnamese
-e-invoice modules:
+e-invoice and payroll modules:
 
 - **QMS/PMS**, a unified Quality Management and Plant Maintenance pipeline.
   **Its architecture lives in `docs/QMS-PMS/Odoo-QMS-PMS-Development-Plan.md`.** Read it before
@@ -20,6 +20,9 @@ e-invoice modules:
   `docs/IE-MES/`; see *The IE-MES suite* below.
 - **VN e-invoices**, Vietnamese e-invoices read from their XML and checked against the tax
   portal's list. Its documents are in `docs/Accounting/`; see *The VN e-invoice modules* below.
+- **VN payroll**, Vietnamese payroll on OCA `payroll`: pay components, SI, OT and PIT, the monthly run,
+  posting and statutory data. Its documents are in `docs/HR-Contract-Payroll/`; see *The VN payroll
+  modules* below.
 
 **The design documents are a work in progress, not a specification to follow.** They were
 written without inspecting the Odoo and OCA source, and they contain errors. Examples found
@@ -99,7 +102,7 @@ recorded decision (the QMS plan's §9; the IE documents' DEC, FG and TD tables),
 
 ```
 Odoo-Build/addons/         ← this repo; our modules live here (mounted at /mnt/extra-addons)
-Odoo-Build/addons/docs/    ← QMS-PMS/, IE-MES/ and Accounting/ design documents; modules/ holds the per-module specs
+Odoo-Build/addons/docs/    ← QMS-PMS/, IE-MES/, Accounting/ and HR-Contract-Payroll/ design documents; modules/ holds the per-module specs
 Odoo-Build/odoo/           ← running Odoo core (read-only reference)
 Odoo-Build/oca/            ← running OCA repos (read-only reference)
 Odoo-Build/ie-prototype/   ← the IE step 5 prototype harness, outside the repo on purpose
@@ -216,6 +219,41 @@ Outside the QMS-PMS and IE-MES suites.
 
 ---
 
+## The VN payroll modules
+
+Vietnamese payroll for the garment company on OCA `payroll` and `payroll_account`, which stay the engine
+and the records: our modules compute each payslip's figures in Python (the *pay context*) from
+configuration, and the salary rules only read them. **The modules enforce no pay policy:** how a
+component counts for SI, OT and PIT is configuration, and legal checks report at a configurable level.
+The company's current pay scheme and its target policy are both configurations (Pay Policy §2).
+
+**Documents** (`docs/HR-Contract-Payroll/`), versioned like IE's; read the latest:
+
+| Document | Role |
+|---|---|
+| `Vietnam Payroll Regulation Reference v*.md` | The legal limits, rates and caps |
+| `Pay Policy v*.md` | The current scheme (what goes live) and the target policy |
+| `Payroll Requirements Specification v*.md` | What the modules must do (FR-xx) |
+| `Attendance Specification v*.md` | The time input, shared with IE; its own module, not built |
+| `Payroll Acceptance Test Cases v*.md`, `payroll_reference_calc.py`, `payroll_test_cases_template.md` | Expected payslips to the dong. The script generates every figure from the template; change a case there and regenerate, never edit figures by hand |
+| `Payroll Fit-Gap v*.md` | Against OCA payroll and core (PFG decisions) |
+| `Payroll Technical Design v*.md` | Models, fields and computations (PTD decisions) |
+
+**Modules**, in build order:
+
+| Module | Role |
+|---|---|
+| `base_time_parameter_strict` | Reads OCA time parameters strictly: 0 and False are values, a missing value raises (done) |
+| `l10n_vn_payroll` | Components, scales, pay lines, people data, monthly inputs, the pay context, checks, runs and lock, payslip, statements; nine steps, see its module doc |
+| `l10n_vn_payroll_account` | Posting per run, the bank file, salary advances |
+| `l10n_vn_payroll_garment` | The current scheme as configuration data |
+
+- Statutory parameters (`vn.*`) are created per Vietnamese company by `l10n_vn_payroll` at every install
+  and upgrade, never overwriting edited values: OCA's company rule hides parameters without a company.
+- The old payroll rules on the instance (`MINW`, `PALV` …) are archived at go-live (Technical Design §29).
+
+---
+
 ## Module docs
 
 `docs/modules/<module>.md` is the technical specification of one module: folder tree,
@@ -320,7 +358,7 @@ cleanly and then appears broken.
   `<base_module>_<feature>` form when generic enough to contribute upstream.
 - The IE-MES suite uses `ie_` / `ie.` for IE modules, models and fields added to core or OCA models,
   and `mes_` / `mes.` for MES. The capture layer both share is `mes_capture` (technical design TD-01).
-- The VN e-invoice modules follow core's localisation conventions: modules `l10n_vn_<feature>`; models
+- The VN e-invoice and payroll modules follow core's localisation conventions: modules `l10n_vn_<feature>`; models
   `l10n_vn.<name>`, like core's `l10n_ke.item.code` or `l10n_latam.document.type`; and the `l10n_vn_`
   prefix on fields added to core or OCA models, as `l10n_vn_edi_viettel` does.
 
@@ -348,6 +386,12 @@ the module doc named.
   that changes that field on an existing record. (`qms_catalog`, `qms_nonconformity`, `qms_determination`)
 - An access test needs a positive control — the same user succeeding at an ordinary write —
   or it passes for the wrong reason. (`qms_catalog`, dropped step 6)
+- Act as a test user through an environment limited to that user's companies —
+  `self.env(user=user, context=dict(self.env.context, allowed_company_ids=[company.id]))` — not
+  `with_user` alone. When the fixtures widen `allowed_company_ids` (to work in a test company beside the
+  superuser's), `with_user` keeps that list, and Odoo refuses a user who does not belong to every company
+  in it: *Access to unauthorized or invalid companies*, raised before the test checks anything.
+  (`l10n_vn_payroll`, step 1)
 - Tests and UI checks run as admin hide access bugs: the inspection's Nonconformities button had
   failed for every non-administrator since the OCA bridge was installed, and only a UI check as a
   role-matrix user found it. Check the UI as the users who will use it, and give each access path

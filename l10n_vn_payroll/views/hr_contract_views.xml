@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_contract_view_form_l10n_vn_payroll" model="ir.ui.view">
+        <field name="name">hr.contract.form.l10n_vn_payroll</field>
+        <field name="model">hr.contract</field>
+        <field name="inherit_id" ref="hr_contract.hr_contract_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='information']" position="after">
+                <page
+                    string="Pay Lines"
+                    name="l10n_vn_pay_lines"
+                    groups="payroll.group_payroll_user"
+                >
+                    <group name="l10n_vn_profile">
+                        <group>
+                            <field name="l10n_vn_participant_type_id" />
+                            <field name="l10n_vn_base_source" invisible="1" />
+                            <field
+                                name="l10n_vn_declared_si_base"
+                                invisible="l10n_vn_base_source != 'declared'"
+                            />
+                            <field name="l10n_vn_probation_form" />
+                        </group>
+                    </group>
+                    <field name="l10n_vn_line_ids" context="{'default_contract_id': id}">
+                        <list editable="bottom">
+                            <field name="component_id" />
+                            <field name="scale_key" />
+                            <field name="amount" />
+                            <field name="in_cell" />
+                            <field name="date_from" />
+                            <field name="date_to" />
+                            <field name="granted_by" optional="hide" />
+                            <field name="review_date" optional="hide" />
+                            <field name="note" optional="hide" />
+                            <field name="currency_id" column_invisible="True" />
+                            <field name="company_id" column_invisible="True" />
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

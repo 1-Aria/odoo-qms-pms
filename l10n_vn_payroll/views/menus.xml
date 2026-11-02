@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem
+        id="menu_l10n_vn_payroll_component"
+        name="Pay Components"
+        parent="payroll.payroll_menu_configuration"
+        action="l10n_vn_payroll_component_action"
+        sequence="30"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_scale"
+        name="Pay Scales"
+        parent="payroll.payroll_menu_configuration"
+        action="l10n_vn_payroll_scale_action"
+        sequence="31"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_parameter"
+        name="Time Parameters"
+        parent="payroll.payroll_menu_configuration"
+        action="base_time_parameter.base_time_parameter_action"
+        sequence="32"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_participant_type"
+        name="Participant Types"
+        parent="payroll.payroll_menu_configuration"
+        action="l10n_vn_payroll_participant_type_action"
+        sequence="33"
+    />
+</odoo>

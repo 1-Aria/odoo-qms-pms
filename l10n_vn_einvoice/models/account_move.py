@@ -25,7 +25,7 @@ class AccountMove(models.Model):
 
     l10n_vn_einvoice_correction_state = fields.Selection(
         string="E-Invoice Correction",
-        related="l10n_vn_einvoice_id.correction_state",
+        related="l10n_vn_einvoice_ids.correction_state",
     )
 
     @api.depends("l10n_vn_einvoice_ids")

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <record id="participant_labour" model="l10n_vn.payroll.participant.type">
+        <field name="code">LABOUR</field>
+        <field name="name">Labour contract of 1 month or more</field>
+        <field name="fund_pension" eval="True" />
+        <field name="fund_sickness" eval="True" />
+        <field name="fund_accident" eval="True" />
+        <field name="fund_hi" eval="True" />
+        <field name="fund_ui" eval="True" />
+        <field name="fund_union_fee" eval="True" />
+        <field name="dues_allowed" eval="True" />
+        <field name="base_source">components</field>
+        <field name="floor">min_wage</field>
+        <field name="pit_method">progressive</field>
+    </record>
+    <record id="participant_probation" model="l10n_vn.payroll.participant.type">
+        <field name="code">PROBATION</field>
+        <field name="name">Probation contract</field>
+        <field name="base_source">components</field>
+        <field name="floor">none</field>
+        <field name="pit_method">flat_short</field>
+    </record>
+    <record id="participant_manager" model="l10n_vn.payroll.participant.type">
+        <field name="code">MANAGER</field>
+        <field name="name">Manager paid without a labour contract</field>
+        <field name="fund_pension" eval="True" />
+        <field name="fund_sickness" eval="True" />
+        <field name="fund_accident" eval="True" />
+        <field name="fund_hi" eval="True" />
+        <field name="fund_union_fee" eval="True" />
+        <field name="dues_allowed" eval="True" />
+        <field name="base_source">declared</field>
+        <field name="floor">reference_level</field>
+        <field name="pit_method">progressive</field>
+        <field
+            name="note"
+        >Funds and floor to confirm with the SI office (Regulation Reference v0.2).</field>
+    </record>
+    <record id="participant_short" model="l10n_vn.payroll.participant.type">
+        <field name="code">SHORT</field>
+        <field name="name">Contract under 1 month</field>
+        <field name="base_source">components</field>
+        <field name="floor">none</field>
+        <field name="pit_method">flat_short</field>
+    </record>
+</odoo>

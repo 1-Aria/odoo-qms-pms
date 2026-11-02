@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_employee_relative_view_tree_l10n_vn_payroll" model="ir.ui.view">
+        <field name="name">hr.employee.relative.list.l10n_vn_payroll</field>
+        <field name="model">hr.employee.relative</field>
+        <field name="inherit_id" ref="hr_employee_relative.hr_employee_relative_view_tree" />
+        <field name="arch" type="xml">
+            <field name="notes" position="after">
+                <field name="l10n_vn_pit_dependent" groups="payroll.group_payroll_user" />
+                <field name="l10n_vn_tax_code" groups="payroll.group_payroll_user" />
+                <field name="l10n_vn_from" groups="payroll.group_payroll_user" />
+                <field name="l10n_vn_to" groups="payroll.group_payroll_user" />
+                <field
+                    name="l10n_vn_document_ref"
+                    optional="hide"
+                    groups="payroll.group_payroll_user"
+                />
+                <field
+                    name="l10n_vn_document"
+                    filename="l10n_vn_document_name"
+                    widget="binary"
+                    optional="hide"
+                    groups="payroll.group_payroll_user"
+                />
+                <field
+                    name="l10n_vn_document_name"
+                    column_invisible="True"
+                    groups="payroll.group_payroll_user"
+                />
+            </field>
+        </field>
+    </record>
+</odoo>
