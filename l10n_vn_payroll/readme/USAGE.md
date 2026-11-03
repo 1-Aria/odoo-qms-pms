@@ -32,3 +32,16 @@ New users receive no payroll role; give it on purpose.
   region, tax residency, union membership, the year of the commitment form for short contracts.
 - Dependents: on the employee's *Relatives* page, tick *PIT Dependent* and give the months registered
   from and to (first day of the month) and the registration document.
+
+**Monthly inputs** (step 3): *Payroll → Monthly Inputs → Payroll Periods*: create the month, *Build
+Summaries* (as often as needed while attendance is open), check and correct (*Corrected by hand* keeps a
+summary from being rebuilt), then *Close Attendance*. Enter attainment, IE units and menstruation days in
+*Monthly Inputs*; bonuses and adjustments as entered lines, which an approver approves. Mark time off types
+paid by social insurance on the type, and the nursing break on the employee's *Payroll* page.
+
+**Calculation** (step 4): on the salary structure, tick *Vietnamese Pay Context* and give it one rule per
+pay component, with *Pay Component* as both the condition and the amount type. Payslips of that structure
+cover a calendar month; computing one takes the month's latest contract, reads its monthly input (which
+must exist, with segments when the month is split, and with an attainment source when productivity or
+performance pay is in force) and refreshes the worked days. The optional columns of the payslip lines
+show each line's dates, days, hours, factor, hourly rate, attainment and the month an adjustment belongs to.

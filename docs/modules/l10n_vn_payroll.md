@@ -14,8 +14,9 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 |---|---|---|---|
 | 1 | Components, scales, contract pay lines and the wage they set; payroll groups, the officer record rule, the new-user template, the parameter group for payroll managers; statutory parameters per Vietnamese company; configuration views and menus | done | 2026-11-02, two runs. First: `-i` installed; 32 tests, 29 passed, 3 errors in `test_security`, all *Access to unauthorized or invalid companies*: the fixtures' environment allows the superuser's companies, and `with_user` kept them for test users who belong to the test company only; fixed with `_as(user)`. Second: `-u`, `exit=0`, 32 tests, 0 failures; UI checked by Peter: the configuration menus, the statutory parameters of both companies, the *Pay Lines* page, a component refused with its missing setting, the new-user template without payroll roles |
 | 2 | Participant types; contract fields (participant type, declared SI base, probation form) and the PIT method; employee fields; dependents on `hr_employee_relative`, with officers' write access to relatives | done | 2026-11-02, one run: `-i hr_employee_relative`, then `-u l10n_vn_payroll`, `exit=0`, 51 tests, 0 failures; UI checked by Peter: participant types, the declared SI base shown and required for a manager, the attendance mode following the pay group, a dependent refused on a date other than the 1st, no *Payroll* tab or PIT columns for an HR user without a payroll role |
-| 3 | Periods; monthly inputs with segments and entered lines; the Excel import template; entry lists for supervisors and managers | planned | |
-| 4 | Calculation I: payslip contract choice, worked days from inputs, the pay context, component lines, OT, the `l10n_vn_component` rule type, exact lines, the snapshot | planned | |
+| 3 | Periods; the monthly summary per employee built from core attendance, leave and calendars, with segments, paid breaks for women and the 0.8 h daily OT minimum; entered lines with approval; leave types paid by SI; the nursing break on the employee; attendance close | done | 2026-11-02, one run: `-u`, `exit=0`, 70 tests, 0 failures; UI checked by Peter: summaries built, *Close Attendance* blocking edits to figures while attainment stays editable |
+| 3.1 | Zero figures stored as 0, not NULL: `_l10n_vn_build` drops the cached figures before writing them (D29); `test_zero_figures_stored` | done | 2026-11-02: found in the May 2026 summaries of the test copy, 53 of 287 with `days_worked` NULL. One run: `-u`, `exit=0`, 71 tests, 0 failures; May reopened and rebuilt by Peter |
+| 4 | Calculation I: Vietnamese structures; the payslip's main contract, closed contracts included, rules run once; worked days from the monthly summary; the month's pieces, cut also at a probation clause's end; the pay context: pay line components with proration, probation rate, attainment and the attendance condition, entered, adjustment and IE lines, OT on the OT base, gross; the `l10n_vn_component` rule type with exact lines, one payslip line per context line; the snapshot; tests on the earnings of 19 acceptance cases | done | 2026-11-03, two runs. First: `-u`, 114 tests, 3 errors (C02, D07, G08): step 1's pay line check refused a line without `date_to` on a contract with an end date; fixed to read an empty `date_to` as the contract's end, with `test_open_line_on_ended_contract`. Second: `-u`, `exit=0`, 115 tests, 0 failures; UI checked by Peter: the structure flag, the rule's component, the payslip line columns. Trial on the test copy by hand: employee 441, May 2026, payslip 1819 = BASE 3,628,846, PROD 784,615, OT_WD 685,278, OT_RD 695,194, GROSS 5,793,933, as computed beforehand |
 | 5 | Calculation II: SI, HI, UI and union; PIT; damage compensation; the advance hook for `l10n_vn_payroll_account` | planned | |
 | 6 | Checks: catalogue, levels from parameters, results | planned | |
 | 7 | Runs: states, segregation, the lock, corrections, off-cycle runs; payslip access for approvers and readers | planned | |
@@ -32,6 +33,16 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | 4 | §3.2: approver and reader read payslips | in step 7, with the run workflow | Their access is tested where they use it, approving and reading runs |
 | 5 | §8.1: participant types without a word on companies | one list for all companies, no `company_id` (step 2, D12) | They describe the law's participant categories, which are the same for every Vietnamese company |
 | 6 | §8.3: the region defaults from `vn.policy.region` | the same, and left empty when the company has no such parameter (step 2, D15) | The parameter ships with the garment module; before it, a guessed region would be wrong for a company in another region |
+| 7 | §10.4: attendance totals imported from Excel until the attendance module exists | built from core's `hr.attendance`, approved leave and the contracts' working calendars (step 3, D20) | Peter, 2026-11-02: the fingerprint → pandas → `hr.attendance` pipeline, with early check-ins trimmed and the calendar's breaks, already gives the right time; payroll reads it rather than a second file. The Attendance Specification's own engine is not needed for payroll v1 |
+| 8 | §10.2: segments entered by hand when terms change | computed by the summary from the daily figures (step 3, D24) | The summary works day by day, so it can cut the month at contract and pay line dates itself |
+| 9 | §10.4: supervisors and managers enter attainment and scores in their own lists | the payroll officer enters them in an editable list (step 3, D27) | A role for supervisors needs record rules per department and field-level write limits; it waits until the officer's list proves too slow |
+| 10 | §10.1: late arrivals from attendance | not computed; the field stays for the attendance bonus, inactive in the current scheme (step 3) | Core has no notion of lateness, and nothing in the current scheme uses it |
+| 11 | §14: night hours | not computed (step 3) | No work after 22:00, none planned (Peter, 2026-11-02); the night components and factors stay available |
+| 12 | §12 step 3: standard days from `vn.policy.std_days.mode` and `vn.policy.std_days` | `vn.policy.std_days` only (step 4, D36) | The current scheme is fixed at 26 (Pay Policy); the variant from the month's schedule has no case yet (TC-B07) and comes with it |
+| 13 | §13.1: a `none` line computed per segment | paid once a month, from the last piece in which the component has a pay line (step 4, D36) | Computed per segment, a fixed amount is paid twice in a split month |
+| 14 | §13.1: one payslip line per pay line per segment; §17.1: one rule per component | both: after OCA files the rule's line, it is split into one payslip line per context line (step 4, D43) | OCA files one line per rule and contract (`oca/payroll/payroll/models/hr_payslip.py:524`), so a rule alone cannot show a probation split (TC-C02, TC-C06) |
+| 15 | §11: the payslip overrides apply to every payslip | only to payslips whose structure has `l10n_vn_payroll` (step 4, D30) | The instance's own structures (`MINW`, `BNOT` …) run in the same company until go-live (§29 step 7); their contract choice and `WORK100` worked days must not change |
+| 16 | §10.2: segments cut at contract and pay line dates | also the day after a probation clause ends (step 4, D33) | §12 step 2 needs each segment to know whether it is in probation, and a clause ends inside a contract |
 
 ## Decisions
 
@@ -55,7 +66,33 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | D16 | **The attendance mode follows the pay group** (step 2): a stored compute, editable, set to `scan` for workers, production support and daily-paid workers and `exception` for office and managers (Attendance Specification §5) |
 | D17 | **A dependent counts in a month** when it is a PIT dependent, its `l10n_vn_from` is on or before the month's first day, and its `l10n_vn_to` is empty or on or after it (step 2). Both dates are first days of months, as dependents are registered by month (FR-06) |
 | D18 | **Payroll officers write relatives** (step 2): OCA lets every internal user read them and only HR managers write them (`oca/hr/hr_employee_relative/security/ir.model.access.csv`); registering dependents is the payroll officer's work (FR-06), so the officer group gets full access to `hr.employee.relative` |
+| D20 | **The monthly summary reads core's time, it does not compute its own** (step 3): worked hours, overtime and validated overtime of `hr.attendance`; the working calendar of the contract in force each day; approved leave and public holidays through `list_leaves`. The only payroll rules applied on top are the daily OT minimum (D22), the paid breaks (D25) and the classification of leave (D21) |
+| D21 | **Leave is classified by its type:** a public holiday (a calendar leave with no employee) and a leave type that is neither `unpaid` (core, `hr_holidays/models/hr_leave_type.py:102`) nor `l10n_vn_si_paid` are paid by the company; `l10n_vn_si_paid` types (sick leave, maternity) are paid by the SI fund; `unpaid` types are unpaid |
+| D22 | **OT counts per day, from a minimum** `vn.policy.ot_min_hours_day` (garment: 0.8): a day's validated overtime below it is dropped, above it counts in full. The day's category: `HOL` when a public holiday covers it, `RD` when the calendar schedules no hours that day, else `WD`. No rounding (Peter, 2026-11-02). The parameter ships with `l10n_vn_payroll_garment`; without it, building stops with the strict reader's error naming it |
+| D23 | **A day is measured against the calendar's hours for that day,** not `hours_per_day`: days worked on a scheduled day = min(1, (worked − overtime) ÷ scheduled hours). On the instance *8 Hours 2 Shifts* has `hours_per_day` 16, which today's rule `MINW` caps by falling back to 8 |
+| D24 | **Segments are computed:** the month is cut at every start and end of a contract and of a pay line of the employee inside the month; with more than one piece, each gets its own days and OT (design §10.2) |
+| D25 | **Paid breaks restore time, they add none** (Attendance Spec §5.3): on a day worked, the shortfall = scheduled − (worked − overtime) − leave hours, at least 0. A nursing break credits min(1 h, shortfall) when the employee has `l10n_vn_nursing_break` and a child relative whose first birthday is after that day; then `menstruation_days` × 0.5 h is spread over the month's remaining shortfalls in date order. Credits count as paid time |
+| D26 | **A summary can be corrected by hand:** `figures_locked` keeps the computed figures from being rebuilt. Closing attendance freezes the computed figures; attainment, IE units, menstruation days and entered lines stay editable until the run (step 7) |
+| D27 | **The officer enters attainment and scores** (divergence 9), with the source and, for an override, a note |
+| D28 | **An entered line is paid only once approved** (FR-69): *Approve* is for `group_payroll_approver`; changing the component, amount or hours of an approved line clears its approval |
+| D29 | **Figures are written over a dropped cache** (step 3.1): a summary is created empty and figured afterwards; a figure never written is cached as 0.0 while its column is NULL, and the ORM skips writing 0.0 over that cache (`CLAUDE.md`, ORM lessons). `_l10n_vn_build` invalidates the figures it is about to write |
 | D19 | **The PIT method of a contract on a date** (design §8.2), `hr.contract._l10n_vn_pit_method(date)` (step 2): the employee not resident → `flat_nonresident`; else the participant type's method when it is not `progressive`; else, for a contract with an end date running under 3 months and no commitment form for that year, `flat_short`; else `progressive` |
+| D30 | **Vietnamese structures** (step 4, divergence 15): `hr.payroll.structure.l10n_vn_payroll` marks a structure calculated by the pay context. Every step 4 override acts only on payslips whose `struct_id` has it; before a payslip exists (`get_payslip_vals`, worked days), the main contract's `struct_id` decides, or the structure passed in |
+| D31 | **Period contracts and the main contract** (design §11): `hr.employee._l10n_vn_period_contracts(date_from, date_to)` returns the employee's contracts in state `open` or `close` overlapping the dates, ordered by `date_start`; the main contract is the last. It becomes the payslip's `contract_id` and the rules run once, against it. The summary (step 3) and the pay context use the same method |
+| D32 | **A Vietnamese payslip covers one calendar month** and reads the monthly summary of its company's period for that month. A payslip on other dates, or without a summary, is refused at calculation |
+| D33 | **Pieces of the month** (amends D24): `l10n_vn.payroll.input._l10n_vn_pieces()` cuts each period contract's span inside the month at its pay lines' `date_from` and `date_to` + 1 day, and, for a contract with `l10n_vn_probation_form = clause`, at `trial_date_end` + 1 day. A piece is in probation when its contract's form is `contract`, or `clause` with the piece ending on or before `trial_date_end`. Days between two contracts belong to no piece. The summary's segments and the pay context both come from it |
+| D34 | **Segments must match the pieces:** with one piece, the pay context uses the summary's month figures and ignores segments; with more, it needs one segment per piece with the same dates, and otherwise stops, naming the dates. Rebuilding the summary creates them; a summary corrected by hand needs them entered |
+| D35 | **A piece reads its values on its last day:** the pay lines in force, their amounts (`_l10n_vn_amount_on`), and dated parameters. Month-level parameters (`vn.policy.std_days`, the attainment cap, the unit rate, the attendance limit) are read on the month's last day |
+| D36 | **Pay line components** (design §13.1, divergences 12 and 13), per piece and per pay line in force, with *A* the amount, *d* the piece's days on the component's basis, *s* `vn.policy.std_days`, *r* `vn.policy.probation_rate` when the piece is in probation and the component has `probation_applies` (else 1), *a* the attainment when the component is `variable` (else 1): `paid_days` and `days_worked` → round(*A* × *d* ÷ *s* × *r* × *a*); `per_day` → round(*A* × paid days × *r* × *a*); `none` → round(*A* × *r* × *a*), once a month, from the last piece in which the component has a pay line. Arithmetic in `Decimal` built from `str()` of the stored values, in that order, rounded once per line to whole dong, half up (FR-34, TC-R1) |
+| D37 | **Attainment** (design §12 step 4): needed only when a `variable` component has a pay line in force. It is missing when the summary's `attainment_source` is empty, so 0 with a source pays 0. Applied as min(`attainment`, `vn.policy.attainment_cap`). The component's `attainment_source` is not compared with the summary's |
+| D38 | **The attendance condition** (design §13.3): a component with `condition = attendance` pays its line as computed when the summary has no unexcused absence and `late_arrivals` ≤ `vn.policy.attendance_late_max`, else 0; the line stays, at 0 |
+| D39 | **Entered, adjustment and IE lines** (design §13.2): one line per approved input line, on its component, with its amount rounded; an adjustment (`period_ref` set) also carries its `hours` and `period_ref`. Input lines without an approver are left out and listed in the snapshot's `unapproved` for step 6. Each active `ie_units` component gets one line, round(`ie_units` × `vn.policy.unit_rate`), when `ie_units` is not 0 |
+| D40 | **OT** (design §14): per piece, OT base = the sum over the pay lines in force whose component is `in_ot_base` of *A* × *r* × *a*, not prorated (`per_day`: *A* × *s* × *r* × *a*, so the hourly rate is the daily rate ÷ 8); hourly = OT base ÷ (*s* × 8). For each active `ot` component of category *c* with hours in the piece: round(hourly × factor *c* × hours *c*), factors from `vn.ot.factors`; a component with `ot_category = all` adds round(its `amount_parameter` × Σ factor *c* × hours *c*). Hours come from each segment; when there are segments and none carries hours, all of the month's hours go to the last piece (PTD-OPEN-04). Hours in a category with no active `ot` component stop the calculation, naming the category |
+| D41 | **Gross** (design §12 step 7): each active component with `engine_code = GROSS` gets one line, the sum of the earning lines. The other engine codes come in step 5 |
+| D42 | **The context is built at calculation, in bulk** (design §12, §18): `compute_sheet` first prepares the Vietnamese payslips: the summaries of all of them in one search, parameters read once per code, date and company, everything read as superuser. Each payslip gets its main contract as `contract_id`, its summary as `l10n_vn_input_id`, worked days rewritten from the summary, and the whole context as `l10n_vn_context`, which a recalculation replaces. `get_payroll_dict` exposes it to rules as `payroll.vn` |
+| D43 | **Exact lines** (design §17, PTD-10, divergence 14): an `l10n_vn_component` rule's line is filed by OCA with the sum of the component's context lines, so `localdict` and the categories hold that sum; `_get_lines_dict` then splits it into one payslip line per context line, each with quantity 1, rate 100, the rounded amount and the display fields. On a Vietnamese payslip, a rule of another type is filed with quantity 1, rate 100 and amount = its total rounded half up, so categories sum whole dong (PFG-06) |
+| D44 | **Integrity stops are errors in step 4:** no main contract, no summary, missing segments, missing attainment, OT hours without a component, and a component with context lines but no rule in the payslip's structure raise a `UserError` naming the employee. Step 6 turns them into check results |
+| D45 | **Line names:** a pay line or OT line takes the component's name, followed, when the month has more than one piece and the line belongs to one (not a `none` line), by the piece's dates (`dd/mm–dd/mm`) and, in probation, `probation` — `Base salary (01/10–07/10, probation)`; a whole month in probation reads `Base salary (probation)`. An entered line takes its `description`, else the component's name; an adjustment adds its month (`MM/YYYY`) in parentheses |
 
 ## Folder structure
 
@@ -70,8 +107,16 @@ l10n_vn_payroll/
 │   ├── hr_contract.py
 │   ├── res_company.py
 │   ├── l10n_vn_payroll_participant_type.py          # 2
-│   ├── hr_employee.py                               # 2
-│   └── hr_employee_relative.py                      # 2
+│   ├── hr_employee.py                               # 2, 3
+│   ├── hr_employee_relative.py                      # 2
+│   ├── l10n_vn_payroll_period.py                    # 3
+│   ├── l10n_vn_payroll_input.py                     # 3, 4
+│   ├── hr_leave_type.py                             # 3
+│   ├── hr_payroll_structure.py                      # 4
+│   ├── hr_salary_rule.py                            # 4
+│   ├── hr_payslip_line.py                           # 4
+│   ├── hr_payslip.py                                # 4
+│   └── pay_context.py                               # 4
 ├── data/
 │   ├── l10n_vn_payroll_parameters.xml
 │   └── l10n_vn_payroll_participant_types.xml        # 2
@@ -85,6 +130,12 @@ l10n_vn_payroll/
 │   ├── l10n_vn_payroll_participant_type_views.xml   # 2
 │   ├── hr_employee_views.xml                        # 2
 │   ├── hr_employee_relative_views.xml               # 2
+│   ├── l10n_vn_payroll_period_views.xml             # 3
+│   ├── l10n_vn_payroll_input_views.xml              # 3
+│   ├── hr_leave_type_views.xml                      # 3
+│   ├── hr_payroll_structure_views.xml               # 4
+│   ├── hr_salary_rule_views.xml                     # 4
+│   ├── hr_payslip_views.xml                         # 4
 │   └── menus.xml
 ├── tests/
 │   ├── __init__.py, common.py
@@ -96,7 +147,16 @@ l10n_vn_payroll/
 │   ├── test_participant_type.py                     # 2
 │   ├── test_contract_profile.py                     # 2
 │   ├── test_employee_payroll.py                     # 2
-│   └── test_pit_method.py                           # 2
+│   ├── test_pit_method.py                           # 2
+│   ├── input_common.py                              # 3
+│   ├── test_input_build.py                          # 3
+│   ├── test_input_workflow.py                       # 3
+│   ├── payslip_common.py                            # 4
+│   ├── test_payslip_contract.py                     # 4
+│   ├── test_pay_context.py                          # 4
+│   ├── test_acceptance_earnings.py                  # 4
+│   └── data/
+│       └── acceptance_earnings.json                 # 4
 └── readme/
     ├── DESCRIPTION.md
     └── USAGE.md
@@ -116,8 +176,8 @@ Files of later steps are added to this tree with their step.
 | `license` | `AGPL-3` |
 | `category` | `Human Resources/Payroll` |
 | `countries` | `["vn"]` |
-| `depends` | `payroll`, `base_time_parameter_strict` (step 1); `hr_employee_relative` (step 2); `excel_import_export` (step 3) |
-| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/menus.xml` |
+| `depends` | `payroll`, `base_time_parameter_strict` (step 1); `hr_employee_relative` (step 2) |
+| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/l10n_vn_payroll_period_views.xml` (3), `views/l10n_vn_payroll_input_views.xml` (3), `views/hr_leave_type_views.xml` (3), `views/hr_payroll_structure_views.xml`, `views/hr_salary_rule_views.xml`, `views/hr_payslip_views.xml` (4), `views/menus.xml` |
 | `installable` | `True` |
 
 The security file loads first: the access file names its groups.
@@ -127,8 +187,8 @@ The security file loads first: the access file names its groups.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company`, `from . import l10n_vn_payroll_participant_type` (2), `from . import hr_employee` (2), `from . import hr_employee_relative` (2) |
-| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security`, `from . import test_participant_type`, `from . import test_contract_profile`, `from . import test_employee_payroll`, `from . import test_pit_method` (2) |
+| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company`, `from . import l10n_vn_payroll_participant_type` (2), `from . import hr_employee` (2), `from . import hr_employee_relative` (2), `from . import l10n_vn_payroll_period`, `from . import l10n_vn_payroll_input`, `from . import hr_leave_type` (3), `from . import hr_payroll_structure`, `from . import hr_salary_rule`, `from . import hr_payslip_line`, `from . import hr_payslip` (4). `pay_context.py` holds no model and is imported by `hr_payslip.py` |
+| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security`, `from . import test_participant_type`, `from . import test_contract_profile`, `from . import test_employee_payroll`, `from . import test_pit_method` (2), `from . import test_input_build`, `from . import test_input_workflow` (3), `from . import test_payslip_contract`, `from . import test_pay_context`, `from . import test_acceptance_earnings` (4) |
 
 ## Groups and rules — `security/l10n_vn_payroll_security.xml`
 
@@ -145,6 +205,7 @@ The security file loads first: the access file names its groups.
 | `rule_scale_version_company` | `ir.rule` | `l10n_vn.payroll.scale.version`; global; the same |
 | `rule_scale_cell_company` | `ir.rule` | `l10n_vn.payroll.scale.cell`; global; the same |
 | `rule_contract_line_company` | `ir.rule` | `l10n_vn.payroll.contract.line`; global; the same |
+| `rule_period_company`, `rule_input_company`, `rule_input_segment_company`, `rule_input_line_company` (3) | `ir.rule` | the step 3 models; global; the same |
 
 ## Access — `security/ir.model.access.csv`
 
@@ -164,6 +225,21 @@ The security file loads first: the access file names its groups.
 | `access_participant_type_reader` (2) | `model_l10n_vn_payroll_participant_type` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
 | `access_participant_type_manager` (2) | `model_l10n_vn_payroll_participant_type` | `payroll.group_payroll_manager` | 1 | 1 | 1 | 1 |
 | `access_relative_payroll_user` (2) | `hr_employee_relative.model_hr_employee_relative` | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
+| `access_period_user` (3) | `model_l10n_vn_payroll_period` | `payroll.group_payroll_user` | 1 | 1 | 1 | 0 |
+| `access_period_reader` (3) | `model_l10n_vn_payroll_period` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_period_approver` (3) | `model_l10n_vn_payroll_period` | `group_payroll_approver` | 1 | 0 | 0 | 0 |
+| `access_period_manager` (3) | `model_l10n_vn_payroll_period` | `payroll.group_payroll_manager` | 1 | 1 | 1 | 1 |
+| `access_input_user` (3) | `model_l10n_vn_payroll_input` | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
+| `access_input_reader` (3) | `model_l10n_vn_payroll_input` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_input_approver` (3) | `model_l10n_vn_payroll_input` | `group_payroll_approver` | 1 | 0 | 0 | 0 |
+| `access_input_segment_user` (3) | `model_l10n_vn_payroll_input_segment` | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
+| `access_input_segment_reader` (3) | `model_l10n_vn_payroll_input_segment` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_input_line_user` (3) | `model_l10n_vn_payroll_input_line` | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
+| `access_input_line_reader` (3) | `model_l10n_vn_payroll_input_line` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_input_line_approver` (3) | `model_l10n_vn_payroll_input_line` | `group_payroll_approver` | 1 | 0 | 0 | 0 |
+| `access_component_approver` (3) | `model_l10n_vn_payroll_component` | `group_payroll_approver` | 1 | 0 | 0 | 0 |
+
+Approvers approve through `action_approve`, which writes as superuser after checking the group (D28).
 
 The reviewer and the manager reach these through the officer group they imply.
 
@@ -290,7 +366,7 @@ SQL: `version_key_unique`: `unique(version_id, key)`.
 
 | Rule |
 |---|
-| `date_from ≥ contract.date_start`; `date_to ≥ date_from` when set; when the contract has `date_end`, `date_from ≤ date_end` and `date_to ≤ date_end` |
+| `date_from ≥ contract.date_start`; `date_to ≥ date_from` when set; when the contract has `date_end`, `date_from ≤ date_end` and, when set, `date_to ≤ date_end` (an empty `date_to` runs until the contract ends) |
 | source `line`: `amount` set and not 0 |
 | sources `scale`, `scale_remainder`: `scale_key` or `amount`; a `scale_key` must be found by the component's scale's `_has_key` |
 | no other line of the same contract and component overlaps (D6) |
@@ -386,6 +462,267 @@ SQL: `code_unique`: `unique(code)`.
 |---|---|
 | `_check_l10n_vn_dependent` | `@api.constrains("l10n_vn_pit_dependent", "l10n_vn_from", "l10n_vn_to")`, as superuser, `ValidationError`: a PIT dependent needs `l10n_vn_from`; `l10n_vn_from` and `l10n_vn_to` are first days of months; `l10n_vn_to ≥ l10n_vn_from` |
 | `_l10n_vn_counts_in(month_start)` | D17, for one relative |
+
+### `l10n_vn.payroll.period` — `models/l10n_vn_payroll_period.py` (step 3)
+
+`_description = "Payroll Period"`, `_order = "date_from desc"`, `_check_company_auto = True`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `name` | Char | stored compute from `date_from`: `YYYY-MM` |
+| `date_from` | Date | required; the first day of a month (constraint) |
+| `date_to` | Date | stored compute: the month's last day |
+| `company_id` | Many2one `res.company` | required, default `self.env.company` |
+| `attendance_closed` | Boolean | readonly; set by `action_close_attendance` |
+| `attendance_closed_by`, `attendance_closed_at` | Many2one `res.users`, Datetime | readonly |
+| `ie_required` | Boolean | string *IE figures required* |
+| `ie_closed` | Boolean | |
+| `input_ids` | One2many `l10n_vn.payroll.input` | `period_id` |
+| `input_count` | Integer | compute |
+
+SQL: `company_month_unique`: `unique(company_id, date_from)`.
+
+| Method | Behaviour |
+|---|---|
+| `_check_first_day` | `@api.constrains("date_from")`: day 1 |
+| `action_build` | refused when `attendance_closed`. For every employee of the company with an `hr.contract` in state `open` or `close` overlapping the month: finds or creates the input, then `input._l10n_vn_build()` |
+| `action_close_attendance` | refused when there is no input; sets the three close fields |
+| `action_reopen_attendance` | payroll managers only; clears them (step 7 refuses it once a run of the period is approved) |
+| `action_open_inputs` | the inputs of the period in a list |
+
+### `l10n_vn.payroll.input`, `.input.segment`, `.input.line` — `models/l10n_vn_payroll_input.py` (step 3)
+
+**`l10n_vn.payroll.input`** — `_description = "Monthly Payroll Input"`, `_order = "period_id desc, employee_id"`, `_check_company_auto = True`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `period_id` | Many2one | required, `ondelete="cascade"`, index |
+| `employee_id` | Many2one `hr.employee` | required, `ondelete="restrict"`, index |
+| `company_id` | Many2one | related `period_id.company_id`, stored |
+| `department_id` | Many2one | related `employee_id.department_id`, stored |
+| `scheduled_days`, `days_worked`, `company_leave_days`, `si_leave_days`, `unpaid_leave_days`, `paid_days`, `unpaid_days`, `si_absence_days` | Float `(16, 4)` | computed figures (D20–D25) |
+| `unexcused_absences` | Integer | scheduled days with no attendance and no leave |
+| `leave_days_json` | Json | days by leave type name; public holidays under *Public holiday* |
+| `leave_days_display`, `ot_display` | Char | non-stored computes: the two Json fields as text for the views (`WD 2 · RD 4`) |
+| `ot_hours_json` | Json | hours by category (`WD`, `RD`, `HOL`) |
+| `ot_hours` | Float | stored compute: the sum of `ot_hours_json` |
+| `ot_hours_ytd` | Float | OT hours of the company's earlier inputs of the same year for the employee |
+| `paid_break_hours` | Float | credited by D25 |
+| `menstruation_days` | Integer | entered |
+| `late_arrivals` | Integer | entered; not computed (divergence 10) |
+| `attainment` | Float `(16, 4)` | entered; 1.0 = 100% |
+| `attainment_source` | Selection | `supervisor` / `manager` / `ie` / `override` |
+| `attainment_note` | Char | required when `override` (constraint) |
+| `attainment_by` | Many2one `res.users` | readonly; set when `attainment` is written |
+| `ie_units` | Float | entered (FR-16) |
+| `figures_locked` | Boolean | string *Corrected by hand* (D26) |
+| `built_at` | Datetime | readonly |
+| `segment_ids` | One2many `l10n_vn.payroll.input.segment` | `input_id` |
+| `line_ids` | One2many `l10n_vn.payroll.input.line` | `input_id` |
+
+SQL: `period_employee_unique`: `unique(period_id, employee_id)`.
+
+The computed figures are `FIGURES`, a module constant listing the fields above from `scheduled_days` to `paid_break_hours`, and `segment_ids`.
+
+| Method | Behaviour |
+|---|---|
+| `write` | when the period's `attendance_closed` is set, refuses a write touching `FIGURES` or `figures_locked`; sets `attainment_by` when `attainment` is written |
+| `_l10n_vn_build()` | for each input not `figures_locked`: `vals = self._l10n_vn_compute_figures()`; writes them, replaces `segment_ids`, sets `built_at` |
+| `_l10n_vn_compute_figures()` | returns the figures and segments for the month (below) |
+| `_l10n_vn_days()` | the per-day table the figures sum (below) |
+
+**The per-day table** (`_l10n_vn_days`), for each contract of the employee in state `open` or `close` overlapping the month, over the overlap, with `cal` = the contract's `resource_calendar_id` and its `tz`:
+
+| Per local date | From |
+|---|---|
+| `scheduled` | the hours of `cal._attendance_intervals_batch(start, end, resources=employee.resource_id)` on that date (lunch excluded) |
+| `holiday` | True when a calendar leave with no resource covers the date in `cal` |
+| `leave_company`, `leave_si`, `leave_unpaid`, `leave_types` | hours of `employee.list_leaves(start, end, calendar=cal)` on that date, by D21 |
+| `worked`, `ot_raw`, `ot_valid` | the sums of `worked_hours`, and of `overtime_hours` and `validated_overtime_hours` each taken at 0 when negative (core reports missing hours as negative overtime; `MINW` filters them the same way), of the employee's `hr.attendance` whose `check_in`, in `cal`'s time zone, falls on that date |
+| `contract` | the contract |
+
+**The figures,** from the table, with `m` = `vn.policy.ot_min_hours_day` on the month's last day:
+
+| Figure | Per scheduled date (`scheduled` > 0), summed |
+|---|---|
+| `days_worked` | min(1, max(0, `worked` − `ot_raw`) ÷ `scheduled`) |
+| `company_leave_days` | min(1 − days worked, `leave_company` ÷ `scheduled`) |
+| `si_leave_days`, `unpaid_leave_days` | the same for `leave_si`, `leave_unpaid`, each capped by what is left of the day |
+| paid break days | credited hours (D25) ÷ `scheduled` |
+| `paid_days` | days worked + company leave days + paid break days |
+| `scheduled_days` | the count of scheduled dates |
+| `unpaid_days` | `scheduled_days` − `paid_days`, at least 0 |
+| `si_absence_days` | `scheduled_days` − `paid_days`, the same days counted for FR-23: neither worked nor paid by the company |
+| `unexcused_absences` | scheduled dates with no attendance and no leave |
+| `ot_hours_json` | on every date (scheduled or not) with `ot_valid` ≥ `m`: `ot_valid` added to `HOL`, `RD` or `WD` (D22) |
+| `segment_ids` | D24: when the month has more than one piece, one segment per piece with its own `paid_days`, `days_worked` and `ot_hours_json` |
+
+A rest day (no scheduled hours) adds nothing to days; its overtime counts under `RD`.
+
+**`l10n_vn.payroll.input.segment`** — `_description = "Monthly Payroll Input Segment"`, `_order = "input_id, date_from"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `input_id` | Many2one | required, `ondelete="cascade"`, index |
+| `company_id` | Many2one | related `input_id.company_id`, stored |
+| `date_from`, `date_to` | Date | required |
+| `contract_id` | Many2one `hr.contract` | |
+| `paid_days`, `days_worked` | Float `(16, 4)` | |
+| `ot_hours_json` | Json | |
+
+**`l10n_vn.payroll.input.line`** — `_description = "Monthly Payroll Input Line"`, `_order = "input_id, id"`, `_check_company_auto = True`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `input_id` | Many2one | required, `ondelete="cascade"`, index |
+| `company_id` | Many2one | related `input_id.company_id`, stored |
+| `currency_id` | Many2one | related `company_id.currency_id` |
+| `component_id` | Many2one `l10n_vn.payroll.component` | required, `ondelete="restrict"`, `check_company=True` |
+| `amount` | Monetary | |
+| `hours` | Float | for an OT adjustment |
+| `period_ref` | Date | first day of the month an adjustment belongs to |
+| `description` | Char | |
+| `approved_by`, `approved_at` | Many2one `res.users`, Datetime | readonly |
+
+| Method | Behaviour |
+|---|---|
+| `_check_line` | `@api.constrains("component_id", "period_ref")`: without `period_ref`, the component's source is `entered`; with it, the component is an earning or a deduction, and `period_ref` is a first day of a month before the input's period |
+| `write` | writing `component_id`, `amount`, `hours` or `period_ref` on an approved line clears `approved_by` and `approved_at` |
+| `action_approve` | for `group_payroll_approver` (else `AccessError`): sets both fields as superuser |
+| `action_reset_approval` | the same group: clears them |
+
+### `hr.leave.type` — `models/hr_leave_type.py` (step 3)
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_si_paid` | Boolean | string *Paid by social insurance*; constraint: not together with core's `unpaid` |
+
+### `hr.employee` addition (step 3)
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_nursing_break` | Boolean | string *Nursing Break*, payroll groups (D25) |
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_nursing_until()` | the latest first birthday (date of birth + 12 months) among the employee's relatives with relation `hr_employee_relative.relation_child` and a date of birth, when `l10n_vn_nursing_break`; else False |
+
+### `hr.employee` addition (step 4)
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_period_contracts(date_from, date_to)` | as superuser, the contracts of the employee (`ensure_one`) in state `open` or `close` with `date_start ≤ date_to` and (`date_end` empty or `≥ date_from`), ordered by `date_start` (D31) |
+
+### `l10n_vn.payroll.input` changes (step 4)
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_pieces()` | D33. For each contract of `employee_id._l10n_vn_period_contracts(period.date_from, period.date_to)`: span = (max(`date_start`, month start), min(`date_end` or month end, month end)); cut dates inside the span after its first day: each of the contract's pay lines' `date_from` and `date_to` + 1 day, and `trial_date_end` + 1 day when `l10n_vn_probation_form == "clause"` and `trial_date_end` is set (pay lines and `trial_date_end` read as superuser). Returns, in date order, one dict per piece: `date_from`, `date_to`, `contract` (record), `probation` (Boolean) |
+| `_l10n_vn_days()` | unchanged, except that its contracts come from `_l10n_vn_period_contracts` |
+| `_l10n_vn_compute_figures()` | segments from `_l10n_vn_pieces()`: when there is more than one piece, one segment per piece with its dates, `contract_id`, and `paid_days`, `days_worked` and `ot_hours_json` summed over the piece's days. `_l10n_vn_cut_dates` is removed |
+
+### `hr.payroll.structure` — `models/hr_payroll_structure.py` (step 4)
+
+`_inherit = "hr.payroll.structure"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_payroll` | Boolean | string *Vietnamese Pay Context* (D30) |
+
+### `hr.salary.rule` — `models/hr_salary_rule.py` (step 4)
+
+`_inherit = "hr.salary.rule"`. `hr.payslip.line` inherits the rule (`oca/payroll/payroll/models/hr_payslip_line.py:9`), so these fields reach payslip lines too.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `amount_select` | Selection | `selection_add=[("l10n_vn_component", "Pay Component")]`, `ondelete={"l10n_vn_component": "set default"}` |
+| `condition_select` | Selection | the same |
+| `l10n_vn_component_id` | Many2one `l10n_vn.payroll.component` | string *Pay Component*, `ondelete="restrict"` |
+
+| Method | Behaviour |
+|---|---|
+| `_check_l10n_vn_component` | `@api.constrains("amount_select", "condition_select", "l10n_vn_component_id")`; returns at once when `self._name != "hr.salary.rule"` (payslip lines inherit the constraint); `amount_select` or `condition_select` equal to `l10n_vn_component` needs `l10n_vn_component_id`, else `ValidationError` |
+| `_satisfy_condition_l10n_vn_component(localdict)` | `bool(localdict["payslip"]._l10n_vn_context_lines(self.l10n_vn_component_id))`; OCA calls it by name (`oca/payroll/payroll/models/hr_salary_rule.py:299`) |
+| `_compute_rule_l10n_vn_component(localdict)` | parts = `localdict["payslip"]._l10n_vn_context_lines(self.l10n_vn_component_id)`; returns `name` (the first part's name, else the rule's), `quantity` 1.0, `rate` 100.0, `amount` the sum of the parts' `amount`, and `l10n_vn_parts`: per part, `name`, `amount` and the display fields `l10n_vn_days`, `l10n_vn_hours`, `l10n_vn_factor`, `l10n_vn_unit_amount`, `l10n_vn_date_from`, `l10n_vn_date_to`, `l10n_vn_attainment`, `l10n_vn_period_ref` from the part's `days`, `hours`, `factor`, `unit_amount`, `date_from`, `date_to`, `attainment`, `period_ref` (D43) |
+
+### `hr.payslip.line` — `models/hr_payslip_line.py` (step 4)
+
+`_inherit = "hr.payslip.line"`. Display fields (D43), empty when the context line has no such value:
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_days` | Float `(16, 4)` | string *Days* |
+| `l10n_vn_hours` | Float `(16, 4)` | string *Hours* |
+| `l10n_vn_factor` | Float `(16, 6)` | string *Factor* |
+| `l10n_vn_unit_amount` | Float `(16, 4)` | string *Unit Amount* (the OT hourly rate) |
+| `l10n_vn_date_from`, `l10n_vn_date_to` | Date | strings *From*, *To* |
+| `l10n_vn_attainment` | Float `(16, 4)` | string *Attainment* |
+| `l10n_vn_period_ref` | Date | string *Belongs to month* |
+
+### `hr.payslip` — `models/hr_payslip.py` (step 4)
+
+`_inherit = "hr.payslip"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_input_id` | Many2one `l10n_vn.payroll.input` | string *Monthly Input*, readonly, `copy=False`, `ondelete="restrict"` |
+| `l10n_vn_context` | Json | string *Pay Context*, readonly, `copy=False` (the snapshot, below) |
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_is_vn()` | True when `struct_id.l10n_vn_payroll` (`ensure_one`) |
+| `get_payslip_vals(date_from, date_to, employee_id=False, contract_id=False, struct_id=False)` | main = the last of `employee._l10n_vn_period_contracts(date_from, date_to)`; when there is one and the structure (`struct_id[0]` when given, as OCA's batch passes it, else `main.struct_id`) has `l10n_vn_payroll`: `super()` under the context key `contract=True` with `contract_id=main.id`, so OCA keeps that contract (`oca/payroll/payroll/models/hr_payslip.py:638-651`); otherwise `super()` unchanged (D30, D31) |
+| `_get_employee_contracts()` | per payslip: without `contract_id`, when the employee's main contract for the payslip's dates has a structure with `l10n_vn_payroll`, that contract; otherwise OCA's choice |
+| `get_worked_day_lines(contracts, date_from, date_to)` | when `contracts[:1].struct_id.l10n_vn_payroll`: `_l10n_vn_worked_day_vals(input, contract)` with the summary from `_l10n_vn_find_input(contract.employee_id, contract.company_id, date_from)`, or `[]` when there is none; otherwise `super()`. OCA's `WORK100` is not produced (design §11) |
+| `_l10n_vn_find_input(employee, company, date_from)` | `@api.model`: the input of `employee` in the period of `company` whose `date_from` is `date_from`, or an empty recordset |
+| `_l10n_vn_worked_day_vals(input, contract)` | `@api.model`: a list of worked-day values, each with `contract_id` = `contract.id`: `PAID` *Paid days* (sequence 1, `paid_days`), `WORKED` *Days worked* (2, `days_worked`), `UNPAID` *Unpaid days* (3, `unpaid_days`), and per entry of `leave_days_json` a line `LEAVE` named after the entry (10, its days) |
+| `compute_sheet()` | `self.filtered(lambda p: p._l10n_vn_is_vn())._l10n_vn_prepare()`, then `super()` |
+| `_l10n_vn_prepare()` | D42, D44. Refuses a payslip whose `date_from` is not a 1st or whose `date_to` is not that month's last day (D32). Finds every summary in one search (employees and periods of `self`). `builder = PayContext(self.env(su=True))`. Per payslip: main = the last period contract, else `UserError` (*%(employee)s has no contract in %(month)s.*); the summary, else `UserError` (*%(employee)s has no monthly input for %(month)s.*); `context = builder.build(payslip, main, input)`; writes `contract_id` main, `l10n_vn_input_id`, `l10n_vn_context`, and `worked_days_line_ids` = `[Command.clear()]` + `Command.create` of `_l10n_vn_worked_day_vals(input, main)`. Then every `component_id` among the context's lines must have a rule in `_get_salary_rules()` with that `l10n_vn_component_id`, else `UserError` (*Component %(code)s has amounts for %(employee)s but no rule in structure %(structure)s.*) |
+| `get_payroll_dict(contracts)` | `super()`; for a Vietnamese payslip adds `vn`: `l10n_vn_context` |
+| `_l10n_vn_context_lines(component)` | the context lines whose `component_id` is `component.id`, in context order |
+| `_get_lines_dict(rule, localdict, lines_dict, key, values, previous_amount)` | D43. Pops `l10n_vn_parts` from `values`. On a Vietnamese payslip, for a rule whose `amount_select` is not `l10n_vn_component`: `values` gets quantity 1, rate 100 and amount = round half up of quantity × rate × amount ÷ 100. Calls `super()`. For an `l10n_vn_component` rule: `lines_dict[key]` gets `l10n_vn_component_id`; with parts, the first part's values (with quantity 1, rate 100, `total` = its amount) update `lines_dict[key]`, and each further part *n* is filed under `f"{key}-{n}"` as a copy of that line with its own values. Returns `localdict, lines_dict` |
+
+### Pay context — `models/pay_context.py` (step 4)
+
+A plain Python class, `PayContext`, not a model. It reads as superuser, so record rules do not apply: every search for components (`ot`, `ie_units`, `GROSS`) has `company_id` = the payslip's company and `active` in its domain. Module helpers: `_dec(value)` = `Decimal(str(value or 0))`; `_round(d)` = `int(d.quantize(Decimal(1), rounding=ROUND_HALF_UP))`; `HOURS_PER_DAY = 8`.
+
+| Member | Behaviour |
+|---|---|
+| `__init__(env)` | `env`, a superuser environment; `params`, a dict cache |
+| `param(code, date, company)` | `base.time.parameter._strict_get(code, date, company=company)`, once per `(code, date, company.id)`; each value read is also kept for the snapshot's `parameters` |
+| `build(payslip, contract, input)` | the context below, in the order of the steps |
+
+**Steps of `build`:**
+
+| # | Step |
+|---|---|
+| 1 | pieces = `input._l10n_vn_pieces()`; their figures by D34: one piece → the summary's `paid_days`, `days_worked`, `ot_hours_json`; more → the matching segments', else `UserError` (*The monthly input of %(employee)s for %(month)s needs segments for %(pieces)s; rebuild it.*) |
+| 2 | *s* = `vn.policy.std_days` on the month's last day |
+| 3 | per piece, the pay lines in force on its last day (`contract.l10n_vn_line_ids._l10n_vn_in_force`) of active components, with `_l10n_vn_amount_on(piece date_to)` (D35) |
+| 4 | attainment (D37): when any of them is `variable`, `UserError` (*%(employee)s has no attainment or score for %(month)s.*) if `attainment_source` is empty, else *a* = min(`attainment`, `vn.policy.attainment_cap`) |
+| 5 | pay line components (D36), with the attendance condition (D38) |
+| 6 | OT (D40): per piece its OT base and hourly rate, then the lines; `vn.ot.factors` on the piece's last day; hours in a category without an active `ot` component → `UserError` (*%(employee)s has %(category)s overtime and no active component pays it.*) |
+| 7 | IE lines, then entered and adjustment lines (D39), so an adjustment follows the month's own line of its component |
+| 8 | gross (D41) |
+
+**A context line** (a dict): `component_id`, `code`, `kind`, `name` (D45), `amount` (int), `days`, `hours`, `factor`, `unit_amount`, `date_from`, `date_to`, `attainment`, `period_ref`, `pay_line_id`, `input_line_id`, `piece` (its index, or None for a month-level line). Pay line lines set `days` (the basis days), `piece`, `date_from`/`date_to` when the month has more than one piece, `attainment` when `variable`; a `none` line is month-level: no `days`, `piece`, dates. OT lines set `hours`, `factor`, `unit_amount` (the hourly rate, rounded to 4 places), `piece`, and the piece's dates when there is more than one; a supplement line sets `hours` (the sum over its categories), `unit_amount` (the supplement per hour) and no `factor`. Lines appear in this order: pay line components by piece (month-level `none` lines after them), OT lines by piece, IE lines, entered and adjustment lines, gross.
+
+**The snapshot** (`l10n_vn_context`), JSON values only (dates as ISO strings, amounts as int, figures as float):
+
+| Key | Content |
+|---|---|
+| `version` | 1 |
+| `employee_id`, `contract_id`, `input_id` | ids |
+| `date_from`, `date_to` | the month |
+| `parameters` | list of `{code, date, value}` read by `param` |
+| `input` | the summary's `paid_days`, `days_worked`, `unpaid_days`, `scheduled_days`, `si_absence_days`, `unexcused_absences`, `late_arrivals`, `ot_hours_json`, `ot_hours_ytd`, `attainment`, `attainment_source`, `ie_units`, `figures_locked`, `built_at` |
+| `std_days` | *s* |
+| `attainment` | *a* applied, or null |
+| `pieces` | per piece: `date_from`, `date_to`, `contract_id`, `probation`, `paid_days`, `days_worked`, `ot_hours_json`, `ot_base`, `hourly` |
+| `pay_lines` | per pay line used per piece: `id`, `piece`, `component`, `scale_key`, `amount` (on the piece's last day) |
+| `lines` | the context lines |
+| `unapproved` | ids of input lines left out for lack of an approver |
+| `gross` | the gross |
 
 ### `res.company` — `models/res_company.py`
 
@@ -498,6 +835,53 @@ In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, 
 |---|---|---|
 | `hr_employee_relative_view_tree_l10n_vn_payroll` | `hr_employee_relative.hr_employee_relative_view_tree` | after `notes`, each with `groups="payroll.group_payroll_user"`: `l10n_vn_pit_dependent`, `l10n_vn_tax_code`, `l10n_vn_from`, `l10n_vn_to`, `l10n_vn_document_ref` (optional), `l10n_vn_document` with `filename="l10n_vn_document_name"` (optional), `l10n_vn_document_name` (column invisible) |
 
+### `views/l10n_vn_payroll_period_views.xml` (step 3)
+
+| XML id | Type | Content |
+|---|---|---|
+| `l10n_vn_payroll_period_view_list` | list | `name`, `company_id`, `attendance_closed`, `ie_required`, `ie_closed`, `input_count` |
+| `l10n_vn_payroll_period_view_form` | form | header buttons *Build Summaries* (`action_build`, visible while open), *Close Attendance* (`action_close_attendance`, while open), *Reopen Attendance* (`action_reopen_attendance`, closed, managers); smart button *Inputs* (`action_open_inputs`, `input_count`); `date_from`, `name`, `company_id`; `attendance_closed`, `attendance_closed_by`, `attendance_closed_at`, `ie_required`, `ie_closed` |
+| `l10n_vn_payroll_period_action` | action | *Payroll Periods*, list, form |
+
+### `views/l10n_vn_payroll_input_views.xml` (step 3)
+
+| XML id | Type | Content |
+|---|---|---|
+| `l10n_vn_payroll_input_view_list` | list, editable `bottom`, no create | `period_id`, `employee_id`, `department_id`, `paid_days`, `days_worked`, `unpaid_days`, `ot_hours`, `paid_break_hours`, `menstruation_days`, `attainment`, `attainment_source`, `attainment_note`, `ie_units`, `figures_locked`; the computed figures read-only |
+| `l10n_vn_payroll_input_view_form` | form | `period_id`, `employee_id`, `department_id`; `figures_locked`, `built_at`; groups *Days* (the eight day figures, read-only unless `figures_locked`), *Overtime and breaks* (`ot_display`, `ot_hours`, `ot_hours_ytd` and `paid_break_hours` read-only unless `figures_locked`, `menstruation_days`), *Attainment* (`attainment`, `attainment_source`, `attainment_note` required when `attainment_source == 'override'`, `attainment_by`, `ie_units`), *Other* (`leave_days_display`, `unexcused_absences` read-only unless `figures_locked`, `late_arrivals`); the Json fields are shown through their display fields; pages *Entered Lines* (`line_ids` editable: `component_id`, `amount`, `hours`, `period_ref`, `description`, `approved_by`, buttons *Approve* / *Reset* for approvers) and *Segments* (`segment_ids`, read-only) |
+| `l10n_vn_payroll_input_view_search` | search | `employee_id`, `department_id`, `period_id`; filters *Attainment missing* (`attainment = 0`), *Corrected by hand*; group by `period_id`, `department_id` |
+| `l10n_vn_payroll_input_action` | action | *Monthly Inputs*, list, form |
+
+### `views/hr_leave_type_views.xml` (step 3)
+
+| XML id | Inherits | Content |
+|---|---|---|
+| `hr_leave_type_view_form_l10n_vn_payroll` | `hr_holidays.edit_holiday_status_form` | after `requires_allocation`: `unpaid`, `l10n_vn_si_paid` |
+
+### `views/hr_employee_views.xml` addition (step 3)
+
+`l10n_vn_nursing_break` in the *Payroll* page, after `l10n_vn_union_member`.
+
+### `views/hr_payroll_structure_views.xml` (step 4)
+
+| XML id | Inherits | Content |
+|---|---|---|
+| `hr_payroll_structure_view_form_l10n_vn_payroll` | `payroll.hr_payroll_structure_view_form` | after `parent_id`: `l10n_vn_payroll` |
+
+### `views/hr_salary_rule_views.xml` (step 4)
+
+| XML id | Inherits | Content |
+|---|---|---|
+| `hr_salary_rule_view_form_l10n_vn_payroll` | `payroll.hr_salary_rule_view_form` | after `amount_select`: `l10n_vn_component_id`, invisible and not required unless `amount_select == 'l10n_vn_component' or condition_select == 'l10n_vn_component'` |
+
+### `views/hr_payslip_views.xml` (step 4)
+
+| XML id | Inherits | Content |
+|---|---|---|
+| `hr_payslip_view_form_l10n_vn_payroll` | `payroll.hr_payslip_view_form` | after `contract_id`: `l10n_vn_input_id`, invisible when empty; in the list of `dynamic_filtered_payslip_lines`, before `quantity`, each `optional="hide"`: `l10n_vn_date_from`, `l10n_vn_date_to`, `l10n_vn_days`, `l10n_vn_hours`, `l10n_vn_factor`, `l10n_vn_unit_amount`, `l10n_vn_attainment`, `l10n_vn_period_ref` |
+
+`l10n_vn_context` is on no view: a Json field has no form widget, and the payslip report (step 8) reads it.
+
 ### `views/menus.xml`
 
 Under `payroll.payroll_menu_configuration` (*Payroll → Configuration*, payroll managers):
@@ -508,6 +892,14 @@ Under `payroll.payroll_menu_configuration` (*Payroll → Configuration*, payroll
 | `menu_l10n_vn_payroll_scale` | Pay Scales | `l10n_vn_payroll_scale_action` | 31 |
 | `menu_l10n_vn_payroll_parameter` | Time Parameters | `base_time_parameter.base_time_parameter_action` | 32 |
 | `menu_l10n_vn_payroll_participant_type` (2) | Participant Types | `l10n_vn_payroll_participant_type_action` | 33 |
+
+Under `payroll.payroll_menu_root` (step 3):
+
+| XML id | Name | Action | Sequence | Groups |
+|---|---|---|---|---|
+| `menu_l10n_vn_payroll_inputs_root` | Monthly Inputs | — | 20 | `payroll.group_payroll_user`, `group_payroll_reader`, `group_payroll_approver` |
+| `menu_l10n_vn_payroll_period` | Payroll Periods | `l10n_vn_payroll_period_action` | 1 | the same |
+| `menu_l10n_vn_payroll_input` | Monthly Inputs | `l10n_vn_payroll_input_action` | 2 | the same |
 
 ## Tests
 
@@ -552,6 +944,7 @@ All classes derive from `PayrollCase(TransactionCase)` in `tests/common.py`, whi
 | `test_wage_follows_lines` | `BASE` with `sets_wage` from 2026-01-01 → `contract.wage` 3,700,000; a new `BASE` line from tomorrow, the old one ended today → still 3,700,000 today; deleting all lines leaves `wage` unchanged |
 | `test_wage_safe_without_parameter` | a `sets_wage` component on a parameter code with no parameter: the line is created, `wage` keeps its value, no error |
 | `test_contract_shortened_past_lines` | a line to 2026-12-31; setting the contract's `date_end` to 2026-06-30 raises |
+| `test_open_line_on_ended_contract` (step 4) | a line without `date_to`; setting the contract's `date_end` to 2026-06-30 is accepted (found by the step 4 cases C02, D07, G08) |
 
 ### `tests/test_statutory_parameters.py` — `TestStatutoryParameters(PayrollCase)`
 
@@ -611,9 +1004,132 @@ All classes derive from `PayrollCase(TransactionCase)` in `tests/common.py`, whi
 | `test_three_months_is_not_short` | 2026-01-01 to 2026-03-31 → `progressive` |
 | `test_probation_type` | `participant_probation` on an open-ended contract → `flat_short` |
 
+### `tests/test_input_build.py` — `TestInputBuild(PayrollCase)` (step 3)
+
+`TestInputBuild(InputCase)`; `InputCase(PayrollCase)` in `tests/input_common.py`, shared with `test_input_workflow`. **Fixtures:** a calendar, Monday–Saturday 07:00–11:00, lunch 11:00–12:00, 12:00–16:00 (8 hours a day), time zone `Asia/Ho_Chi_Minh`, on the employee and the contract; the parameter `vn.policy.ot_min_hours_day` = 0.8; a period for October 2026: 27 scheduled days (31 less 4 Sundays), one of them a public holiday, 2026-10-20, as a calendar leave with no resource. **Helpers:** `_attend(day, start, end)` creates an `hr.attendance` from local times; `_leave(leave_type, first, last)` creates and validates an `hr.leave`; `_build()` builds the period and returns the employee's input.
+
+| Test | Asserts |
+|---|---|
+| `test_full_month` | attendance 07:00–16:00 on every scheduled day but the holiday: 27 scheduled days, 26 days worked, the holiday as 1 company leave day, 27 paid days, 0 unpaid, 0 SI absence days, no OT |
+| `test_early_arrival_and_short_overtime` | one day 06:30–16:30 (core's overtime 1 h in total): its OT is 1 h when early check-ins are not trimmed; trimmed to 07:00–16:30, overtime 0.5 h is below 0.8 and dropped. Days worked unaffected |
+| `test_overtime_categories` | 07:00–18:00 on a workday (`WD` 2), 07:00–11:00 on a Sunday (`RD` 4), 07:00–10:00 on the holiday (`HOL` 3) |
+| `test_absence_and_unpaid_leave` | full days except two scheduled days without attendance and one approved day of an `unpaid` type: 2 unexcused absences, 3 unpaid days, 24 paid days |
+| `test_si_paid_leave` | 15 days of an `l10n_vn_si_paid` type, full days otherwise: SI leave days 15, 11 days worked, 12 paid days (with the holiday), `si_absence_days` 15 |
+| `test_paid_leave` | 2 days of a company-paid type, full days otherwise: 3 company leave days (with the holiday), 27 paid days |
+| `test_nursing_break` | `l10n_vn_nursing_break`, a child born 2026-03-10; working 07:00–15:00 on every scheduled day but the holiday: 26 h credited, 27 paid days |
+| `test_nursing_break_child_over_one` | the same with a child born 2025-09-01 (first birthday before October): no credit, 23.75 paid days |
+| `test_menstruation_days` | working 07:00–15:30 on 3 days, full days otherwise, `menstruation_days` 3: 1.5 h credited; with 5 days entered, still 1.5 h (no shortfall left) |
+| `test_segments` | a contract ending 2026-10-14 and a new one from 2026-10-15: two segments with their own paid days, summing to the input's |
+| `test_locked_kept` | `figures_locked`, `paid_days` set by hand to 20: a rebuild keeps 20 |
+| `test_calendar_hours_per_day_ignored` | the calendar's `hours_per_day` set to 16: days worked unchanged (D23) |
+| `test_ot_hours_ytd` | a September input with 12 h of OT: October's `ot_hours_ytd` is 12 |
+| `test_zero_figures_stored` (3.1) | no attendance in October: read through SQL, `days_worked`, `unpaid_leave_days` and `paid_break_hours` are 0, not NULL, and `unexcused_absences` 26 |
+
+### `tests/test_input_workflow.py` — `TestInputWorkflow(InputCase)` (step 3)
+
+| Test | Asserts |
+|---|---|
+| `test_close_freezes_figures` | after `action_close_attendance`, writing `paid_days` raises `UserError`; writing `attainment` succeeds; `action_build` raises |
+| `test_reopen_managers_only` | an officer's `action_reopen_attendance` raises `AccessError`; a manager's reopens |
+| `test_override_needs_note` | `attainment_source` `override` without `attainment_note` raises `ValidationError` |
+| `test_line_rules` | a line of a `line` component without `period_ref` raises; with `period_ref` the month after the period raises |
+| `test_approval` | an officer's `action_approve` raises `AccessError` (positive control: the officer edits the amount); an approver's sets `approved_by`; writing the amount clears it |
+| `test_one_input_per_employee` | a second input for the same period and employee raises `IntegrityError` (inside a savepoint) |
+
+### `tests/payslip_common.py` — `PayslipCase(PayrollCase)` (step 4)
+
+Holds no test methods; shared by the three step 4 files. October 2026, 26 standard days. Expected acceptance figures are never typed: they come from `tests/data/acceptance_earnings.json`.
+
+**Fixtures** (`setUpClass`):
+
+| Fixture | Content |
+|---|---|
+| Parameters | `company._l10n_vn_payroll_ensure_parameters()` (`vn.ot.factors` among them); with `_parameter`, from 2026-01-01: `vn.policy.std_days` 26, `vn.policy.probation_rate` 0.85, `vn.policy.attainment_cap` 1, `vn.policy.unit_rate` 1500, `vn.policy.attendance_late_max` 2, `vn.policy.base_salary` 3700000, `vn.policy.ot_supplement` 3846, `vn.policy.ot_min_hours_day` 0.8 |
+| Scales | `PROD` (`level`): Entry 800,000, S1 1,300,000, S2 1,800,000, S3 2,300,000, S4 2,800,000; `GRADE` (`grade_step`): G2-2 8,000,000, G3-2 10,000,000; versions from 2026-01-01 |
+| Components, current scheme | `BASE`: parameter `vn.policy.base_salary`, `in_si_base`, `in_ot_base`, `probation_applies`, `sets_wage`, `paid_days`; `PROD`: scale `PROD`, `variable_salary`, `variable`, `supervisor`, `in_ot_base`, `probation_applies`, `paid_days`; `PERF`: scale_remainder `GRADE`, the same with `manager` |
+| Components, reference configuration | `SAL`: line, `in_si_base`, `in_ot_base`, `probation_applies`, `paid_days`; `SKILL`: line, `fixed_allowance`, `in_si_base`, `in_ot_base`, `paid_days`; `ATT`: line, `bonus`, `condition` `attendance`, `none`; `TRAVEL`: line, `welfare`, `none`; `DAILY`: line, `in_si_base`, `in_ot_base`, `per_day`; `INC`: `ie_units`, `bonus` |
+| Components, both | `EFF`, `ONE`: entered, `bonus`; `OT_WD`, `OT_RD`, `OT_HOL`: `ot` with that category, `overtime`, PIT `ot`; `SUPP`: `ot`, category `all`, `amount_parameter` `vn.policy.ot_supplement`, `overtime`, PIT `ot`, **archived**; `GROSS`: engine `GROSS`, kind `total`, `total`, section `total` |
+| Categories | `hr.salary.rule.category` `TEST_EARN` and `TEST_TOTAL` |
+| Structure | `structure`: `hr.payroll.structure` *TEST VN*, code `TEST_VN`, in `company`, `l10n_vn_payroll`; one rule per component above, in that order (sequence 10, 20 …), in `company`, code and name of the component, `amount_select` and `condition_select` `l10n_vn_component`, `l10n_vn_component_id`, category `TEST_TOTAL` for `GROSS` and `TEST_EARN` for the rest |
+| Contract and period | `contract.struct_id` = `structure`; `period` for October 2026 in `company` |
+
+**Helpers:**
+
+| Helper | Does |
+|---|---|
+| `_hire(lines=(), date_start=2026-01-01, date_end=None, state="open", employee=None, **values)` | a new employee in `company` (unless given) and a contract with `structure` and `calendar`; `lines` is a list of `(component, values)` created with `_line` from `date_start` unless the values give `date_from`; returns `(employee, contract)` |
+| `_input(employee, segments=(), lines=(), **figures)` | an input of `period` with `figures_locked` and the figures given (by default `scheduled_days`, `paid_days`, `days_worked` 26); `segments` a list of segment values; `lines` a list of `(component, values)`, approved (`approved_by`, `approved_at` written as superuser) unless the values say `approved=False` |
+| `_payslip(employee)` | as OCA's batch does: `hr.payslip.get_payslip_vals(2026-10-01, 2026-10-31, employee.id)`; creates the payslip with its `contract_id`, `struct_id`, worked days and `company_id`; `compute_sheet()`; returns it |
+| `_totals(payslip, code)` | the `total` of the payslip's lines of that code, in id order |
+| `_expect(payslip, case, codes)` | the case's `earnings` rows zipped with `codes` (strict); a row whose code is `None` must be 0 and has no line; the payslip's line totals per code equal the case's amounts for that code, in order; no `l10n_vn_component` line has another code except `GROSS`; `GROSS` equals the case's `gross` |
+
+### `tests/data/acceptance_earnings.json` (step 4)
+
+Generated by `docs/HR-Contract-Payroll/payroll_reference_calc.py` with its `--json` option, never edited: for every case, `earnings` (its earning rows as `[label, amount]`, in the case's order) and `gross`.
+
+### `tests/test_payslip_contract.py` — `TestPayslipContract(PayslipCase)` (step 4)
+
+| Test | Asserts |
+|---|---|
+| `test_main_contract_latest` | a contract ended 2026-10-14 (`close`) and the next from 2026-10-15: the payslip's contract is the second, and it has one `GROSS` line |
+| `test_leaver_closed_contract` | the only contract, `close`, ended 2026-10-20: `get_payslip_vals` returns it, while core's `_get_contracts` finds none |
+| `test_form_without_contract` | a payslip created with the employee, the dates and `structure` only: `compute_sheet` sets the main contract |
+| `test_worked_days_from_input` | a summary with paid 24, worked 22, unpaid 2 and `leave_days_json` `{"Annual leave": 2}`: worked days `PAID` 24, `WORKED` 22, `UNPAID` 2, `LEAVE` *Annual leave* 2; no `WORK100` |
+| `test_worked_days_refreshed` | the summary's paid days changed after the payslip was created: `compute_sheet` writes the new `PAID` |
+| `test_other_structure_untouched` | a contract whose structure lacks `l10n_vn_payroll`: `get_payslip_vals` keeps OCA's contract and a `WORK100` line; `compute_sheet` writes no `l10n_vn_context` |
+| `test_month_only` | a payslip from 2026-10-05 to 2026-10-31: `UserError` |
+| `test_no_input` | no summary: `UserError` naming the employee |
+
+### `tests/test_pay_context.py` — `TestPayContext(PayslipCase)` (step 4)
+
+| Test | Asserts |
+|---|---|
+| `test_pieces` | a contract from 2026-01-01 with a clause ending 2026-10-07, and a `SAL` line of 4,500,000 ended 2026-10-14 followed by one of 5,000,000 from 2026-10-15: pieces 10-01–10-07 (probation), 10-08–10-14, 10-15–10-31 |
+| `test_pieces_gap` | a contract ended 2026-10-10 and the next from 2026-10-20: pieces 10-01–10-10 and 10-20–10-31; building the summary gives two segments with those dates (step 3's cut dates failed here, on a piece with no days) |
+| `test_missing_segments` | the `SAL` change of `test_pieces` without the clause, a summary without segments: `UserError` naming 2026-10-01–2026-10-14 and 2026-10-15–2026-10-31 |
+| `test_bases` | four `line` components of 2,600,000 (`paid_days`, `days_worked`), 300,000 (`none`) and 100,000 (`per_day`), paid 24, worked 22: lines 2,400,000, 2,200,000, 300,000, 2,400,000 |
+| `test_none_paid_once` | `TRAVEL` 200,000 across the two pieces of the `SAL` change: one `TRAVEL` line of 200,000, without dates |
+| `test_missing_attainment` | a `PROD` line and no attainment source: `UserError`; with source `supervisor` and attainment 0: a `PROD` line of 0 |
+| `test_attainment_cap` | attainment 1.2: `PROD` at Entry pays 800,000 |
+| `test_attendance_condition` | `ATT` 300,000: 3 late arrivals → 0; 2 late arrivals and no absence → 300,000; one unexcused absence → 0 |
+| `test_unapproved_not_paid` | an `EFF` input line without approver: no `EFF` line, and its id in the snapshot's `unapproved`; once approved and recomputed, a line |
+| `test_ot_without_component` | 4 `HOL` hours with `OT_HOL` archived: `UserError` naming `HOL` |
+| `test_ot_last_piece` | the `SAL` change, segments matching the pieces without hours, the summary's `WD` 10: one `OT_WD` line, round(5,000,000 ÷ 208 × 1.5 × 10) computed in the test with `Decimal` |
+| `test_component_without_rule` | an entered component with an approved line and no rule in `structure`: `UserError` naming it |
+| `test_snapshot_replaced` | after a calculation, the summary's paid days changed and the payslip recalculated: the snapshot's `input.paid_days` is the new value and the lines exist once |
+| `test_exact_lines` | on a G01 payslip: every `l10n_vn_component` line has quantity 1, rate 100 and `total` = `amount`, a whole number; `GROSS` = the sum of the earning lines |
+| `test_split_names` | the C06 payslip: two `SAL` lines named *SAL (01/10–07/10, probation)* and *SAL (08/10–31/10)*, with `l10n_vn_date_from`, `l10n_vn_date_to` and `l10n_vn_days` 6 and 20 |
+| `test_other_rule_rounded` | a `code` rule in `structure` after `GROSS`, `result = payroll.vn["gross"] + 0.5`: its line has quantity 1, rate 100 and total = gross + 1 |
+
+### `tests/test_acceptance_earnings.py` — `TestAcceptanceEarnings(PayslipCase)` (step 4)
+
+One test per case, `test_<case>`, asserting with `_expect`. Inputs not given are 0; attainment source `supervisor` for `PROD`, `manager` for `PERF`; entered lines approved; `BASE` lines have `in_cell`, so `PERF` is the cell less the base. *As A02* means `SAL` 4,500,000, `SKILL` 1,500,000, `ATT` 300,000, `TRAVEL` 200,000.
+
+| Case | Contract | Pay lines | Summary | Codes |
+|---|---|---|---|---|
+| G01 | from 2026-01-01 | `BASE`; `PROD` Entry | OT `WD` 20; attainment 1; `EFF` 300,000 | `BASE`, `PROD`, `OT_WD`, `EFF` |
+| G02 | | `BASE`; `PROD` S4 | OT `WD` 30; attainment 1; `EFF` 1,000,000 | the same |
+| G03 | | `BASE`; `PROD` S4 | OT `WD` 30; attainment 0.8 | `BASE`, `PROD`, `OT_WD`, None |
+| G04 | | `BASE`; `PROD` Entry | paid and worked 24, 2 unexcused absences; OT `WD` 20; attainment 1; `EFF` 300,000 | `BASE`, `PROD`, `OT_WD`, `EFF` |
+| G07 | | as G01 | as G01, and `ONE` 500,000 | `BASE`, `PROD`, `OT_WD`, `EFF`, `ONE` |
+| G08 | 2026-01-01 to 2026-10-24, `close` | `BASE`; `PROD` Entry | paid and worked 20; attainment 1; `EFF` 200,000 | `BASE`, `PROD`, `EFF` |
+| G10 | | `BASE`; `PERF` G2-2 | OT `WD` 30; attainment 1 | `BASE`, `PERF`, `OT_WD` |
+| G11 | | `BASE`; `PERF` G2-2 | OT `WD` 30; attainment 0.8 | the same |
+| G12 | | `BASE`; `PERF` G3-2 | OT `WD` 16; attainment 1 | the same |
+| G13 | | `BASE`; `PERF` with amount 45,000,000 | attainment 1 | `BASE`, `PERF` |
+| A01 | | `SAL` 4,500,000; `ATT`; `TRAVEL` | OT `WD` 20; IE units 200 | `SAL`, `OT_WD`, `INC`, `ATT`, `TRAVEL` |
+| A02 | | as A02 | OT `WD` 30; IE units 1,000 | `SAL`, `SKILL`, `OT_WD`, `INC`, `ATT`, `TRAVEL` |
+| B01 | | as A02 | OT `WD` 36, `RD` 16; IE units 1,200 | `SAL`, `SKILL`, `OT_WD`, `OT_RD`, `INC`, `ATT`, `TRAVEL` |
+| B02 | | as A02 | paid and worked 25, 1 unexcused absence; OT `WD` 20; IE units 900 | `SAL`, `SKILL`, `OT_WD`, `INC`, `ATT`, `TRAVEL` |
+| C02 | a probation contract 2026-09-21 to 2026-10-12, `close`, form `contract`, participant `PROBATION`; then a labour contract from 2026-10-13 | `SAL` 4,500,000 on each; `ATT`, `TRAVEL` on the labour contract | segments 10-01–10-12 (paid 10) and 10-13–10-31 (paid 16); IE units 300 | `SAL`, `SAL`, `INC`, `ATT`, `TRAVEL` |
+| C06 | from 2026-10-01, form `clause`, `trial_date_end` 2026-10-07 | `SAL` 4,500,000; `ATT`; `TRAVEL` | segments 10-01–10-07 (paid 6) and 10-08–10-31 (paid 20) | `SAL`, `SAL`, `ATT`, `TRAVEL` |
+| D07 | 2026-10-01 to 2026-11-30 | `DAILY` 350,000 | paid 26 | `DAILY` |
+| D08 | | as A02 | OT `WD` 30; IE units 1,000; `SUPP` unarchived | `SAL`, `SKILL`, `OT_WD`, `SUPP`, `INC`, `ATT`, `TRAVEL` |
+| E01 | | as A02 | OT `WD` 20; IE units 1,000; an `OT_WD` line with `period_ref` 2026-09-01, hours 4, the case's last row as amount, description *OT workday 4 h* | `SAL`, `SKILL`, `OT_WD`, `INC`, `ATT`, `TRAVEL`, `OT_WD` |
+
 ## Readme
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
-| `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month) |
+| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 4 adds the calculation of earnings: the pay context computed per payslip from pay lines, the monthly input and parameters, with probation, attainment and OT, shown as exact payslip lines through the *Pay Component* rule type, and kept as a snapshot; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
+| `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month); step 4: a structure marked *Vietnamese Pay Context* with one *Pay Component* rule per component; a payslip of such a structure covers one month, takes the latest contract of the month, reads the month's input, and shows one line per pay line and piece, with dates, days, hours and rates in the optional columns |

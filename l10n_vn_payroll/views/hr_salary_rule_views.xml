@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_salary_rule_view_form_l10n_vn_payroll" model="ir.ui.view">
+        <field name="name">hr.salary.rule.form.l10n_vn_payroll</field>
+        <field name="model">hr.salary.rule</field>
+        <field name="inherit_id" ref="payroll.hr_salary_rule_view_form" />
+        <field name="arch" type="xml">
+            <field name="amount_select" position="after">
+                <field
+                    name="l10n_vn_component_id"
+                    invisible="amount_select != 'l10n_vn_component' and condition_select != 'l10n_vn_component'"
+                    required="amount_select == 'l10n_vn_component' or condition_select == 'l10n_vn_component'"
+                />
+            </field>
+        </field>
+    </record>
+</odoo>

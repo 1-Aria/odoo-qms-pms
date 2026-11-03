@@ -7,3 +7,8 @@ from . import test_participant_type
 from . import test_contract_profile
 from . import test_employee_payroll
 from . import test_pit_method
+from . import test_input_build
+from . import test_input_workflow
+from . import test_payslip_contract
+from . import test_pay_context
+from . import test_acceptance_earnings

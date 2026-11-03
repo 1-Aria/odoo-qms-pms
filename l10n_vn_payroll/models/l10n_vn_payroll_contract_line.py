@@ -63,7 +63,7 @@ class L10nVnPayrollContractLine(models.Model):
                 )
             if contract.date_end and (
                 line.date_from > contract.date_end
-                or (line.date_to or FAR_FUTURE) > contract.date_end
+                or (line.date_to and line.date_to > contract.date_end)
             ):
                 raise ValidationError(
                     _("Pay line %(name)s runs past the end of its contract.", name=name)

@@ -1,0 +1,895 @@
+{
+ "A01": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency incentive",
+    300000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 5949038
+ },
+ "A02": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 30 h",
+    1298077
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 9298077
+ },
+ "A03": {
+  "earnings": [
+   [
+    "Salary",
+    8000000
+   ],
+   [
+    "OT workday 30 h",
+    1730769
+   ]
+  ],
+  "gross": 9730769
+ },
+ "A04": {
+  "earnings": [
+   [
+    "Salary",
+    10000000
+   ],
+   [
+    "OT workday 16 h",
+    1153846
+   ],
+   [
+    "KPI bonus",
+    1000000
+   ]
+  ],
+  "gross": 12153846
+ },
+ "A05": {
+  "earnings": [
+   [
+    "Salary",
+    14000000
+   ],
+   [
+    "OT workday 8 h",
+    807692
+   ],
+   [
+    "KPI bonus",
+    1500000
+   ],
+   [
+    "Phone lump-sum",
+    200000
+   ]
+  ],
+  "gross": 16507692
+ },
+ "A06": {
+  "earnings": [
+   [
+    "Salary",
+    17000000
+   ],
+   [
+    "KPI bonus",
+    3000000
+   ],
+   [
+    "Phone lump-sum",
+    500000
+   ]
+  ],
+  "gross": 20500000
+ },
+ "A07": {
+  "earnings": [
+   [
+    "Salary",
+    18000000
+   ],
+   [
+    "KPI bonus",
+    2000000
+   ],
+   [
+    "Phone lump-sum",
+    300000
+   ]
+  ],
+  "gross": 20300000
+ },
+ "A08": {
+  "earnings": [
+   [
+    "Salary",
+    45000000
+   ],
+   [
+    "KPI bonus",
+    8000000
+   ],
+   [
+    "Phone lump-sum",
+    1000000
+   ]
+  ],
+  "gross": 54000000
+ },
+ "A09": {
+  "earnings": [
+   [
+    "Salary",
+    70000000
+   ],
+   [
+    "KPI bonus",
+    15000000
+   ],
+   [
+    "Phone lump-sum",
+    2000000
+   ]
+  ],
+  "gross": 87000000
+ },
+ "B01": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 36 h",
+    1557692
+   ],
+   [
+    "OT rest day 16 h",
+    923077
+   ],
+   [
+    "Efficiency incentive",
+    1800000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 10780769
+ },
+ "B02": {
+  "earnings": [
+   [
+    "Salary",
+    4326923
+   ],
+   [
+    "Skill allowance",
+    1442308
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1350000
+   ],
+   [
+    "Attendance bonus",
+    0
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 8184616
+ },
+ "B03": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1425000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 8790385
+ },
+ "B04": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Night premium, normal hours 8 h",
+    69231
+   ],
+   [
+    "Night OT workday after daytime OT 4 h",
+    242308
+   ],
+   [
+    "Night OT holiday 2 h",
+    225000
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 9401924
+ },
+ "B05": {
+  "earnings": [
+   [
+    "Salary",
+    4483774
+   ],
+   [
+    "Skill allowance",
+    1494591
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    0
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 8543750
+ },
+ "B06": {
+  "earnings": [
+   [
+    "Salary",
+    9230769
+   ]
+  ],
+  "gross": 9230769
+ },
+ "C01": {
+  "earnings": [
+   [
+    "Salary",
+    1912500
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 2112500
+ },
+ "C02": {
+  "earnings": [
+   [
+    "Salary, probation 10 days",
+    1471154
+   ],
+   [
+    "Salary, contract 16 days",
+    2769231
+   ],
+   [
+    "Efficiency incentive",
+    450000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 5190385
+ },
+ "C03": {
+  "earnings": [
+   [
+    "Salary",
+    3115385
+   ],
+   [
+    "Skill allowance",
+    1038462
+   ],
+   [
+    "Efficiency incentive",
+    900000
+   ],
+   [
+    "Untaken annual leave 5 days",
+    1153846
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 6407693
+ },
+ "C04": {
+  "earnings": [
+   [
+    "Salary and skill allowance",
+    0
+   ]
+  ],
+  "gross": 0
+ },
+ "C05": {
+  "earnings": [
+   [
+    "Salary",
+    1903846
+   ],
+   [
+    "Skill allowance",
+    634615
+   ],
+   [
+    "Efficiency incentive",
+    450000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 3488461
+ },
+ "C06": {
+  "earnings": [
+   [
+    "Salary, probation clause 6 days",
+    882692
+   ],
+   [
+    "Salary, after probation 20 days",
+    3461538
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 4844230
+ },
+ "D01": {
+  "earnings": [
+   [
+    "Salary",
+    80000000
+   ]
+  ],
+  "gross": 80000000
+ },
+ "D02": {
+  "earnings": [
+   [
+    "Salary",
+    6000000
+   ]
+  ],
+  "gross": 6000000
+ },
+ "D03": {
+  "earnings": [
+   [
+    "Salary",
+    10000000
+   ],
+   [
+    "Cash meal allowance",
+    1500000
+   ]
+  ],
+  "gross": 11500000
+ },
+ "D04": {
+  "earnings": [
+   [
+    "Salary",
+    10000000
+   ],
+   [
+    "Annual (Tet) bonus",
+    10000000
+   ]
+  ],
+  "gross": 20000000
+ },
+ "D05": {
+  "earnings": [
+   [
+    "Salary",
+    18000000
+   ],
+   [
+    "KPI bonus",
+    2000000
+   ],
+   [
+    "Phone lump-sum",
+    300000
+   ]
+  ],
+  "gross": 20300000
+ },
+ "D06": {
+  "earnings": [
+   [
+    "Salary",
+    40000000
+   ]
+  ],
+  "gross": 40000000
+ },
+ "D07": {
+  "earnings": [
+   [
+    "Daily wage",
+    9100000
+   ]
+  ],
+  "gross": 9100000
+ },
+ "D08": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 30 h",
+    1298077
+   ],
+   [
+    "OT supplement 30 h",
+    173070
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 9471147
+ },
+ "E01": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ],
+   [
+    "Adjustment for September 2026: OT workday 4 h",
+    173077
+   ]
+  ],
+  "gross": 9038462
+ },
+ "E02": {
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "gross": 8865385
+ },
+ "G01": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "gross": 5449038
+ },
+ "G02": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, S4",
+    2800000
+   ],
+   [
+    "OT workday 30 h",
+    1406250
+   ],
+   [
+    "Efficiency bonus",
+    1000000
+   ]
+  ],
+  "gross": 8906250
+ },
+ "G03": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, S4",
+    2240000
+   ],
+   [
+    "OT workday 30 h",
+    1285096
+   ],
+   [
+    "Efficiency bonus",
+    0
+   ]
+  ],
+  "gross": 7225096
+ },
+ "G04": {
+  "earnings": [
+   [
+    "Base salary",
+    3415385
+   ],
+   [
+    "Productivity pay, Entry",
+    738462
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "gross": 5102885
+ },
+ "G05": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "gross": 5449038
+ },
+ "G06": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, S2",
+    1800000
+   ]
+  ],
+  "gross": 5500000
+ },
+ "G07": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ],
+   [
+    "One-time bonus: project completion",
+    500000
+   ]
+  ],
+  "gross": 5949038
+ },
+ "G08": {
+  "earnings": [
+   [
+    "Base salary",
+    2846154
+   ],
+   [
+    "Productivity pay, Entry",
+    615385
+   ],
+   [
+    "Efficiency bonus",
+    200000
+   ]
+  ],
+  "gross": 3661539
+ },
+ "G10": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    4300000
+   ],
+   [
+    "OT workday 30 h",
+    1730769
+   ]
+  ],
+  "gross": 9730769
+ },
+ "G11": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    3440000
+   ],
+   [
+    "OT workday 30 h",
+    1544712
+   ]
+  ],
+  "gross": 8684712
+ },
+ "G12": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    6300000
+   ],
+   [
+    "OT workday 16 h",
+    1153846
+   ]
+  ],
+  "gross": 11153846
+ },
+ "G13": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    41300000
+   ]
+  ],
+  "gross": 45000000
+ },
+ "G14": {
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "gross": 5449038
+ },
+ "G15": {
+  "earnings": [
+   [
+    "Base salary",
+    1423077
+   ],
+   [
+    "Productivity pay, Entry",
+    307692
+   ]
+  ],
+  "gross": 1730769
+ }
+}

@@ -18,3 +18,14 @@ This first step holds the configuration layer:
   contract, the participant type, a declared SI base and the probation form; on the employee, the pay
   group, attendance mode, minimum-wage region, tax residency, union membership and commitment form year;
   PIT dependents registered on the employee's relatives.
+- **Monthly inputs** (step 3): one summary per employee and month built from Odoo's attendance, approved
+  time off and working schedules — days worked, paid and unpaid days, leave by who pays it, overtime by
+  day type above a daily minimum, paid breaks for women — plus attainment, IE units and approved entered
+  amounts. Closing attendance freezes the time figures.
+- **Earnings calculation** (step 4): on a structure marked *Vietnamese Pay Context*, a payslip covers one
+  month, takes the latest contract of the month (closed ones included) and the month's input, and computes
+  every earning from the pay lines: proration by paid days, days worked or a daily rate, the probation
+  rate, attainment, the attendance condition, approved entered amounts and adjustments, IE units, and OT
+  on the OT base. A month split by a contract change, a pay line change or the end of a probation clause
+  shows one line per part. Each line holds its exact amount through the *Pay Component* rule type, and
+  the whole calculation is kept on the payslip as a snapshot.

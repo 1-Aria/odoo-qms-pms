@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_input_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.input.list</field>
+        <field name="model">l10n_vn.payroll.input</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" create="0">
+                <field name="period_id" readonly="1" />
+                <field name="employee_id" readonly="1" />
+                <field name="department_id" optional="show" />
+                <field name="paid_days" readonly="1" />
+                <field name="days_worked" readonly="1" optional="show" />
+                <field name="unpaid_days" readonly="1" optional="show" />
+                <field name="ot_hours" readonly="1" />
+                <field name="paid_break_hours" readonly="1" optional="hide" />
+                <field name="menstruation_days" optional="hide" />
+                <field name="attainment" />
+                <field name="attainment_source" />
+                <field name="attainment_note" optional="show" />
+                <field name="ie_units" optional="hide" />
+                <field name="figures_locked" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_input_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.input.form</field>
+        <field name="model">l10n_vn.payroll.input</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="period_id" />
+                            <field name="employee_id" />
+                            <field name="department_id" />
+                        </group>
+                        <group>
+                            <field name="figures_locked" />
+                            <field name="built_at" />
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Days" name="days">
+                            <field name="scheduled_days" readonly="not figures_locked" />
+                            <field name="days_worked" readonly="not figures_locked" />
+                            <field name="company_leave_days" readonly="not figures_locked" />
+                            <field name="si_leave_days" readonly="not figures_locked" />
+                            <field name="unpaid_leave_days" readonly="not figures_locked" />
+                            <field name="paid_days" readonly="not figures_locked" />
+                            <field name="unpaid_days" readonly="not figures_locked" />
+                            <field name="si_absence_days" readonly="not figures_locked" />
+                        </group>
+                        <group string="Overtime and breaks" name="ot">
+                            <field name="ot_display" />
+                            <field name="ot_hours" />
+                            <field name="ot_hours_ytd" readonly="not figures_locked" />
+                            <field name="paid_break_hours" readonly="not figures_locked" />
+                            <field name="menstruation_days" />
+                        </group>
+                        <group string="Attainment" name="attainment">
+                            <field name="attainment" />
+                            <field name="attainment_source" />
+                            <field
+                                name="attainment_note"
+                                required="attainment_source == 'override'"
+                            />
+                            <field name="attainment_by" />
+                            <field name="ie_units" />
+                        </group>
+                        <group string="Other" name="other">
+                            <field name="leave_days_display" />
+                            <field name="unexcused_absences" readonly="not figures_locked" />
+                            <field name="late_arrivals" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Entered Lines" name="lines">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="component_id" />
+                                    <field name="amount" />
+                                    <field name="hours" optional="show" />
+                                    <field name="period_ref" optional="show" />
+                                    <field name="description" />
+                                    <field name="approved_by" />
+                                    <field name="currency_id" column_invisible="True" />
+                                    <field name="company_id" column_invisible="True" />
+                                    <button
+                                        name="action_approve"
+                                        type="object"
+                                        string="Approve"
+                                        icon="fa-check"
+                                        invisible="approved_by"
+                                        groups="l10n_vn_payroll.group_payroll_approver"
+                                    />
+                                    <button
+                                        name="action_reset_approval"
+                                        type="object"
+                                        string="Reset"
+                                        icon="fa-undo"
+                                        invisible="not approved_by"
+                                        groups="l10n_vn_payroll.group_payroll_approver"
+                                    />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Segments" name="segments">
+                            <field name="segment_ids" readonly="1">
+                                <list>
+                                    <field name="date_from" />
+                                    <field name="date_to" />
+                                    <field name="contract_id" />
+                                    <field name="paid_days" />
+                                    <field name="days_worked" />
+                                    <field name="ot_display" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_input_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.input.search</field>
+        <field name="model">l10n_vn.payroll.input</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id" />
+                <field name="department_id" />
+                <field name="period_id" />
+                <filter
+                    name="attainment_missing"
+                    string="Attainment missing"
+                    domain="[('attainment', '=', 0)]"
+                />
+                <filter
+                    name="locked"
+                    string="Corrected by hand"
+                    domain="[('figures_locked', '=', True)]"
+                />
+                <group expand="0" string="Group By">
+                    <filter name="group_period" string="Period" context="{'group_by': 'period_id'}" />
+                    <filter
+                        name="group_department"
+                        string="Department"
+                        context="{'group_by': 'department_id'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_input_action" model="ir.actions.act_window">
+        <field name="name">Monthly Inputs</field>
+        <field name="res_model">l10n_vn.payroll.input</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="l10n_vn_payroll_input_view_search" />
+    </record>
+</odoo>

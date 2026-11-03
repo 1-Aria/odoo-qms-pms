@@ -1,5 +1,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -42,6 +44,7 @@ class HrEmployee(models.Model):
     l10n_vn_pit_commitment_year = fields.Integer(
         string="PIT Commitment Form Year", groups=PAYROLL_GROUPS
     )
+    l10n_vn_nursing_break = fields.Boolean(string="Nursing Break", groups=PAYROLL_GROUPS)
 
     @api.depends("l10n_vn_pay_group")
     def _compute_l10n_vn_attendance_mode(self):
@@ -67,3 +70,39 @@ class HrEmployee(models.Model):
         return len(
             self.sudo().relative_ids.filtered(lambda r: r._l10n_vn_counts_in(month_start))
         )
+
+    def _l10n_vn_period_contracts(self, date_from, date_to):
+        """Open or closed contracts overlapping the dates, oldest first (D31).
+
+        Core's ``_get_contracts`` searches open contracts only, and writing a past end
+        date closes a contract, so a leaver's contract would be lost.
+        """
+        self.ensure_one()
+        return (
+            self.env["hr.contract"]
+            .sudo()
+            .search(
+                [
+                    ("employee_id", "=", self.id),
+                    ("state", "in", ("open", "close")),
+                    ("date_start", "<=", date_to),
+                    "|",
+                    ("date_end", "=", False),
+                    ("date_end", ">=", date_from),
+                ],
+                order="date_start, id",
+            )
+        )
+
+    def _l10n_vn_nursing_until(self):
+        """The latest first birthday of the employee's children, when nursing applies."""
+        self.ensure_one()
+        if not self.l10n_vn_nursing_break:
+            return False
+        child = self.env.ref("hr_employee_relative.relation_child", raise_if_not_found=False)
+        births = [
+            relative.date_of_birth
+            for relative in self.sudo().relative_ids
+            if relative.relation_id == child and relative.date_of_birth
+        ]
+        return max(births) + relativedelta(months=12) if births else False

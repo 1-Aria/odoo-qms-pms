@@ -28,4 +28,25 @@
         action="l10n_vn_payroll_participant_type_action"
         sequence="33"
     />
+    <menuitem
+        id="menu_l10n_vn_payroll_inputs_root"
+        name="Monthly Inputs"
+        parent="payroll.payroll_menu_root"
+        sequence="20"
+        groups="payroll.group_payroll_user,l10n_vn_payroll.group_payroll_reader,l10n_vn_payroll.group_payroll_approver"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_period"
+        name="Payroll Periods"
+        parent="menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_period_action"
+        sequence="1"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_input"
+        name="Monthly Inputs"
+        parent="menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_input_action"
+        sequence="2"
+    />
 </odoo>

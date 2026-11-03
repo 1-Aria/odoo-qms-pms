@@ -9,6 +9,8 @@ Usage (from this folder):
         prints a summary line per case
     python3 -I payroll_reference_calc.py payroll_test_cases_template.md "Payroll Acceptance Test Cases v0.5.md"
         fills each {{CASE:ID}} placeholder in the template with that case's table and footer
+    python3 -I payroll_reference_calc.py --json ../../l10n_vn_payroll/tests/data/acceptance_earnings.json
+        writes every case's earning rows and gross pay, which the module's tests assert
 
 To change a case: edit its inputs below and its prose in the template, then regenerate.
 """
@@ -146,7 +148,8 @@ def case(cid, earnings, *, exempt=0, si_base=None, funds=("SI", "HI", "UI"), mem
     foot.extend(notes)
     table = "| Line | Calculation | Amount |\n| --- | --- | --: |\n" + "\n".join(rows)
     CASES[cid] = dict(md=table + "\n\n" + " · ".join(foot), gross=gross, ins=ins, dues=dues,
-                      tax=tax, net=net, er=er_total, cost=gross + er_total, to_pay=net - settled)
+                      tax=tax, net=net, er=er_total, cost=gross + er_total, to_pay=net - settled,
+                      earnings=[[label, amount] for label, _, amount in earnings])
 
 
 # ---------------------------------------------------------------- reference configuration
@@ -385,7 +388,14 @@ case("G15", [("Base salary", "3,700,000 × 10/26", prorate(BASE, 10)), prod("Ent
      advance=2_000_000, advance_text="Advance paid on the 15th; capped at net pay")
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3:
+    if len(sys.argv) == 3 and sys.argv[1] == "--json":
+        import json
+        data = {cid: {"earnings": c["earnings"], "gross": c["gross"]} for cid, c in CASES.items()}
+        with open(sys.argv[2], "w", encoding="utf-8") as out:
+            json.dump(data, out, ensure_ascii=False, indent=1, sort_keys=True)
+            out.write("\n")
+        print("written", sys.argv[2])
+    elif len(sys.argv) == 3:
         text = open(sys.argv[1], encoding="utf-8").read()
         for cid, c in CASES.items():
             text = text.replace("{{CASE:%s}}" % cid, c["md"])

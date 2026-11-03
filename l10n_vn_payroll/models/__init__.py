@@ -6,3 +6,10 @@ from . import res_company
 from . import l10n_vn_payroll_participant_type
 from . import hr_employee
 from . import hr_employee_relative
+from . import l10n_vn_payroll_period
+from . import l10n_vn_payroll_input
+from . import hr_leave_type
+from . import hr_payroll_structure
+from . import hr_salary_rule
+from . import hr_payslip_line
+from . import hr_payslip

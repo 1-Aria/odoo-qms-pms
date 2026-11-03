@@ -16,6 +16,7 @@
                         <group>
                             <field name="l10n_vn_resident" />
                             <field name="l10n_vn_union_member" />
+                            <field name="l10n_vn_nursing_break" />
                             <field name="l10n_vn_pit_commitment_year" options="{'format': false}" />
                         </group>
                     </group>

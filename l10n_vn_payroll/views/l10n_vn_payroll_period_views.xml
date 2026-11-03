@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_period_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.period.list</field>
+        <field name="model">l10n_vn.payroll.period</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="company_id" groups="base.group_multi_company" />
+                <field name="attendance_closed" />
+                <field name="ie_required" />
+                <field name="ie_closed" />
+                <field name="input_count" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_period_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.period.form</field>
+        <field name="model">l10n_vn.payroll.period</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button
+                        name="action_build"
+                        type="object"
+                        string="Build Summaries"
+                        class="btn-primary"
+                        invisible="attendance_closed or not id"
+                    />
+                    <button
+                        name="action_close_attendance"
+                        type="object"
+                        string="Close Attendance"
+                        invisible="attendance_closed or not id"
+                    />
+                    <button
+                        name="action_reopen_attendance"
+                        type="object"
+                        string="Reopen Attendance"
+                        invisible="not attendance_closed"
+                        groups="payroll.group_payroll_manager"
+                    />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="action_open_inputs"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-list"
+                        >
+                            <field name="input_count" widget="statinfo" string="Inputs" />
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date_from" readonly="id" />
+                            <field name="date_to" />
+                            <field name="company_id" groups="base.group_multi_company" />
+                        </group>
+                        <group>
+                            <field name="attendance_closed" />
+                            <field name="attendance_closed_by" />
+                            <field name="attendance_closed_at" />
+                            <field name="ie_required" />
+                            <field name="ie_closed" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_period_action" model="ir.actions.act_window">
+        <field name="name">Payroll Periods</field>
+        <field name="res_model">l10n_vn.payroll.period</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

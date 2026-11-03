@@ -108,3 +108,9 @@ class TestContractLine(PayrollCase):
         self._line(self.salary, amount=1000, date_to=D(2026, 12, 31))
         with self.assertRaises(ValidationError):
             self.contract.date_end = D(2026, 6, 30)
+
+    def test_open_line_on_ended_contract(self):
+        # an open line runs until the contract ends, so a leaver's contract can end
+        self._line(self.salary, amount=1000)
+        self.contract.date_end = D(2026, 6, 30)
+        self.assertEqual(self.contract.date_end, D(2026, 6, 30))
