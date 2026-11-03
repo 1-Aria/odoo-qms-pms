@@ -20,6 +20,12 @@ class HrPayslip(models.Model):
         ondelete="restrict",
     )
     l10n_vn_context = fields.Json(string="Pay Context", readonly=True, copy=False)
+    l10n_vn_damage_allocation_ids = fields.One2many(
+        "l10n_vn.payroll.damage.allocation",
+        "payslip_id",
+        string="Damage Deductions",
+        readonly=True,
+    )
 
     def _l10n_vn_is_vn(self):
         self.ensure_one()
@@ -182,6 +188,22 @@ class HrPayslip(models.Model):
                 }
             )
             payslip._l10n_vn_check_rules(context, names)
+            # what this payslip takes from each damage decision (D56)
+            payslip.sudo().l10n_vn_damage_allocation_ids.unlink()
+            self.env["l10n_vn.payroll.damage.allocation"].sudo().create(
+                [
+                    {"damage_id": a["damage_id"], "payslip_id": payslip.id, "amount": a["amount"]}
+                    for a in context["damage"]["allocations"]
+                ]
+            )
+
+    def _l10n_vn_advances(self):
+        """Advances this payslip settles, oldest first, as [{"id", "amount"}] (D57).
+
+        None here; l10n_vn_payroll_account overrides it.
+        """
+        self.ensure_one()
+        return []
 
     def _l10n_vn_check_rules(self, context, names):
         """Every component with context lines needs a rule that shows them (D44)."""

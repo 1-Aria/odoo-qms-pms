@@ -32,6 +32,7 @@
         "views/hr_payroll_structure_views.xml",
         "views/hr_salary_rule_views.xml",
         "views/hr_payslip_views.xml",
+        "views/l10n_vn_payroll_damage_views.xml",
         "views/menus.xml",
     ],
     "installable": True,

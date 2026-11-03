@@ -9,8 +9,9 @@ Usage (from this folder):
         prints a summary line per case
     python3 -I payroll_reference_calc.py payroll_test_cases_template.md "Payroll Acceptance Test Cases v0.5.md"
         fills each {{CASE:ID}} placeholder in the template with that case's table and footer
-    python3 -I payroll_reference_calc.py --json ../../l10n_vn_payroll/tests/data/acceptance_earnings.json
-        writes every case's earning rows and gross pay, which the module's tests assert
+    python3 -I payroll_reference_calc.py --json ../../l10n_vn_payroll/tests/data/acceptance_cases.json
+        writes every case's earning rows, gross pay, insurance, PIT, net pay and employer funds,
+        which the module's tests assert
 
 To change a case: edit its inputs below and its prose in the template, then regenerate.
 """
@@ -77,7 +78,8 @@ def case(cid, earnings, *, exempt=0, si_base=None, funds=("SI", "HI", "UI"), mem
     gross = sum(a for _, _, a in earnings)
     rows = [f"| {l} | {c} | {f(a)} |" for l, c, a in earnings]
     rows.append(f"| **Gross pay** |  | **{f(gross)}** |")
-    ins = 0
+    ins = e_si = e_hi = e_ui = 0
+    b = None
     er = {}
     if si_base is not None:
         b = max(si_base, MW) if "UI" in funds else si_base
@@ -88,7 +90,11 @@ def case(cid, earnings, *, exempt=0, si_base=None, funds=("SI", "HI", "UI"), mem
         rows.append(f"| Social insurance | 8% × {f(s)}{cap_s} | −{f(e_si)} |")
         rows.append(f"| Health insurance | 1.5% × {f(s)}{cap_s} | −{f(e_hi)} |")
         ins = e_si + e_hi
-        er["SI"], er["HI"] = rnd(D("0.175") * s), rnd(D("0.03") * s)
+        # employer SI is three funds, each rounded on its own (FR-22)
+        er["pension"] = rnd(D("0.14") * s)
+        er["sickness"] = rnd(D("0.03") * s)
+        er["accident"] = rnd(D("0.005") * s)
+        er["HI"] = rnd(D("0.03") * s)
         if "UI" in funds:
             e_ui = rnd(D("0.01") * u)
             rows.append(f"| Unemployment insurance | 1% × {f(u)}{cap_u} | −{f(e_ui)} |")
@@ -100,6 +106,7 @@ def case(cid, earnings, *, exempt=0, si_base=None, funds=("SI", "HI", "UI"), mem
         dues = min(rnd(D("0.005") * min(max(si_base, MW), SI_CAP)), DUES_CAP)
         rows.append(f"| Union dues | 0.5% × {f(min(max(si_base, MW), SI_CAP))} | −{f(dues)} |")
     # PIT
+    t = None
     if pit == "flat10":
         tax = rnd(D("0.10") * gross) if gross >= 5_000_000 else 0
         txt = pit_text or (f"10% × {f(gross)}" if tax else
@@ -149,7 +156,20 @@ def case(cid, earnings, *, exempt=0, si_base=None, funds=("SI", "HI", "UI"), mem
     table = "| Line | Calculation | Amount |\n| --- | --- | --: |\n" + "\n".join(rows)
     CASES[cid] = dict(md=table + "\n\n" + " · ".join(foot), gross=gross, ins=ins, dues=dues,
                       tax=tax, net=net, er=er_total, cost=gross + er_total, to_pay=net - settled,
-                      earnings=[[label, amount] for label, _, amount in earnings])
+                      earnings=[[label, amount] for label, _, amount in earnings],
+                      figures={
+                          "si_base": b,
+                          "ee_si": e_si, "ee_hi": e_hi, "ee_ui": e_ui, "dues": dues,
+                          "pit_method": "flat_short" if pit == "flat10" else "progressive",
+                          "exempt": exempt, "taxable": t, "pit": tax,
+                          "damage": other, "net": net, "settled": settled,
+                          "to_pay": net - settled,
+                          "employer": {
+                              "pension": er.get("pension", 0), "sickness": er.get("sickness", 0),
+                              "accident": er.get("accident", 0), "hi": er.get("HI", 0),
+                              "ui": er.get("UI", 0), "union_fee": er.get("union fee", 0),
+                          },
+                      })
 
 
 # ---------------------------------------------------------------- reference configuration
@@ -390,7 +410,8 @@ case("G15", [("Base salary", "3,700,000 × 10/26", prorate(BASE, 10)), prod("Ent
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--json":
         import json
-        data = {cid: {"earnings": c["earnings"], "gross": c["gross"]} for cid, c in CASES.items()}
+        data = {cid: dict(c["figures"], earnings=c["earnings"], gross=c["gross"])
+                for cid, c in CASES.items()}
         with open(sys.argv[2], "w", encoding="utf-8") as out:
             json.dump(data, out, ensure_ascii=False, indent=1, sort_keys=True)
             out.write("\n")

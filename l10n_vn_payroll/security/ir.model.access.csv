@@ -26,3 +26,8 @@ access_input_line_user,l10n_vn.payroll.input.line user,model_l10n_vn_payroll_inp
 access_input_line_reader,l10n_vn.payroll.input.line reader,model_l10n_vn_payroll_input_line,group_payroll_reader,1,0,0,0
 access_input_line_approver,l10n_vn.payroll.input.line approver,model_l10n_vn_payroll_input_line,group_payroll_approver,1,0,0,0
 access_component_approver,l10n_vn.payroll.component approver,model_l10n_vn_payroll_component,group_payroll_approver,1,0,0,0
+access_damage_user,l10n_vn.payroll.damage user,model_l10n_vn_payroll_damage,payroll.group_payroll_user,1,1,1,1
+access_damage_reader,l10n_vn.payroll.damage reader,model_l10n_vn_payroll_damage,group_payroll_reader,1,0,0,0
+access_damage_approver,l10n_vn.payroll.damage approver,model_l10n_vn_payroll_damage,group_payroll_approver,1,0,0,0
+access_damage_allocation_user,l10n_vn.payroll.damage.allocation user,model_l10n_vn_payroll_damage_allocation,payroll.group_payroll_user,1,1,1,1
+access_damage_allocation_reader,l10n_vn.payroll.damage.allocation reader,model_l10n_vn_payroll_damage_allocation,group_payroll_reader,1,0,0,0

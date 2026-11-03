@@ -1,10 +1,10 @@
 # Payroll Acceptance Test Cases
 
-v0.5 · Oct 31, 2026 · @Peter
+v0.6 · Nov 3, 2026 · @Peter
 
 These cases define the payroll module's expected results to the dong. The module is accepted when it reproduces every unblocked case exactly (Payroll Requirements Specification §10). Each case also becomes an automated test.
 
-Groups A–F prove the engine on a reference configuration; group G proves the current scheme that goes live (Pay Policy v0.4 §3–§4: a 3,700,000 base for everyone, with productivity pay for workers and performance pay for other roles). v0.5 adds salary advances: G14 (settled in the month), G15 (carried forward) and check F16. Change log at the end.
+Groups A–F prove the engine on a reference configuration; group G proves the current scheme that goes live (Pay Policy v0.4 §3–§4: a 3,700,000 base for everyone, with productivity pay for workers and performance pay for other roles). v0.5 adds salary advances: G14 (settled in the month), G15 (carried forward) and check F16; v0.6 shows the employer's SI as its three funds. Change log at the end.
 
 **How to read a case**
 
@@ -35,7 +35,7 @@ Every case uses these values unless it says otherwise.
 | UI salary cap (20 × 3,700,000) | 74,000,000 |
 | Standard days; hours | 26 days; 26 × 8 = 208 hours |
 | Employee rates | SI 8%, HI 1.5%, UI 1% |
-| Employer rates | SI 17.5%, HI 3%, UI 1%, union fee 2% |
+| Employer rates | SI 17.5% (pension 14%, sickness 3%, accident 0.5%, each rounded on its own), HI 3%, UI 1%, union fee 2% |
 | Union | No union members unless the case says so; union dues 0.5% of SI base, max 253,000 |
 | OT factors | Workday 150%, rest day 200%, holiday 300%; night +30%; night OT workday 200% (210% after daytime OT), rest day 270%, holiday 390% |
 | OT monthly limit | 40 hours |
@@ -557,3 +557,4 @@ Writing the expected values surfaced these decisions. Each blocked case must be 
 | 0.3 | 2026-10-30 | Group G rebuilt for Pay Policy v0.3: base salary + productivity pay with attainment (G01–G06), one-time bonus (G07), unreturned uniforms as damage compensation (G08). The OT supplement moves to a configuration test, TC-D08. Checks F12–F14 added; F10 and F11 reworded. TC-OPEN-11 and TC-OPEN-12 added. Coverage updated for FR-68 to FR-70. |
 | 0.4 | 2026-10-30 | Current scheme for production support, office and management: staff cases G10–G13 (line leader at 100% and 80%, QC staff, factory manager) and check F15 (6-month check level per component). Group H becomes the first live month's review. TC-OPEN-13 added. |
 | 0.5 | 2026-10-31 | Salary advances: TC-G14 (settled, remaining to pay), TC-G15 (capped at net, carried forward), check TC-F16 (advance above the limit). |
+| 0.6 | 2026-11-03 | The employer's SI is shown as its three funds (pension 14%, sickness 3%, accident 0.5%), each rounded on its own, as the module posts them (FR-22, Technical Design §32). No total changes. `payroll_reference_calc.py --json` also writes each case's insurance, PIT, net pay and employer funds for the module's tests. |

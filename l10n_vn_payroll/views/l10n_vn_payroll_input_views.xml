@@ -43,6 +43,7 @@
                     <group>
                         <group string="Days" name="days">
                             <field name="scheduled_days" readonly="not figures_locked" />
+                            <field name="month_scheduled_days" readonly="not figures_locked" />
                             <field name="days_worked" readonly="not figures_locked" />
                             <field name="company_leave_days" readonly="not figures_locked" />
                             <field name="si_leave_days" readonly="not figures_locked" />

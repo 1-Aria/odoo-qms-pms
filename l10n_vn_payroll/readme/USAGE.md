@@ -45,3 +45,11 @@ cover a calendar month; computing one takes the month's latest contract, reads i
 must exist, with segments when the month is split, and with an attainment source when productivity or
 performance pay is in force) and refreshes the worked days. The optional columns of the payslip lines
 show each line's dates, days, hours, factor, hourly rate, attainment and the month an adjustment belongs to.
+
+**Deductions and net pay** (step 5): the structure also needs one *Pay Component* rule for each
+calculated component: employee insurance, union dues, PIT, damage, net pay, advance, remaining to pay,
+and the employer's funds. Every contract of the month needs a participant type, and an employee on a
+labour contract a minimum wage region. Monthly inputs built before step 5 need one rebuild, for the
+month's scheduled days. *Monthly Inputs → Damage Decisions*: record each work-rules decision with its
+amount; payslips deduct from the oldest first, and a decision is settled once approved payslips have
+taken all of it. An entered deduction is typed as a positive amount.

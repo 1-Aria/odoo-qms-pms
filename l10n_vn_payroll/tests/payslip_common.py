@@ -10,7 +10,7 @@ from .common import D, PayrollCase
 
 OCT_FROM = D(2026, 10, 1)
 OCT_TO = D(2026, 10, 31)
-CASES_FILE = "l10n_vn_payroll/tests/data/acceptance_earnings.json"
+CASES_FILE = "l10n_vn_payroll/tests/data/acceptance_cases.json"
 
 
 class PayslipCase(PayrollCase):
@@ -84,9 +84,43 @@ class PayslipCase(PayrollCase):
                      active=False, **ot)
         cls.gross = C("GROSS", kind="total", legal_nature="total", amount_source="engine",
                       engine_code="GROSS", section="total", pit_treatment=False, proration=False)
+        # step 5
+        cls.kpi = C("KPI", **entered)
+        cls.annual = C("ANNUAL", **entered)
+        cls.leave = C("LEAVE", amount_source="entered", legal_nature="leave_pay",
+                      pit_treatment="exempt", proration=False)
+        cls.phone = C("PHONE", legal_nature="welfare", pit_treatment="exempt", proration="none")
+        cls.meal = C("MEAL", legal_nature="welfare", pit_treatment="exempt_cap",
+                     pit_cap_parameter="vn.pit.meal_cap", proration="none")
+
+        def engine(code, kind, nature, section):
+            return C(code, kind=kind, legal_nature=nature, amount_source="engine",
+                     engine_code=code, section=section, pit_treatment=False, proration=False)
+
+        cls.engine = {}
+        for code, kind, nature, section in (
+            ("EE_SI", "deduction", "statutory", "deduction"),
+            ("EE_HI", "deduction", "statutory", "deduction"),
+            ("EE_UI", "deduction", "statutory", "deduction"),
+            ("DUES", "deduction", "union", "deduction"),
+            ("PIT", "deduction", "statutory", "deduction"),
+            ("DAMAGE", "deduction", "damage", "deduction"),
+            ("NET", "total", "total", "total"),
+            ("ADVANCE", "info", "advance", "total"),
+            ("TO_PAY", "total", "total", "total"),
+            ("ER_PENSION", "employer", "statutory", "employer"),
+            ("ER_SICKNESS", "employer", "statutory", "employer"),
+            ("ER_ACCIDENT", "employer", "statutory", "employer"),
+            ("ER_HI", "employer", "statutory", "employer"),
+            ("ER_UI", "employer", "statutory", "employer"),
+            ("UNION_FEE", "employer", "statutory", "employer"),
+        ):
+            cls.engine[code] = engine(code, kind, nature, section)
         Category = cls.env["hr.salary.rule.category"]
         cls.cat_earn = Category.create({"name": "Test earnings", "code": "TEST_EARN"})
         cls.cat_total = Category.create({"name": "Test totals", "code": "TEST_TOTAL"})
+        cls.cat_ded = Category.create({"name": "Test deductions", "code": "TEST_DED"})
+        cls.cat_er = Category.create({"name": "Test employer", "code": "TEST_ER"})
         cls.structure = cls.env["hr.payroll.structure"].create(
             {
                 "name": "TEST VN",
@@ -97,7 +131,8 @@ class PayslipCase(PayrollCase):
         )
         components = (
             cls.base, cls.prod, cls.perf, cls.sal, cls.skill, cls.daily, cls.ot_wd, cls.ot_rd,
-            cls.ot_hol, cls.supp, cls.inc, cls.eff, cls.one, cls.att, cls.travel, cls.gross,
+            cls.ot_hol, cls.supp, cls.inc, cls.eff, cls.one, cls.att, cls.travel, cls.kpi,
+            cls.annual, cls.leave, cls.phone, cls.meal, cls.gross, *cls.engine.values(),
         )
         for sequence, component in enumerate(components, start=1):
             cls._rule(component, sequence * 10)
@@ -114,9 +149,12 @@ class PayslipCase(PayrollCase):
                 "code": component.code,
                 "sequence": sequence,
                 "company_id": cls.company.id,
-                "category_id": (
-                    cls.cat_total if component.kind == "total" else cls.cat_earn
-                ).id,
+                "category_id": {
+                    "total": cls.cat_total,
+                    "info": cls.cat_total,
+                    "deduction": cls.cat_ded,
+                    "employer": cls.cat_er,
+                }.get(component.kind, cls.cat_earn).id,
                 "amount_select": "l10n_vn_component",
                 "condition_select": "l10n_vn_component",
                 "l10n_vn_component_id": component.id,
@@ -133,6 +171,7 @@ class PayslipCase(PayrollCase):
                 {
                     "name": f"Payslip Test Employee {next(self._names)}",
                     "company_id": self.company.id,
+                    "l10n_vn_region": "IV",
                 }
             )
         contract = self.env["hr.contract"].create(
@@ -159,6 +198,7 @@ class PayslipCase(PayrollCase):
             "employee_id": employee.id,
             "figures_locked": True,
             "scheduled_days": 26,
+            "month_scheduled_days": 26,
             "paid_days": 26,
             "days_worked": 26,
         }
@@ -242,8 +282,61 @@ class PayslipCase(PayrollCase):
             self.assertEqual(self._totals(payslip, code), amounts, f"{case}: {code}")
         shown = set(
             payslip.line_ids.filtered(
-                lambda line: line.amount_select == "l10n_vn_component"
+                lambda line: line.l10n_vn_component_id.kind == "earning"
             ).mapped("code")
         )
-        self.assertEqual(shown - {self._code("GROSS")}, {self._code(c) for c in expected}, case)
+        self.assertEqual(shown, {self._code(c) for c in expected}, case)
         self.assertEqual(self._totals(payslip, "GROSS"), [data["gross"]], f"{case}: gross")
+
+    # ------------------------------------------------------------------ step 5
+    def _dependents(self, employee, count, date_from=D(2026, 1, 1)):
+        child = self.env.ref("hr_employee_relative.relation_child")
+        for n in range(count):
+            self.env["hr.employee.relative"].create(
+                {
+                    "employee_id": employee.id,
+                    "relation_id": child.id,
+                    "name": f"Payslip Test Child {n + 1}",
+                    "l10n_vn_pit_dependent": True,
+                    "l10n_vn_from": date_from,
+                }
+            )
+
+    def _damage(self, employee, amount, date=D(2026, 10, 1)):
+        return self.env["l10n_vn.payroll.damage"].create(
+            {
+                "employee_id": employee.id,
+                "company_id": self.company.id,
+                "decision_ref": f"TEST-{employee.id}-{date}",
+                "decision_date": date,
+                "reason": "Test",
+                "amount": amount,
+            }
+        )
+
+    def _expect_pay(self, payslip, case, advances=True):
+        """Insurance, PIT, damage, net and employer funds against the case."""
+        data = self._cases()[case]
+
+        def deducted(amount):
+            return [-amount] if amount else []
+
+        for code, key in (("EE_SI", "ee_si"), ("EE_HI", "ee_hi"), ("EE_UI", "ee_ui"),
+                          ("DUES", "dues"), ("DAMAGE", "damage")):
+            self.assertEqual(self._totals(payslip, code), deducted(data[key]), f"{case}: {code}")
+        self.assertEqual(self._totals(payslip, "PIT"), [-data["pit"]], f"{case}: PIT")
+        self.assertEqual(self._totals(payslip, "NET"), [data["net"]], f"{case}: NET")
+        for code, key in (("ER_PENSION", "pension"), ("ER_SICKNESS", "sickness"),
+                          ("ER_ACCIDENT", "accident"), ("ER_HI", "hi"), ("ER_UI", "ui"),
+                          ("UNION_FEE", "union_fee")):
+            amount = data["employer"][key]
+            self.assertEqual(self._totals(payslip, code), [amount] if amount else [],
+                             f"{case}: {code}")
+        context = payslip.l10n_vn_context
+        self.assertEqual(context["contributions"]["base"], data["si_base"], f"{case}: SI base")
+        self.assertEqual(context["pit"]["method"], data["pit_method"], f"{case}: PIT method")
+        if data["pit_method"] == "progressive":
+            self.assertEqual(context["pit"]["exempt"], data["exempt"], f"{case}: exempt")
+            self.assertEqual(context["pit"]["taxable"], data["taxable"], f"{case}: taxable")
+        if advances:
+            self.assertEqual(self._totals(payslip, "TO_PAY"), [data["to_pay"]], f"{case}: to pay")

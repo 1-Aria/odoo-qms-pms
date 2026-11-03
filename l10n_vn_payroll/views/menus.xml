@@ -49,4 +49,11 @@
         action="l10n_vn_payroll_input_action"
         sequence="2"
     />
+    <menuitem
+        id="menu_l10n_vn_payroll_damage"
+        name="Damage Decisions"
+        parent="menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_damage_action"
+        sequence="3"
+    />
 </odoo>

@@ -10,6 +10,7 @@ from odoo.exceptions import AccessError, UserError, ValidationError
 
 DAY_FIGURES = (
     "scheduled_days",
+    "month_scheduled_days",
     "days_worked",
     "company_leave_days",
     "si_leave_days",
@@ -54,6 +55,7 @@ class L10nVnPayrollInput(models.Model):
     company_id = fields.Many2one(related="period_id.company_id", store=True)
     department_id = fields.Many2one(related="employee_id.department_id", store=True)
     scheduled_days = fields.Float(digits=DIGITS)
+    month_scheduled_days = fields.Float(string="Scheduled days in the month", digits=DIGITS)
     days_worked = fields.Float(digits=DIGITS)
     company_leave_days = fields.Float(digits=DIGITS)
     si_leave_days = fields.Float(string="SI leave days", digits=DIGITS)
@@ -227,6 +229,26 @@ class L10nVnPayrollInput(models.Model):
                     info["ot_valid"] += max(0.0, attendance.validated_overtime_hours)
         return days
 
+    def _l10n_vn_month_scheduled_days(self):
+        """Dates of the whole month with scheduled hours in the main contract's calendar (D46)."""
+        self.ensure_one()
+        period = self.period_id
+        employee = self.employee_id.sudo()
+        contract = employee._l10n_vn_period_contracts(period.date_from, period.date_to)[-1:]
+        if not contract:
+            return 0
+        calendar = contract.resource_calendar_id
+        tz = pytz.timezone(calendar.tz or employee.tz or "UTC")
+        start = tz.localize(datetime.datetime.combine(period.date_from, datetime.time.min))
+        end = tz.localize(
+            datetime.datetime.combine(period.date_to + datetime.timedelta(days=1), datetime.time.min)
+        )
+        resource = employee.resource_id
+        intervals = calendar._attendance_intervals_batch(start, end, resources=resource)
+        return len(
+            {begin.astimezone(tz).date() for begin, stop, _line in intervals[resource.id] if stop > begin}
+        )
+
     def _l10n_vn_pieces(self):
         """The pieces the month splits into (D33).
 
@@ -351,6 +373,7 @@ class L10nVnPayrollInput(models.Model):
         )
         vals = {
             "scheduled_days": scheduled_days,
+            "month_scheduled_days": self._l10n_vn_month_scheduled_days(),
             "days_worked": round(total(rows, "worked"), 4),
             "company_leave_days": round(total(rows, "company"), 4),
             "si_leave_days": round(total(rows, "si"), 4),

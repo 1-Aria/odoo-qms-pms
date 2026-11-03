@@ -11,4 +11,7 @@ from . import test_input_build
 from . import test_input_workflow
 from . import test_payslip_contract
 from . import test_pay_context
-from . import test_acceptance_earnings
+from . import test_acceptance
+from . import test_contributions
+from . import test_pit
+from . import test_damage

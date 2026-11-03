@@ -29,3 +29,10 @@ This first step holds the configuration layer:
   on the OT base. A month split by a contract change, a pay line change or the end of a probation clause
   shows one line per part. Each line holds its exact amount through the *Pay Component* rule type, and
   the whole calculation is kept on the payslip as a snapshot.
+- **Deductions and net pay** (step 5): social, health and unemployment insurance by fund, from the
+  contract's participant type, on the SI base with its floor and caps, and none in a month with 14 or
+  more working days neither worked nor paid; the union fee and members' dues; PIT, progressive with OT
+  and capped exemptions and dependents, or flat for short contracts and non-residents; damage
+  compensation decisions deducted oldest first within 30% of pay after insurance and PIT; net pay, and
+  the amount to pay once salary advances are settled (the advances themselves come with
+  `l10n_vn_payroll_account`). Deductions show as negative lines.

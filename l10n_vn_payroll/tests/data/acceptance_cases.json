@@ -1,0 +1,1840 @@
+{
+ "A01": {
+  "damage": 0,
+  "dues": 22500,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency incentive",
+    300000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 67500,
+  "ee_si": 360000,
+  "ee_ui": 45000,
+  "employer": {
+   "accident": 22500,
+   "hi": 135000,
+   "pension": 630000,
+   "sickness": 135000,
+   "ui": 45000,
+   "union_fee": 90000
+  },
+  "exempt": 649038,
+  "gross": 5949038,
+  "net": 5454038,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 4500000,
+  "taxable": -10672500,
+  "to_pay": 5454038
+ },
+ "A02": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 30 h",
+    1298077
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 1298077,
+  "gross": 9298077,
+  "net": 8668077,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8130000,
+  "to_pay": 8668077
+ },
+ "A03": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    8000000
+   ],
+   [
+    "OT workday 30 h",
+    1730769
+   ]
+  ],
+  "ee_hi": 120000,
+  "ee_si": 640000,
+  "ee_ui": 80000,
+  "employer": {
+   "accident": 40000,
+   "hi": 240000,
+   "pension": 1120000,
+   "sickness": 240000,
+   "ui": 80000,
+   "union_fee": 160000
+  },
+  "exempt": 1730769,
+  "gross": 9730769,
+  "net": 8890769,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 8000000,
+  "taxable": -14540000,
+  "to_pay": 8890769
+ },
+ "A04": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    10000000
+   ],
+   [
+    "OT workday 16 h",
+    1153846
+   ],
+   [
+    "KPI bonus",
+    1000000
+   ]
+  ],
+  "ee_hi": 150000,
+  "ee_si": 800000,
+  "ee_ui": 100000,
+  "employer": {
+   "accident": 50000,
+   "hi": 300000,
+   "pension": 1400000,
+   "sickness": 300000,
+   "ui": 100000,
+   "union_fee": 200000
+  },
+  "exempt": 1153846,
+  "gross": 12153846,
+  "net": 11103846,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 10000000,
+  "taxable": -5550000,
+  "to_pay": 11103846
+ },
+ "A05": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    14000000
+   ],
+   [
+    "OT workday 8 h",
+    807692
+   ],
+   [
+    "KPI bonus",
+    1500000
+   ],
+   [
+    "Phone lump-sum",
+    200000
+   ]
+  ],
+  "ee_hi": 210000,
+  "ee_si": 1120000,
+  "ee_ui": 140000,
+  "employer": {
+   "accident": 70000,
+   "hi": 420000,
+   "pension": 1960000,
+   "sickness": 420000,
+   "ui": 140000,
+   "union_fee": 280000
+  },
+  "exempt": 1007692,
+  "gross": 16507692,
+  "net": 15037692,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 14000000,
+  "taxable": -1470000,
+  "to_pay": 15037692
+ },
+ "A06": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    17000000
+   ],
+   [
+    "KPI bonus",
+    3000000
+   ],
+   [
+    "Phone lump-sum",
+    500000
+   ]
+  ],
+  "ee_hi": 255000,
+  "ee_si": 1360000,
+  "ee_ui": 170000,
+  "employer": {
+   "accident": 85000,
+   "hi": 510000,
+   "pension": 2380000,
+   "sickness": 510000,
+   "ui": 170000,
+   "union_fee": 340000
+  },
+  "exempt": 500000,
+  "gross": 20500000,
+  "net": 18715000,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 17000000,
+  "taxable": -3485000,
+  "to_pay": 18715000
+ },
+ "A07": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    18000000
+   ],
+   [
+    "KPI bonus",
+    2000000
+   ],
+   [
+    "Phone lump-sum",
+    300000
+   ]
+  ],
+  "ee_hi": 270000,
+  "ee_si": 1440000,
+  "ee_ui": 180000,
+  "employer": {
+   "accident": 90000,
+   "hi": 540000,
+   "pension": 2520000,
+   "sickness": 540000,
+   "ui": 180000,
+   "union_fee": 360000
+  },
+  "exempt": 300000,
+  "gross": 20300000,
+  "net": 18279500,
+  "pit": 130500,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 18000000,
+  "taxable": 2610000,
+  "to_pay": 18279500
+ },
+ "A08": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    45000000
+   ],
+   [
+    "KPI bonus",
+    8000000
+   ],
+   [
+    "Phone lump-sum",
+    1000000
+   ]
+  ],
+  "ee_hi": 675000,
+  "ee_si": 3600000,
+  "ee_ui": 450000,
+  "employer": {
+   "accident": 225000,
+   "hi": 1350000,
+   "pension": 6300000,
+   "sickness": 1350000,
+   "ui": 450000,
+   "union_fee": 900000
+  },
+  "exempt": 1000000,
+  "gross": 54000000,
+  "net": 47737500,
+  "pit": 1537500,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 45000000,
+  "taxable": 20375000,
+  "to_pay": 47737500
+ },
+ "A09": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    70000000
+   ],
+   [
+    "KPI bonus",
+    15000000
+   ],
+   [
+    "Phone lump-sum",
+    2000000
+   ]
+  ],
+  "ee_hi": 759000,
+  "ee_si": 4048000,
+  "ee_ui": 700000,
+  "employer": {
+   "accident": 253000,
+   "hi": 1518000,
+   "pension": 7084000,
+   "sickness": 1518000,
+   "ui": 700000,
+   "union_fee": 1012000
+  },
+  "exempt": 2000000,
+  "gross": 87000000,
+  "net": 73434400,
+  "pit": 8058600,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 70000000,
+  "taxable": 57793000,
+  "to_pay": 73434400
+ },
+ "B01": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 36 h",
+    1557692
+   ],
+   [
+    "OT rest day 16 h",
+    923077
+   ],
+   [
+    "Efficiency incentive",
+    1800000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 1908284,
+  "gross": 10780769,
+  "net": 10150769,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -7257515,
+  "to_pay": 10150769
+ },
+ "B02": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4326923
+   ],
+   [
+    "Skill allowance",
+    1442308
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1350000
+   ],
+   [
+    "Attendance bonus",
+    0
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 865385,
+  "gross": 8184616,
+  "net": 7554616,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8810769,
+  "to_pay": 7554616
+ },
+ "B03": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1425000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 865385,
+  "gross": 8790385,
+  "net": 8160385,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8205000,
+  "to_pay": 8160385
+ },
+ "B04": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Night premium, normal hours 8 h",
+    69231
+   ],
+   [
+    "Night OT workday after daytime OT 4 h",
+    242308
+   ],
+   [
+    "Night OT holiday 2 h",
+    225000
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 1401924,
+  "gross": 9401924,
+  "net": 8771924,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8130000,
+  "to_pay": 8771924
+ },
+ "B05": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4483774
+   ],
+   [
+    "Skill allowance",
+    1494591
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    0
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 865385,
+  "gross": 8543750,
+  "net": 7913750,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8451635,
+  "to_pay": 7913750
+ },
+ "B06": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    9230769
+   ]
+  ],
+  "ee_hi": 150000,
+  "ee_si": 800000,
+  "ee_ui": 100000,
+  "employer": {
+   "accident": 50000,
+   "hi": 300000,
+   "pension": 1400000,
+   "sickness": 300000,
+   "ui": 100000,
+   "union_fee": 200000
+  },
+  "exempt": 0,
+  "gross": 9230769,
+  "net": 8180769,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 10000000,
+  "taxable": -7319231,
+  "to_pay": 8180769
+ },
+ "C01": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    1912500
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 0,
+  "ee_si": 0,
+  "ee_ui": 0,
+  "employer": {
+   "accident": 0,
+   "hi": 0,
+   "pension": 0,
+   "sickness": 0,
+   "ui": 0,
+   "union_fee": 0
+  },
+  "exempt": 0,
+  "gross": 2112500,
+  "net": 2112500,
+  "pit": 0,
+  "pit_method": "flat_short",
+  "settled": 0,
+  "si_base": null,
+  "taxable": null,
+  "to_pay": 2112500
+ },
+ "C02": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary, probation 10 days",
+    1471154
+   ],
+   [
+    "Salary, contract 16 days",
+    2769231
+   ],
+   [
+    "Efficiency incentive",
+    450000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 67500,
+  "ee_si": 360000,
+  "ee_ui": 45000,
+  "employer": {
+   "accident": 22500,
+   "hi": 135000,
+   "pension": 630000,
+   "sickness": 135000,
+   "ui": 45000,
+   "union_fee": 90000
+  },
+  "exempt": 0,
+  "gross": 5190385,
+  "net": 4717885,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 4500000,
+  "taxable": -10782115,
+  "to_pay": 4717885
+ },
+ "C03": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    3115385
+   ],
+   [
+    "Skill allowance",
+    1038462
+   ],
+   [
+    "Efficiency incentive",
+    900000
+   ],
+   [
+    "Untaken annual leave 5 days",
+    1153846
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 1153846,
+  "gross": 6407693,
+  "net": 5777693,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -10876153,
+  "to_pay": 5777693
+ },
+ "C04": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary and skill allowance",
+    0
+   ]
+  ],
+  "ee_hi": 0,
+  "ee_si": 0,
+  "ee_ui": 0,
+  "employer": {
+   "accident": 0,
+   "hi": 0,
+   "pension": 0,
+   "sickness": 0,
+   "ui": 0,
+   "union_fee": 0
+  },
+  "exempt": 0,
+  "gross": 0,
+  "net": 0,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": null,
+  "taxable": -15500000,
+  "to_pay": 0
+ },
+ "C05": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    1903846
+   ],
+   [
+    "Skill allowance",
+    634615
+   ],
+   [
+    "Efficiency incentive",
+    450000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 0,
+  "ee_si": 0,
+  "ee_ui": 0,
+  "employer": {
+   "accident": 0,
+   "hi": 0,
+   "pension": 0,
+   "sickness": 0,
+   "ui": 0,
+   "union_fee": 0
+  },
+  "exempt": 0,
+  "gross": 3488461,
+  "net": 3488461,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": null,
+  "taxable": -12011539,
+  "to_pay": 3488461
+ },
+ "C06": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary, probation clause 6 days",
+    882692
+   ],
+   [
+    "Salary, after probation 20 days",
+    3461538
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 67500,
+  "ee_si": 360000,
+  "ee_ui": 45000,
+  "employer": {
+   "accident": 22500,
+   "hi": 135000,
+   "pension": 630000,
+   "sickness": 135000,
+   "ui": 45000,
+   "union_fee": 90000
+  },
+  "exempt": 0,
+  "gross": 4844230,
+  "net": 4371730,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 4500000,
+  "taxable": -11128270,
+  "to_pay": 4371730
+ },
+ "D01": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    80000000
+   ]
+  ],
+  "ee_hi": 759000,
+  "ee_si": 4048000,
+  "ee_ui": 740000,
+  "employer": {
+   "accident": 253000,
+   "hi": 1518000,
+   "pension": 7084000,
+   "sickness": 1518000,
+   "ui": 740000,
+   "union_fee": 1012000
+  },
+  "exempt": 0,
+  "gross": 80000000,
+  "net": 66162400,
+  "pit": 8290600,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 80000000,
+  "taxable": 58953000,
+  "to_pay": 66162400
+ },
+ "D02": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    6000000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 0,
+  "gross": 6000000,
+  "net": 4770000,
+  "pit": 600000,
+  "pit_method": "flat_short",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": null,
+  "to_pay": 4770000
+ },
+ "D03": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    10000000
+   ],
+   [
+    "Cash meal allowance",
+    1500000
+   ]
+  ],
+  "ee_hi": 150000,
+  "ee_si": 800000,
+  "ee_ui": 100000,
+  "employer": {
+   "accident": 50000,
+   "hi": 300000,
+   "pension": 1400000,
+   "sickness": 300000,
+   "ui": 100000,
+   "union_fee": 200000
+  },
+  "exempt": 1200000,
+  "gross": 11500000,
+  "net": 10450000,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 10000000,
+  "taxable": -6250000,
+  "to_pay": 10450000
+ },
+ "D04": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    10000000
+   ],
+   [
+    "Annual (Tet) bonus",
+    10000000
+   ]
+  ],
+  "ee_hi": 150000,
+  "ee_si": 800000,
+  "ee_ui": 100000,
+  "employer": {
+   "accident": 50000,
+   "hi": 300000,
+   "pension": 1400000,
+   "sickness": 300000,
+   "ui": 100000,
+   "union_fee": 200000
+  },
+  "exempt": 0,
+  "gross": 20000000,
+  "net": 18777500,
+  "pit": 172500,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 10000000,
+  "taxable": 3450000,
+  "to_pay": 18777500
+ },
+ "D05": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    18000000
+   ],
+   [
+    "KPI bonus",
+    2000000
+   ],
+   [
+    "Phone lump-sum",
+    300000
+   ]
+  ],
+  "ee_hi": 270000,
+  "ee_si": 1440000,
+  "ee_ui": 180000,
+  "employer": {
+   "accident": 90000,
+   "hi": 540000,
+   "pension": 2520000,
+   "sickness": 540000,
+   "ui": 180000,
+   "union_fee": 360000
+  },
+  "exempt": 300000,
+  "gross": 20300000,
+  "net": 18410000,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 18000000,
+  "taxable": -3590000,
+  "to_pay": 18410000
+ },
+ "D06": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    40000000
+   ]
+  ],
+  "ee_hi": 150000,
+  "ee_si": 800000,
+  "ee_ui": 0,
+  "employer": {
+   "accident": 50000,
+   "hi": 300000,
+   "pension": 1400000,
+   "sickness": 300000,
+   "ui": 0,
+   "union_fee": 200000
+  },
+  "exempt": 0,
+  "gross": 40000000,
+  "net": 37195000,
+  "pit": 1855000,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 10000000,
+  "taxable": 23550000,
+  "to_pay": 37195000
+ },
+ "D07": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Daily wage",
+    9100000
+   ]
+  ],
+  "ee_hi": 136500,
+  "ee_si": 728000,
+  "ee_ui": 91000,
+  "employer": {
+   "accident": 45500,
+   "hi": 273000,
+   "pension": 1274000,
+   "sickness": 273000,
+   "ui": 91000,
+   "union_fee": 182000
+  },
+  "exempt": 0,
+  "gross": 9100000,
+  "net": 7234500,
+  "pit": 910000,
+  "pit_method": "flat_short",
+  "settled": 0,
+  "si_base": 9100000,
+  "taxable": null,
+  "to_pay": 7234500
+ },
+ "D08": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 30 h",
+    1298077
+   ],
+   [
+    "OT supplement 30 h",
+    173070
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 1471147,
+  "gross": 9471147,
+  "net": 8841147,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8130000,
+  "to_pay": 8841147
+ },
+ "E01": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ],
+   [
+    "Adjustment for September 2026: OT workday 4 h",
+    173077
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 1038462,
+  "gross": 9038462,
+  "net": 8408462,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8130000,
+  "to_pay": 8408462
+ },
+ "E02": {
+  "damage": 2470616,
+  "dues": 0,
+  "earnings": [
+   [
+    "Salary",
+    4500000
+   ],
+   [
+    "Skill allowance",
+    1500000
+   ],
+   [
+    "OT workday 20 h",
+    865385
+   ],
+   [
+    "Efficiency incentive",
+    1500000
+   ],
+   [
+    "Attendance bonus",
+    300000
+   ],
+   [
+    "Travel allowance",
+    200000
+   ]
+  ],
+  "ee_hi": 90000,
+  "ee_si": 480000,
+  "ee_ui": 60000,
+  "employer": {
+   "accident": 30000,
+   "hi": 180000,
+   "pension": 840000,
+   "sickness": 180000,
+   "ui": 60000,
+   "union_fee": 120000
+  },
+  "exempt": 865385,
+  "gross": 8865385,
+  "net": 5764769,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 6000000,
+  "taxable": -8130000,
+  "to_pay": 5764769
+ },
+ "G01": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 649038,
+  "gross": 5449038,
+  "net": 5060538,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -11088500,
+  "to_pay": 5060538
+ },
+ "G02": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, S4",
+    2800000
+   ],
+   [
+    "OT workday 30 h",
+    1406250
+   ],
+   [
+    "Efficiency bonus",
+    1000000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 1406250,
+  "gross": 8906250,
+  "net": 8517750,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -8388500,
+  "to_pay": 8517750
+ },
+ "G03": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, S4",
+    2240000
+   ],
+   [
+    "OT workday 30 h",
+    1285096
+   ],
+   [
+    "Efficiency bonus",
+    0
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 1285096,
+  "gross": 7225096,
+  "net": 6836596,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -9948500,
+  "to_pay": 6836596
+ },
+ "G04": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3415385
+   ],
+   [
+    "Productivity pay, Entry",
+    738462
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 649038,
+  "gross": 5102885,
+  "net": 4714385,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -11434653,
+  "to_pay": 4714385
+ },
+ "G05": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 649038,
+  "gross": 5449038,
+  "net": 5060538,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -11088500,
+  "to_pay": 5060538
+ },
+ "G06": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, S2",
+    1800000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 0,
+  "gross": 5500000,
+  "net": 5111500,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -10388500,
+  "to_pay": 5111500
+ },
+ "G07": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ],
+   [
+    "One-time bonus: project completion",
+    500000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 649038,
+  "gross": 5949038,
+  "net": 5560538,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -10588500,
+  "to_pay": 5560538
+ },
+ "G08": {
+  "damage": 300000,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    2846154
+   ],
+   [
+    "Productivity pay, Entry",
+    615385
+   ],
+   [
+    "Efficiency bonus",
+    200000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 0,
+  "gross": 3661539,
+  "net": 2973039,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -12226961,
+  "to_pay": 2973039
+ },
+ "G10": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    4300000
+   ],
+   [
+    "OT workday 30 h",
+    1730769
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 1730769,
+  "gross": 9730769,
+  "net": 9342269,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -14088500,
+  "to_pay": 9342269
+ },
+ "G11": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    3440000
+   ],
+   [
+    "OT workday 30 h",
+    1544712
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 1544712,
+  "gross": 8684712,
+  "net": 8296212,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -14948500,
+  "to_pay": 8296212
+ },
+ "G12": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    6300000
+   ],
+   [
+    "OT workday 16 h",
+    1153846
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 1153846,
+  "gross": 11153846,
+  "net": 10765346,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": -5888500,
+  "to_pay": 10765346
+ },
+ "G13": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Performance pay",
+    41300000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 0,
+  "gross": 45000000,
+  "net": 43440350,
+  "pit": 1171150,
+  "pit_method": "progressive",
+  "settled": 0,
+  "si_base": 3700000,
+  "taxable": 16711500,
+  "to_pay": 43440350
+ },
+ "G14": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    3700000
+   ],
+   [
+    "Productivity pay, Entry",
+    800000
+   ],
+   [
+    "OT workday 20 h",
+    649038
+   ],
+   [
+    "Efficiency bonus",
+    300000
+   ]
+  ],
+  "ee_hi": 55500,
+  "ee_si": 296000,
+  "ee_ui": 37000,
+  "employer": {
+   "accident": 18500,
+   "hi": 111000,
+   "pension": 518000,
+   "sickness": 111000,
+   "ui": 37000,
+   "union_fee": 74000
+  },
+  "exempt": 649038,
+  "gross": 5449038,
+  "net": 5060538,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 1500000,
+  "si_base": 3700000,
+  "taxable": -11088500,
+  "to_pay": 3560538
+ },
+ "G15": {
+  "damage": 0,
+  "dues": 0,
+  "earnings": [
+   [
+    "Base salary",
+    1423077
+   ],
+   [
+    "Productivity pay, Entry",
+    307692
+   ]
+  ],
+  "ee_hi": 0,
+  "ee_si": 0,
+  "ee_ui": 0,
+  "employer": {
+   "accident": 0,
+   "hi": 0,
+   "pension": 0,
+   "sickness": 0,
+   "ui": 0,
+   "union_fee": 0
+  },
+  "exempt": 0,
+  "gross": 1730769,
+  "net": 1730769,
+  "pit": 0,
+  "pit_method": "progressive",
+  "settled": 1730769,
+  "si_base": null,
+  "taxable": -13769231,
+  "to_pay": 0
+ }
+}

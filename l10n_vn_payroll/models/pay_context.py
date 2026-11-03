@@ -95,6 +95,27 @@ class PayContext:
         for component in self._components(company, [("engine_code", "=", "GROSS")]):
             lines.append(self._line(component, Decimal(gross)))
 
+        # step 5: contributions, PIT, damage, net, advances (D46-D58)
+        contributions, amounts = self._contributions(pieces, std, inp, company, names)
+        employee_insurance = sum(amounts.get(code, 0) for code in ("EE_SI", "EE_HI", "EE_UI"))
+        dues = amounts.get("DUES", 0)
+        pit = self._pit(payslip, contract, lines, gross, employee_insurance, inp, company)
+        damage = self._damage(payslip, gross, employee_insurance, pit["pit"], company)
+        entered_deductions = -sum(
+            line["amount"] for line in lines if line["kind"] == "deduction"
+        )
+        net = (gross - employee_insurance - dues - pit["pit"] - damage["total"]
+               - entered_deductions)
+        advances = [dict(a, settled=0) for a in payslip._l10n_vn_advances()]
+        left = max(net, 0)
+        for advance in advances:
+            advance["settled"] = min(advance["amount"], left)
+            left -= advance["settled"]
+        settled = sum(advance["settled"] for advance in advances)
+        lines += self._engine_lines(
+            company, amounts, contributions, pit, damage["total"], net, settled, names
+        )
+
         return {
             "version": 1,
             "employee_id": employee.id,
@@ -142,6 +163,15 @@ class PayContext:
             "lines": lines,
             "unapproved": unapproved,
             "gross": gross,
+            "contributions": contributions,
+            "pit": pit,
+            "damage": damage,
+            "advances": advances,
+            "employee_insurance": employee_insurance,
+            "dues": dues,
+            "net": net,
+            "settled": settled,
+            "to_pay": net - settled,
         }
 
     # ------------------------------------------------------------------ steps
@@ -266,10 +296,14 @@ class PayContext:
             name = item.description or item.component_id.name
             if item.period_ref:
                 name = f"{name} ({item.period_ref:%m/%Y})"
+            amount = _dec(item.amount)
+            if item.component_id.kind == "deduction":
+                # entered as an amount to deduct (D51)
+                amount = -amount
             lines.append(
                 self._line(
                     item.component_id,
-                    _dec(item.amount),
+                    amount,
                     name=name,
                     hours=item.hours or None,
                     period_ref=_iso(item.period_ref),
@@ -371,6 +405,263 @@ class PayContext:
                         **dates,
                     )
                 )
+        return lines
+
+    # ------------------------------------------------------------------ step 5
+    @staticmethod
+    def _liable(piece):
+        kind = piece["contract"].l10n_vn_participant_type_id
+        return any((kind.fund_pension, kind.fund_sickness, kind.fund_accident, kind.fund_hi,
+                    kind.fund_ui))
+
+    def _contributions(self, pieces, std, inp, company, names):
+        """SI liability, base, caps and the amount of each fund (D47-D50).
+
+        Returns the snapshot's ``contributions`` and the amounts by engine code,
+        positive.
+        """
+        for piece in pieces:
+            if not piece["contract"].l10n_vn_participant_type_id:
+                raise UserError(
+                    self.env._(
+                        "Contract %(contract)s of %(employee)s has no participant type.",
+                        contract=piece["contract"].name,
+                        **names,
+                    )
+                )
+        if not inp.month_scheduled_days:
+            raise UserError(
+                self.env._(
+                    "The monthly input of %(employee)s for %(month)s has no scheduled days "
+                    "for the month; rebuild it.",
+                    **names,
+                )
+            )
+        main = pieces[-1]
+        contract = main["contract"]
+        kind = contract.l10n_vn_participant_type_id
+        employee = contract.employee_id
+        day = main["date_to"]
+        paid_liable = sum((p["paid_days"] for p in pieces if self._liable(p)), Decimal(0))
+        without = _dec(inp.month_scheduled_days) - paid_liable
+        threshold = _dec(self.param("vn.si.absence_days", day, company))
+        result = {
+            "liable": False,
+            "days_without_si": float(without),
+            "base_source": kind.base_source,
+            "base": None,
+            "floor": None,
+            "si_capped": None,
+            "ui_capped": None,
+            "funds": [],
+            "region": None,
+        }
+        if not any(self._liable(p) for p in pieces) or without >= threshold:
+            return result, {}
+
+        if kind.base_source == "declared":
+            base = _dec(contract.l10n_vn_declared_si_base)
+        else:
+            base = Decimal(0)
+            for pay_line, amount in main["pay_lines"]:
+                component = pay_line.component_id
+                if component.in_si_base:
+                    base += amount * std if component.proration == "per_day" else amount
+        region = employee.l10n_vn_region
+        if (kind.floor == "min_wage" or kind.fund_ui) and not region:
+            raise UserError(self.env._("%(employee)s has no minimum wage region.", **names))
+        reference = _dec(self.param("vn.si.reference_level", day, company))
+        floor = Decimal(0)
+        if kind.floor == "min_wage":
+            floor = _dec(self.param("vn.min_wage.month", day, company)[region])
+        elif kind.floor == "reference_level":
+            floor = reference
+        base = max(base, floor)
+        si_capped = min(base, _dec(self.param("vn.si.cap_multiple", day, company)) * reference)
+        ui_capped = None
+        if kind.fund_ui:
+            minimum = _dec(self.param("vn.min_wage.month", day, company)[region])
+            ui_capped = min(base, _dec(self.param("vn.ui.cap_multiple", day, company)) * minimum)
+
+        funds = [
+            ("EE_SI", kind.fund_pension, "vn.rate.ee.si", si_capped),
+            ("EE_HI", kind.fund_hi, "vn.rate.ee.hi", si_capped),
+            ("EE_UI", kind.fund_ui, "vn.rate.ee.ui", ui_capped),
+            ("ER_PENSION", kind.fund_pension, "vn.rate.er.pension", si_capped),
+            ("ER_SICKNESS", kind.fund_sickness, "vn.rate.er.sickness", si_capped),
+            ("ER_ACCIDENT", kind.fund_accident, "vn.rate.er.accident", si_capped),
+            ("ER_HI", kind.fund_hi, "vn.rate.er.hi", si_capped),
+            ("ER_UI", kind.fund_ui, "vn.rate.er.ui", ui_capped),
+            ("UNION_FEE", kind.fund_union_fee, "vn.rate.union_fee", si_capped),
+        ]
+        amounts, rates = {}, {}
+        for code, applies, rate_code, capped in funds:
+            if applies:
+                rate = _dec(self.param(rate_code, day, company))
+                amounts[code] = _round(rate * capped)
+                rates[code] = (rate, capped)
+        if kind.dues_allowed and employee.l10n_vn_union_member:
+            rate = _dec(self.param("vn.rate.union_dues", day, company))
+            cap = _dec(self.param("vn.union_dues.cap", day, company))
+            amounts["DUES"] = min(_round(rate * si_capped), _round(cap))
+            rates["DUES"] = (rate, si_capped)
+        result.update(
+            liable=True,
+            base=float(base),
+            floor=float(floor),
+            si_capped=float(si_capped),
+            ui_capped=float(ui_capped) if ui_capped is not None else None,
+            funds=list(amounts),
+            region=region or None,
+            rates={code: [float(r), float(c)] for code, (r, c) in rates.items()},
+        )
+        return result, amounts
+
+    def _pit(self, payslip, contract, lines, gross, employee_insurance, inp, company):
+        """PIT by the contract's method (D53-D55)."""
+        month_end = payslip.date_to
+        method = contract._l10n_vn_pit_method(month_end)
+        result = {"method": method, "exempt": None, "ot_exempt": None, "taxable": None,
+                  "dependents": None, "pit": 0}
+        if method == "flat_short":
+            threshold = _dec(self.param("vn.pit.flat_short_threshold", month_end, company))
+            rate = _dec(self.param("vn.pit.flat_short", month_end, company))
+            result["pit"] = _round(rate * gross) if gross >= threshold else 0
+            return result
+        if method == "flat_nonresident":
+            rate = _dec(self.param("vn.pit.nonresident", month_end, company))
+            result["pit"] = _round(rate * gross)
+            return result
+
+        components = self.env["l10n_vn.payroll.component"].browse(
+            {line["component_id"] for line in lines}
+        )
+        by_id = {component.id: component for component in components}
+        earnings = [line for line in lines if line["kind"] == "earning"]
+        exempt = Decimal(0)
+        capped = {}
+        ot_pay, ot_adjustments = Decimal(0), []
+        for line in earnings:
+            component = by_id[line["component_id"]]
+            treatment = component.pit_treatment
+            if treatment in ("exempt", "excluded"):
+                exempt += line["amount"]
+            elif treatment == "exempt_cap":
+                capped.setdefault(component.pit_cap_parameter, Decimal(0))
+                capped[component.pit_cap_parameter] += line["amount"]
+            elif treatment == "ot":
+                if line["period_ref"]:
+                    ot_adjustments.append(line)
+                else:
+                    ot_pay += line["amount"]
+        for code, total in capped.items():
+            exempt += min(total, _dec(self.param(code, month_end, company)))
+        ot_exempt = 0
+        if ot_pay or ot_adjustments:
+            limit_month = _dec(self.param("vn.ot.limit.month", month_end, company))
+            limit_year = _dec(self.param("vn.ot.limit.year", month_end, company))
+            hours = _dec(inp.ot_hours)
+            allowed = max(Decimal(0), min(limit_month, limit_year - _dec(inp.ot_hours_ytd)))
+            share = min(ONE, allowed / hours) if hours else ONE
+            ot_exempt += _round(ot_pay * share)
+            for line in ot_adjustments:
+                if not line["hours"]:
+                    continue  # an OT adjustment without hours is taxable
+                own = payslip._l10n_vn_find_input(
+                    inp.employee_id, company, fields.Date.to_date(line["period_ref"])
+                )
+                own_hours = _dec(own.ot_hours) if own else Decimal(0)
+                own_ytd = _dec(own.ot_hours_ytd) if own else Decimal(0)
+                allowed_own = max(
+                    Decimal(0), min(limit_month - own_hours, limit_year - own_ytd - own_hours)
+                )
+                share_own = min(ONE, allowed_own / _dec(line["hours"]))
+                ot_exempt += _round(_dec(line["amount"]) * share_own)
+        exempt += ot_exempt
+        dependents = inp.employee_id._l10n_vn_dependent_count(month_end)
+        taxable = (
+            gross - exempt - employee_insurance
+            - _dec(self.param("vn.pit.self", month_end, company))
+            - dependents * _dec(self.param("vn.pit.dependent", month_end, company))
+        )
+        result.update(exempt=int(exempt), ot_exempt=ot_exempt, taxable=int(taxable),
+                      dependents=dependents)
+        if taxable > 0:
+            brackets = self.param("vn.pit.brackets", month_end, company)
+            tax, low = Decimal(0), Decimal(0)
+            for upper, rate in brackets:
+                if taxable <= low:
+                    break
+                top = taxable if upper is None else min(taxable, _dec(upper))
+                tax += (top - low) * _dec(rate)
+                if upper is None:
+                    break
+                low = _dec(upper)
+            result["pit"] = _round(tax)
+        return result
+
+    def _damage(self, payslip, gross, employee_insurance, pit, company):
+        """Damage compensation within the cap, oldest decision first (D56)."""
+        decisions = self.env["l10n_vn.payroll.damage"].search(
+            [
+                ("employee_id", "=", payslip.employee_id.id),
+                ("company_id", "=", company.id),
+                ("decision_date", "<=", payslip.date_to),
+                ("state", "=", "open"),
+            ],
+            order="decision_date, id",
+        )
+        available = decisions._l10n_vn_available(payslip)
+        open_amount = sum((_dec(a) for a in available.values() if a > 0), Decimal(0))
+        result = {"allocations": [], "total": 0}
+        if not open_amount:
+            return result
+        share = _dec(self.param("vn.damage.cap", payslip.date_to, company))
+        cap = share * (gross - employee_insurance - pit)
+        total = max(0, _round(min(open_amount, cap)))
+        left = total
+        for decision in decisions:
+            take = min(_dec(available[decision.id]), Decimal(left))
+            if take <= 0:
+                continue
+            result["allocations"].append({"damage_id": decision.id, "amount": int(take)})
+            left -= int(take)
+            if not left:
+                break
+        result["total"] = total
+        return result
+
+    def _engine_lines(self, company, amounts, contributions, pit, damage, net, settled, names):
+        """The engine lines after gross, in the order of D58; deductions negative."""
+        engine = {}
+        for component in self._components(company, [("amount_source", "=", "engine")]):
+            engine.setdefault(component.engine_code, component)
+
+        def line(code, amount, **values):
+            component = engine.get(code)
+            if not component:
+                raise UserError(
+                    self.env._("No active component with engine code %(code)s.", code=code)
+                )
+            return self._line(component, Decimal(amount), **values)
+
+        rates = contributions.get("rates", {})
+        lines = []
+        for code in ("EE_SI", "EE_HI", "EE_UI", "DUES"):
+            if code in amounts:
+                rate, base = rates[code]
+                lines.append(line(code, -amounts[code], factor=rate, unit_amount=base))
+        lines.append(line("PIT", -pit["pit"]))
+        if damage:
+            lines.append(line("DAMAGE", -damage))
+        lines.append(line("NET", net))
+        if settled:
+            lines.append(line("ADVANCE", -settled))
+        lines.append(line("TO_PAY", net - settled))
+        for code in ("ER_PENSION", "ER_SICKNESS", "ER_ACCIDENT", "ER_HI", "ER_UI", "UNION_FEE"):
+            if code in amounts:
+                rate, base = rates[code]
+                lines.append(line(code, amounts[code], factor=rate, unit_amount=base))
         return lines
 
     # ------------------------------------------------------------------ helpers
