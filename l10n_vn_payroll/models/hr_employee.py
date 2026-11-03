@@ -41,6 +41,12 @@ class HrEmployee(models.Model):
     )
     l10n_vn_resident = fields.Boolean(string="Tax Resident", default=True, groups=PAYROLL_GROUPS)
     l10n_vn_union_member = fields.Boolean(string="Union Member", groups=PAYROLL_GROUPS)
+    l10n_vn_personal_id = fields.Char(
+        string="Personal ID No. (CCCD)",
+        help="The 12-digit personal identification number on the citizen ID card. "
+        "From 1 July 2025 it also serves as the personal tax code.",
+        groups="hr.group_hr_user",
+    )
     l10n_vn_pit_commitment_year = fields.Integer(
         string="PIT Commitment Form Year", groups=PAYROLL_GROUPS
     )

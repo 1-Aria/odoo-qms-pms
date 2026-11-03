@@ -18,7 +18,7 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | 3.1 | Zero figures stored as 0, not NULL: `_l10n_vn_build` drops the cached figures before writing them (D29); `test_zero_figures_stored` | done | 2026-11-02: found in the May 2026 summaries of the test copy, 53 of 287 with `days_worked` NULL. One run: `-u`, `exit=0`, 71 tests, 0 failures; May reopened and rebuilt by Peter |
 | 4 | Calculation I: Vietnamese structures; the payslip's main contract, closed contracts included, rules run once; worked days from the monthly summary; the month's pieces, cut also at a probation clause's end; the pay context: pay line components with proration, probation rate, attainment and the attendance condition, entered, adjustment and IE lines, OT on the OT base, gross; the `l10n_vn_component` rule type with exact lines, one payslip line per context line; the snapshot; tests on the earnings of 19 acceptance cases | done | 2026-11-03, two runs. First: `-u`, 114 tests, 3 errors (C02, D07, G08): step 1's pay line check refused a line without `date_to` on a contract with an end date; fixed to read an empty `date_to` as the contract's end, with `test_open_line_on_ended_contract`. Second: `-u`, `exit=0`, 115 tests, 0 failures; UI checked by Peter: the structure flag, the rule's component, the payslip line columns. Trial on the test copy by hand: employee 441, May 2026, payslip 1819 = BASE 3,628,846, PROD 784,615, OT_WD 685,278, OT_RD 695,194, GROSS 5,793,933, as computed beforehand |
 | 5 | Calculation II: the month's scheduled days on the summary; SI liability by the 14-day rule; the SI base, floor and caps; employee and employer insurance by fund, union fee and dues; PIT, progressive with exemptions and flat; damage decisions with their allocations; net pay; the advance hook for `l10n_vn_payroll_account` with `ADVANCE` and `TO_PAY`; deductions shown negative; tests on the whole payslip of 42 acceptance cases | done | 2026-11-03, two runs. First: `-u`, 160 tests, 1 failure: `test_month_scheduled_days_built` assumed the test company works Monday–Friday, but a new company copies the current company's calendar (Monday–Saturday on the instance); the test now has its own calendar. Second: `-u`, `exit=0`, 160 tests, 0 failures; UI checked by Peter: *Damage Decisions*, *Scheduled days in the month* on the input; May 2026 summaries rebuilt (287, each 26 days in the month). Trial on the test copy (`payroll-trial/`), May 2026, employees 441, 391, 378: payslips 1996–1998, SI base 3,700,000, insurance 296,000 + 55,500 + 37,000, employer 518,000 + 111,000 + 18,500 + 111,000 + 37,000 + union fee 74,000, PIT 0; net 5,405,433, 4,071,292, 3,897,324, each checked by hand |
-| 6 | Checks: catalogue, levels from parameters, results | planned | |
+| 6 | Checks: the catalogue of 20 checks as data, levels from dated parameters per check and per component, results on the payslip with the reviewer's note, the payslip's worst level; the pay context's integrity stops become error results, so the other payslips of a batch still calculate; the probation job on the contract | done | 2026-11-04, three runs. First: `-u`, 184 tests, 1 failure: `test_missing_ids` found the tax code set on a new employee, because OCA's `hr_employee_id` fills `identification_id` with the employee number; the national ID got its own field, `l10n_vn_personal_id`, used as the tax code (D70). Second and third: `-u`, `exit=0`, 184 tests, 0 failures; between them, after Peter's UI check, the pay fields moved into OCA's *Payroll* tab (the form showed two) and the personal ID into *Private Information*. UI checked by Peter. Trial on the test copy, May 2026, employees 441, 391, 378: payslips 2377–2379 with the same amounts as in step 5; checks `missing_ids` (no personal ID or SI number) and `variable_constant` (`vn.policy.constant_months` not configured), both errors as expected |
 | 7 | Runs: states, segregation, the lock, corrections, off-cycle runs; payslip access for approvers and readers | planned | |
 | 8 | The bilingual payslip report | planned | |
 | 9 | Statutory statements and opening data | planned | |
@@ -49,6 +49,13 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | 20 | §16.1: `exempt_cap` lines up to their cap | the cap applies once per cap parameter, over all the lines that name it (step 5, D54) | A meal allowance and its correction share one monthly cap (Peter, 2026-11-03) |
 | 21 | §16.2: `deducted` = the sum of `DAMAGE` lines on done payslips | allocation records per decision and payslip (step 5, D55) | A payslip's one `DAMAGE` line cannot say how much it took from each of several decisions |
 | 22 | §12: the sign of deduction lines unstated | deductions negative, employer contributions positive (step 5, D51) | The test cases show deductions with a minus, and OCA's categories then add up to net pay |
+| 23 | §19.2: the catalogue | adds `calculation` (integrity): every stop of the pay context that no other code names — dates, contract, monthly input, participant type, region, scheduled days, OT without a component, a component without a rule, a missing engine component (step 6, D62) | Each stop needs a result to land on, and these are all data or configuration to put right before the payslip can be calculated |
+| 24 | §19.2: `probation_length` against the limit for the job | a field on the contract, `l10n_vn_probation_job`, gives the job's category; the length is checked only when it is set (step 6, D68) | Nothing on the instance classifies jobs by qualification (Labor Code Art. 25) |
+| 25 | §19.2: `ie_scope`, IE units for an employee outside IE scope | outside scope = pay group other than *Worker* (step 6, D66) | IE is not installed and the pay group is the only scope there is. TC-F06's "not paid unless confirmed" is the warning's note before review (step 7); the units are paid |
+| 26 | Requirements §7: a component without SI, OT, PIT or proration settings | no check: such a component cannot be saved (D3) | A run never meets one |
+| 27 | §19.2: `advance_limit` | the catalogue record ships here; its finder comes with `l10n_vn_payroll_account`, which approves advances | Advances are that module's |
+| 28 | §19, D44, D52: integrity stops raise an error that ends the calculation | recorded as error results; a stopped payslip keeps no lines and the batch goes on (step 6, D62) | TC-F12: the run cannot be calculated *for her*; the other employees must not wait |
+| 29 | §8.3 and PFG-13: the personal tax code in core's `identification_id` | a field for the national ID number, `hr.employee.l10n_vn_personal_id`, used as the tax code (step 6, D70) | On the instance OCA's `hr_employee_id` fills `identification_id` with the employee number (374 of 375 employees, values like `22` or `A00039`), so neither the tax code nor the national ID has a field; since 1 July 2025 the personal identification number is the tax code, so one field serves both (found by `test_missing_ids`; Peter, 2026-11-04) |
 
 ## Decisions
 
@@ -112,6 +119,18 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | D56 | **Damage compensation** (design §16.2, FR-31, divergence 21): decisions are `l10n_vn.payroll.damage` records; what a payslip takes from each is an `l10n_vn.payroll.damage.allocation`. Available per decision = its amount − its allocations on other payslips not cancelled. Deduction = round(min(the sum available over the employee's decisions dated on or before the month's last day, `vn.damage.cap` × (gross − employee insurance − PIT))), at least 0, allocated to decisions by date, oldest first. The payslip's allocations are rewritten at each calculation; a decision's `deducted` counts done payslips only |
 | D57 | **Net and advances** (FR-32, FR-71): net = gross − employee insurance − dues − PIT − damage − the entered deduction lines (D51). `hr.payslip._l10n_vn_advances()` returns the advances to settle, oldest first, as `{id, amount}` with the open amount; this module returns none and `l10n_vn_payroll_account` overrides it. Settled = min(their sum, max(net, 0)), allocated oldest first; `ADVANCE` = −settled when not 0; `TO_PAY` = net − settled |
 | D58 | **Engine lines** come from active components of the payslip's company with that `engine_code`, after `GROSS` in this order: `EE_SI`, `EE_HI`, `EE_UI`, `DUES`, `PIT` (always, 0 included, when a PIT component exists), `DAMAGE` (when not 0), `NET`, `ADVANCE`, `TO_PAY`, `ER_PENSION`, `ER_SICKNESS`, `ER_ACCIDENT`, `ER_HI`, `ER_UI`, `UNION_FEE`. Contribution lines exist only in a liable month for the funds that apply. An amount the context computes with no active component for its engine code stops the calculation, naming the code (*No active component with engine code %(code)s.*), so `PIT`, `NET` and `TO_PAY` components are needed by every Vietnamese structure's company |
+| D59 | **The catalogue** (design §19, PTD-11): `l10n_vn.payroll.check`, one data record per code with its kind, default level and whether levels can be set per component. Each code has a finder, `_l10n_vn_find_<code>(payslip, context)`, returning findings as `(component, message)` pairs (component empty when not per component). An archived check does not run. The integrity codes `calculation`, `missing_attainment` and `missing_segments` have no finder: their results come from the pay context's stops (D62) |
+| D60 | **A finding's level** (FR-59): `integrity` → `error`, always. Otherwise, on the payslip's last day in its company: the parameter `vn.check.<code>.<component code>` when the check is per component and the finding has one, else `vn.check.<code>`, else the check's `default_level`. Parameter values are `error`, `warning`, `note` or `off`; any other value is ignored and the next source used. `off` records nothing |
+| D61 | **When:** after every calculation of a Vietnamese payslip, all active checks run on its snapshot. The payslip's results are replaced at each calculation, and the snapshot gains `checks`, the list of results |
+| D62 | **Integrity stops become results** (divergence 28): the pay context raises `IntegrityStop(code, message)`, a `UserError`, for every stop (D44, D52, the date check): `missing_attainment`, `missing_segments`, else `calculation`; any other `UserError` while the payslip is prepared (a parameter that cannot be read) counts as `calculation`. `_l10n_vn_prepare` catches it for that payslip, records an `error` result of that code with the message, and clears the payslip's lines, snapshot and damage allocations. OCA's computation and the checks run only for the payslips that were not stopped; a stopped payslip keeps its state |
+| D63 | **A finder that fails** (a `UserError`, such as a policy parameter not configured) gives an `error` result of its check with the error's message; the other checks still run |
+| D64 | **The payslip's level:** `l10n_vn_check_level`, stored, is the worst of its results' levels (`error` > `warning` > `note`), empty when it has none |
+| D65 | **Notes:** a reviewer writes a result's `note` (FR-59); `noted_by` and `noted_at` are set when it is written. Step 7 requires a note on every `warning` before review and blocks review and approval while an `error` remains |
+| D66 | **The finders** (one finding each unless stated): `period_open` — the payslip's period has attendance open, or IE required and not closed; `negative_net` — net < 0; `missing_ids` — to pay > 0 and the employee lacks a bank account (`bank_account_id`), a personal ID number (`l10n_vn_personal_id`, D70) or an SI number (`ssnid`), all missing ones named; `unapproved_entry` — per input line in the snapshot's `unapproved`, with its component; `min_wage` — the main contract's participant floor is `min_wage`, and the last piece's pay lines with components `in_si_base` and not `per_day` sum above 0 and below the region's `vn.min_wage.month`; `daily_min` — per `per_day` pay line of the last piece below the region's `vn.min_wage.hour` × 8; `nature` — per component with lines on the payslip: `welfare` in the OT base, `fixed_allowance` outside the SI base, `variable_salary` not variable; `probation_length` — a probation piece whose contract has `l10n_vn_probation_job`, and a probation longer than `vn.probation.max_days` for it (calendar days; `other` in scheduled days of the contract's calendar), or `vn.policy.probation_rate` below `vn.probation.min_rate`; `deduction_kind` — per deduction component with a line whose `legal_nature` is not `statutory`, `union` or `damage` (FR-70); `ot_limit` — the summary's OT hours above `vn.ot.limit.month`, or with `ot_hours_ytd` above `vn.ot.limit.year`; `variable_constant` — per `variable` component paid at attainment ≥ 1, and per `attendance` condition component paid in full, this month and in each of the `vn.policy.constant_months` − 1 months before it (D67); `net_change` — the previous month's net (D67) above 0 and \|net − previous\| ÷ previous > `vn.policy.net_change`; `ie_scope` — IE units not 0 and the employee's pay group not `worker`; `level_review` — per pay line of the last piece with a `review_date` on or before the month's last day; `dependent_document` — per PIT dependent counted in the month without `l10n_vn_document`; `advance_carried` — the snapshot's advances add up to more than the amount settled |
+| D67 | **Earlier months** are read from the employee's payslips in the same company and state `done`, by `date_from`, from their snapshots: a component's line with attainment ≥ 1 (variable) or `condition` true (conditional); `net` |
+| D68 | **The probation job** (divergence 24): `hr.contract.l10n_vn_probation_job`, the keys of `vn.probation.max_days`: `manager`, `college`, `vocational`, `other` |
+| D69 | **Context additions for the checks:** a pay line line of a component with `condition = attendance` carries `condition` (true when paid); `pay_lines` entries carry `component_id` and `review_date` |
+| D70 | **The personal ID number** (divergence 29): `hr.employee.l10n_vn_personal_id`, *Personal ID No. (CCCD)*, the 12-digit personal identification number; in *Private Information → Citizenship* after the passport number, readable by HR users (`hr.group_hr_user`), as personal data rather than pay data. Payroll uses it as the personal tax code. `identification_id` stays the employee number `hr_employee_id` gives it. A foreign employee's separate tax code waits until one is hired |
 
 ## Folder structure
 
@@ -135,11 +154,13 @@ l10n_vn_payroll/
 │   ├── hr_salary_rule.py                            # 4
 │   ├── hr_payslip_line.py                           # 4
 │   ├── hr_payslip.py                                # 4, 5
-│   ├── pay_context.py                               # 4, 5
-│   └── l10n_vn_payroll_damage.py                    # 5
+│   ├── pay_context.py                               # 4, 5, 6
+│   ├── l10n_vn_payroll_damage.py                    # 5
+│   └── l10n_vn_payroll_check.py                     # 6
 ├── data/
 │   ├── l10n_vn_payroll_parameters.xml
-│   └── l10n_vn_payroll_participant_types.xml        # 2
+│   ├── l10n_vn_payroll_participant_types.xml        # 2
+│   └── l10n_vn_payroll_checks.xml                   # 6
 ├── security/
 │   ├── l10n_vn_payroll_security.xml
 │   └── ir.model.access.csv
@@ -157,6 +178,7 @@ l10n_vn_payroll/
 │   ├── hr_salary_rule_views.xml                     # 4
 │   ├── hr_payslip_views.xml                         # 4
 │   ├── l10n_vn_payroll_damage_views.xml             # 5
+│   ├── l10n_vn_payroll_check_views.xml              # 6
 │   └── menus.xml
 ├── tests/
 │   ├── __init__.py, common.py
@@ -179,6 +201,7 @@ l10n_vn_payroll/
 │   ├── test_contributions.py                        # 5
 │   ├── test_pit.py                                  # 5
 │   ├── test_damage.py                               # 5
+│   ├── test_checks.py                               # 6
 │   └── data/
 │       └── acceptance_cases.json                    # 4 (as acceptance_earnings.json), 5
 └── readme/
@@ -201,7 +224,7 @@ Files of later steps are added to this tree with their step.
 | `category` | `Human Resources/Payroll` |
 | `countries` | `["vn"]` |
 | `depends` | `payroll`, `base_time_parameter_strict` (step 1); `hr_employee_relative` (step 2) |
-| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/l10n_vn_payroll_period_views.xml` (3), `views/l10n_vn_payroll_input_views.xml` (3), `views/hr_leave_type_views.xml` (3), `views/hr_payroll_structure_views.xml`, `views/hr_salary_rule_views.xml`, `views/hr_payslip_views.xml` (4), `views/l10n_vn_payroll_damage_views.xml` (5), `views/menus.xml` |
+| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `data/l10n_vn_payroll_checks.xml` (6), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/l10n_vn_payroll_period_views.xml` (3), `views/l10n_vn_payroll_input_views.xml` (3), `views/hr_leave_type_views.xml` (3), `views/hr_payroll_structure_views.xml`, `views/hr_salary_rule_views.xml`, `views/hr_payslip_views.xml` (4), `views/l10n_vn_payroll_damage_views.xml` (5), `views/l10n_vn_payroll_check_views.xml` (6), `views/menus.xml` |
 | `installable` | `True` |
 
 The security file loads first: the access file names its groups.
@@ -211,8 +234,8 @@ The security file loads first: the access file names its groups.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company`, `from . import l10n_vn_payroll_participant_type` (2), `from . import hr_employee` (2), `from . import hr_employee_relative` (2), `from . import l10n_vn_payroll_period`, `from . import l10n_vn_payroll_input`, `from . import hr_leave_type` (3), `from . import hr_payroll_structure`, `from . import hr_salary_rule`, `from . import hr_payslip_line`, `from . import hr_payslip` (4), `from . import l10n_vn_payroll_damage` (5). `pay_context.py` holds no model and is imported by `hr_payslip.py` |
-| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security`, `from . import test_participant_type`, `from . import test_contract_profile`, `from . import test_employee_payroll`, `from . import test_pit_method` (2), `from . import test_input_build`, `from . import test_input_workflow` (3), `from . import test_payslip_contract`, `from . import test_pay_context` (4), `from . import test_acceptance` (4, renamed in 5), `from . import test_contributions`, `from . import test_pit`, `from . import test_damage` (5) |
+| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company`, `from . import l10n_vn_payroll_participant_type` (2), `from . import hr_employee` (2), `from . import hr_employee_relative` (2), `from . import l10n_vn_payroll_period`, `from . import l10n_vn_payroll_input`, `from . import hr_leave_type` (3), `from . import hr_payroll_structure`, `from . import hr_salary_rule`, `from . import hr_payslip_line`, `from . import hr_payslip` (4), `from . import l10n_vn_payroll_damage` (5), `from . import l10n_vn_payroll_check` (6). `pay_context.py` holds no model and is imported by `hr_payslip.py` |
+| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security`, `from . import test_participant_type`, `from . import test_contract_profile`, `from . import test_employee_payroll`, `from . import test_pit_method` (2), `from . import test_input_build`, `from . import test_input_workflow` (3), `from . import test_payslip_contract`, `from . import test_pay_context` (4), `from . import test_acceptance` (4, renamed in 5), `from . import test_contributions`, `from . import test_pit`, `from . import test_damage` (5), `from . import test_checks` (6) |
 
 ## Groups and rules — `security/l10n_vn_payroll_security.xml`
 
@@ -231,6 +254,7 @@ The security file loads first: the access file names its groups.
 | `rule_contract_line_company` | `ir.rule` | `l10n_vn.payroll.contract.line`; global; the same |
 | `rule_period_company`, `rule_input_company`, `rule_input_segment_company`, `rule_input_line_company` (3) | `ir.rule` | the step 3 models; global; the same |
 | `rule_damage_company`, `rule_damage_allocation_company` (5) | `ir.rule` | the step 5 models; global; the same |
+| `rule_check_result_company` (6) | `ir.rule` | `l10n_vn.payroll.check.result`; global; the same |
 
 ## Access — `security/ir.model.access.csv`
 
@@ -268,8 +292,15 @@ The security file loads first: the access file names its groups.
 | `access_damage_approver` (5) | `model_l10n_vn_payroll_damage` | `group_payroll_approver` | 1 | 0 | 0 | 0 |
 | `access_damage_allocation_user` (5) | `model_l10n_vn_payroll_damage_allocation` | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
 | `access_damage_allocation_reader` (5) | `model_l10n_vn_payroll_damage_allocation` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_check_user` (6) | `model_l10n_vn_payroll_check` | `payroll.group_payroll_user` | 1 | 0 | 0 | 0 |
+| `access_check_reader` (6) | `model_l10n_vn_payroll_check` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_check_approver` (6) | `model_l10n_vn_payroll_check` | `group_payroll_approver` | 1 | 0 | 0 | 0 |
+| `access_check_result_user` (6) | `model_l10n_vn_payroll_check_result` | `payroll.group_payroll_user` | 1 | 0 | 0 | 0 |
+| `access_check_result_reviewer` (6) | `model_l10n_vn_payroll_check_result` | `group_payroll_reviewer` | 1 | 1 | 0 | 0 |
+| `access_check_result_reader` (6) | `model_l10n_vn_payroll_check_result` | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_check_result_approver` (6) | `model_l10n_vn_payroll_check_result` | `group_payroll_approver` | 1 | 0 | 0 | 0 |
 
-Approvers approve through `action_approve`, which writes as superuser after checking the group (D28).
+Approvers approve through `action_approve`, which writes as superuser after checking the group (D28). Check results are created and deleted by the calculation as superuser (step 6); reviewers write their notes.
 
 The reviewer and the manager reach these through the officer group they imply.
 
@@ -837,6 +868,89 @@ SQL: `amount_positive`: `CHECK(amount > 0)`.
 | `advances` | per advance `{id, amount, settled}` |
 | `employee_insurance`, `dues`, `net`, `settled`, `to_pay` | positive figures |
 
+### `l10n_vn.payroll.check`, `.check.result` — `models/l10n_vn_payroll_check.py` (step 6)
+
+**`l10n_vn.payroll.check`** — `_description = "Payroll Check"`, `_order = "sequence, code"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `code` | Char | required |
+| `name` | Char | required, `translate=True` |
+| `sequence` | Integer | default 10 |
+| `active` | Boolean | default True |
+| `kind` | Selection | required: `integrity` *Integrity*, `legal` *Legal*, `policy` *Policy* |
+| `default_level` | Selection | required: `error` *Error*, `warning` *Warning*, `note` *Note*, `off` *Off* (`LEVELS`, a module constant) |
+| `per_component` | Boolean | string *Level per component* |
+| `description` | Text | `translate=True` |
+
+SQL: `code_unique`: `unique(code)`.
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_level(payslip, component)` | D60. Reads the parameters with `base.time.parameter._strict_get(code, payslip.date_to, company=payslip.company_id)`, a `UserError` meaning *not set*; returns one of `LEVELS` |
+| `_l10n_vn_find_<code>(payslip, context)` | one per code with a finder (D66), on a single check; returns a list of `(component, message)`, `component` a `l10n_vn.payroll.component` record or an empty one. Policy parameters are read through `_strict_get` on the payslip's last day; earlier months through `_l10n_vn_earlier(payslip, months)` |
+| `_l10n_vn_earlier(payslip, months)` | D67: a dict from the first day of each of the `months` months before the payslip's to the snapshot of the employee's latest `done` payslip in the payslip's company for that month, as superuser |
+
+**`l10n_vn.payroll.check.result`** — `_description = "Payroll Check Result"`, `_order = "payslip_id, level_order, check_id"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `payslip_id` | Many2one `hr.payslip` | required, `ondelete="cascade"`, index |
+| `run_id` | Many2one `hr.payslip.run` | related `payslip_id.payslip_run_id`, stored |
+| `employee_id` | Many2one | related `payslip_id.employee_id`, stored |
+| `company_id` | Many2one | related `payslip_id.company_id`, stored |
+| `check_id` | Many2one `l10n_vn.payroll.check` | required, `ondelete="restrict"` |
+| `kind` | Selection | related `check_id.kind` |
+| `component_id` | Many2one `l10n_vn.payroll.component` | `ondelete="set null"` |
+| `level` | Selection | required, `LEVELS` without `off` |
+| `level_order` | Integer | stored compute: `error` 1, `warning` 2, `note` 3 |
+| `message` | Char | required |
+| `note` | Text | string *Reviewer's note* |
+| `noted_by` | Many2one `res.users` | readonly |
+| `noted_at` | Datetime | readonly |
+
+| Method | Behaviour |
+|---|---|
+| `write` | when `note` is written, also sets `noted_by` (the user) and `noted_at` (now) (D65) |
+
+### `hr.employee` addition (step 6)
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_personal_id` | Char | string *Personal ID No. (CCCD)*, help *The 12-digit personal identification number on the citizen ID card. From 1 July 2025 it also serves as the personal tax code.*, `groups="hr.group_hr_user"` (D70) |
+
+`views/hr_employee_views.xml`: `l10n_vn_personal_id` after core's `passport_id` (*Private Information → Citizenship*).
+
+### `hr.contract` addition (step 6)
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_probation_job` | Selection | string *Probation Job Category*: `manager` *Enterprise manager*, `college` *College degree or above*, `vocational` *Vocational qualification*, `other` *Other work*; payroll groups (D68) |
+
+### `hr.payslip` additions (step 6)
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_check_result_ids` | One2many `l10n_vn.payroll.check.result` | `payslip_id`, string *Checks* |
+| `l10n_vn_check_level` | Selection | string *Check Level*, stored compute from `l10n_vn_check_result_ids.level`: the worst, empty when none (D64) |
+
+| Method | Behaviour |
+|---|---|
+| `compute_sheet()` | `vn` = the Vietnamese payslips; `stopped = vn._l10n_vn_prepare()`; `super()` on `self - stopped`; then `(vn - stopped)._l10n_vn_run_checks()` |
+| `_l10n_vn_prepare()` | finds the summaries and builds the `PayContext` as in steps 4–5; per payslip: deletes its check results (as superuser), then `_l10n_vn_prepare_one(builder, by_key)`; an `IntegrityStop` gives `_l10n_vn_record_stop(stop.code, message)`, any other `UserError` `_l10n_vn_record_stop("calculation", message)`. Returns the stopped payslips (D62) |
+| `_l10n_vn_prepare_one(builder, by_key)` | one payslip, as `_l10n_vn_prepare` did in steps 4–5: the date check, the main contract, the summary, `builder.build`, the writes, `_l10n_vn_check_rules`, the damage allocations; its stops raise `IntegrityStop("calculation", …)` |
+| `_l10n_vn_record_stop(code, message)` | creates, as superuser, an `error` result of the check `code` (archived included) with the message; unlinks the payslip's `line_ids` and `l10n_vn_damage_allocation_ids`; writes `l10n_vn_context` False |
+| `_l10n_vn_run_checks()` | per payslip, for each active check with a finder method (D59): its findings, or one `error` finding with the message of a `UserError` it raised (D63); each finding's level by `_l10n_vn_level` (D60), `off` dropped; results created as superuser; the snapshot rewritten with `checks` = `[{code, component, level, message}]` (D61) |
+
+### Pay context changes (step 6)
+
+| Item | Change |
+|---|---|
+| `IntegrityStop(UserError)` | a new exception in `pay_context.py`: `IntegrityStop(code, message)`; `code` an attribute |
+| Stops | every `UserError` the builder raises becomes an `IntegrityStop`: `missing_segments` for the segments, `missing_attainment` for attainment, `calculation` for the rest; `hr.payslip`'s own stops (no contract, no monthly input, no rule for a component) too |
+| `_pay_line_lines` | a line of a component with `condition = attendance` carries `condition`: True when paid, False when zeroed (D69) |
+| `pay_lines` | each entry also carries `component_id` and `review_date` (ISO or null) (D69) |
+
 ### `res.company` — `models/res_company.py`
 
 `_inherit = "res.company"`.
@@ -898,6 +1012,33 @@ SQL: `amount_positive`: `CHECK(amount > 0)`.
 
 `MANAGER`'s `note`: *Funds and floor to confirm with the SI office (Regulation Reference v0.2).*
 
+## Data — `data/l10n_vn_payroll_checks.xml` (step 6)
+
+Not `noupdate`: the catalogue follows the code (D59). XML ids `check_<code>`; sequence in this order, by 10.
+
+| Code | Name | Kind | Default | Per component |
+|---|---|---|---|---|
+| `period_open` | Attendance or IE period not closed | integrity | error | |
+| `calculation` | Payslip cannot be calculated | integrity | error | |
+| `missing_attainment` | Attainment or score missing | integrity | error | |
+| `missing_segments` | Segments missing for a split month | integrity | error | |
+| `unapproved_entry` | Entered amount without an approver | integrity | error | |
+| `negative_net` | Negative net pay | integrity | error | |
+| `missing_ids` | Bank account, personal ID or SI number missing | integrity | error | |
+| `min_wage` | Salary below the regional minimum wage | legal | error | |
+| `daily_min` | Daily rate below the hourly minimum | legal | error | |
+| `nature` | Component flags inconsistent with its legal nature | legal | warning | yes |
+| `probation_length` | Probation longer than the legal limit, or rate below the minimum | legal | warning | |
+| `deduction_kind` | Deduction of a kind the law does not allow | legal | warning | yes |
+| `ot_limit` | Overtime above the monthly or yearly limit | legal | warning | |
+| `variable_constant` | Variable pay unchanged at 100% for months | policy | warning | yes |
+| `net_change` | Net pay changed sharply from last month | policy | warning | |
+| `ie_scope` | IE units for an employee outside IE scope | policy | warning | |
+| `level_review` | Level past its review date | policy | warning | yes |
+| `dependent_document` | Dependent without registration document | policy | warning | |
+| `advance_limit` | Advance above the limit | policy | warning | |
+| `advance_carried` | Advance larger than net pay, carried forward | policy | warning | |
+
 ## Views
 
 ### `views/l10n_vn_payroll_component_views.xml`
@@ -940,7 +1081,7 @@ In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, 
 
 | XML id | Inherits | Content |
 |---|---|---|
-| `hr_employee_view_form_l10n_vn_payroll` | `hr.view_employee_form` | inside `//notebook`, a page *Payroll* (`name="l10n_vn_payroll"`, `groups="payroll.group_payroll_user"`) with `l10n_vn_pay_group`, `l10n_vn_attendance_mode`, `l10n_vn_region`, `l10n_vn_resident`, `l10n_vn_union_member`, `l10n_vn_pit_commitment_year` |
+| `hr_employee_view_form_l10n_vn_payroll` | `payroll.hr_employee_view_form` | inside OCA's *Payroll* page (`payroll_settings`, payroll officers), a group `l10n_vn_payroll` with *Pay Profile* (`l10n_vn_pay_group`, `l10n_vn_attendance_mode`, `l10n_vn_region`) and *Tax and Union* (`l10n_vn_resident`, `l10n_vn_union_member`, `l10n_vn_pit_commitment_year`); a page of its own until step 6, when the employee form showed two *Payroll* tabs (Peter, 2026-11-04) |
 
 ### `views/hr_employee_relative_views.xml` (step 2)
 
@@ -973,7 +1114,7 @@ In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, 
 
 ### `views/hr_employee_views.xml` addition (step 3)
 
-`l10n_vn_nursing_break` in the *Payroll* page, after `l10n_vn_union_member`.
+`l10n_vn_nursing_break` in *Tax and Union*, after `l10n_vn_union_member`.
 
 ### `views/hr_payroll_structure_views.xml` (step 4)
 
@@ -1008,6 +1149,20 @@ In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, 
 
 `month_scheduled_days` in the form's *Days* group, after `scheduled_days`, read-only unless `figures_locked`.
 
+### `views/l10n_vn_payroll_check_views.xml` (step 6)
+
+| XML id | Type | Content |
+|---|---|---|
+| `l10n_vn_payroll_check_view_list` | list | `sequence` (handle), `code`, `name`, `kind`, `default_level`, `per_component`, `active` (hidden) |
+| `l10n_vn_payroll_check_view_form` | form | `code`, `name`, `kind`, `default_level`, `per_component`, `active`; `description`; a line of help: *The level comes from the time parameter vn.check.<code>, or vn.check.<code>.<component code> for a component.* |
+| `l10n_vn_payroll_check_action` | action | *Payroll Checks*, list, form |
+| `l10n_vn_payroll_check_result_view_list` | list | `payslip_id`, `employee_id`, `check_id`, `component_id`, `level` (decorated: danger for error, warning for warning), `message`, `note`, `noted_by` |
+| `l10n_vn_payroll_check_result_view_search` | search | `employee_id`, `check_id`; filters *Errors*, *Warnings*, *Without note* (`note = False`); group by `check_id`, `level` |
+| `l10n_vn_payroll_check_result_action` | action | *Check Results*, list, default filter *Errors* or *Warnings* |
+| `hr_payslip_view_form_l10n_vn_checks` | inherits `payroll.hr_payslip_view_form` | after the page `computation`, a page *Checks* (`name="l10n_vn_checks"`, visible when `l10n_vn_check_result_ids`) with `l10n_vn_check_result_ids`: `level` (decorated), `check_id`, `component_id`, `message`, `note` (editable for `l10n_vn_payroll.group_payroll_reviewer`, read-only otherwise), `noted_by`; `l10n_vn_check_level` after `l10n_vn_input_id`, invisible when empty |
+| `hr_payslip_view_tree_l10n_vn_checks` | inherits `payroll.hr_payslip_view_tree` | `l10n_vn_check_level`, optional shown, decorated |
+| `hr_contract_view_form_l10n_vn_probation_job` | inherits `hr_contract_view_form_l10n_vn_payroll` | `l10n_vn_probation_job` after `l10n_vn_probation_form`, visible when it is not `none` |
+
 ### `views/menus.xml`
 
 Under `payroll.payroll_menu_configuration` (*Payroll → Configuration*, payroll managers):
@@ -1018,6 +1173,7 @@ Under `payroll.payroll_menu_configuration` (*Payroll → Configuration*, payroll
 | `menu_l10n_vn_payroll_scale` | Pay Scales | `l10n_vn_payroll_scale_action` | 31 |
 | `menu_l10n_vn_payroll_parameter` | Time Parameters | `base_time_parameter.base_time_parameter_action` | 32 |
 | `menu_l10n_vn_payroll_participant_type` (2) | Participant Types | `l10n_vn_payroll_participant_type_action` | 33 |
+| `menu_l10n_vn_payroll_check` (6) | Payroll Checks | `l10n_vn_payroll_check_action` | 34 |
 
 Under `payroll.payroll_menu_root` (step 3):
 
@@ -1027,6 +1183,7 @@ Under `payroll.payroll_menu_root` (step 3):
 | `menu_l10n_vn_payroll_period` | Payroll Periods | `l10n_vn_payroll_period_action` | 1 | the same |
 | `menu_l10n_vn_payroll_input` | Monthly Inputs | `l10n_vn_payroll_input_action` | 2 | the same |
 | `menu_l10n_vn_payroll_damage` (5) | Damage Decisions | `l10n_vn_payroll_damage_action` | 3 | the same |
+| `menu_l10n_vn_payroll_check_result` (6) | Check Results | `l10n_vn_payroll_check_result_action` | 4 | the same |
 
 ## Tests
 
@@ -1333,9 +1490,56 @@ Not run: B04 (night hours are not computed, divergence 11), B05 (blocked on late
 | `test_cannot_delete_deducted` | a decision with a `done` allocation: `unlink` raises `UserError` |
 | `test_access` | an officer creates a decision (positive control); a reader's `create` raises `AccessError` |
 
+### Step 6 changes to the earlier tests
+
+**`PayslipCase` additions:** parameters `vn.policy.constant_months` 6 and `vn.policy.net_change` 0.30 (float); helpers `_results(payslip, code)` (the payslip's results of that check code), `_stopped(payslip, code, text)` (asserts one `error` result of `code` whose message contains `text`, no line and no snapshot), `_identify(employee)` (a bank account on the employee's work contact as `bank_account_id`, `l10n_vn_personal_id` and `ssnid`), `_parameter_text(code, value)` (a string parameter from 2026-01-01).
+
+The tests that expected the calculation to raise now assert the stop's result with `_stopped` (D62):
+
+| File | Test | Now asserts |
+|---|---|---|
+| `test_payslip_contract.py` | `test_month_only` | `calculation`, *calendar month*; the payslip stays in draft |
+| | `test_no_input` | `calculation`, the employee's name |
+| `test_pay_context.py` | `test_missing_segments` | `missing_segments`, the two pieces' dates |
+| | `test_missing_attainment` | `missing_attainment`; then, with source and attainment 0, a `PROD` line of 0 |
+| | `test_ot_without_component` | `calculation`, `HOL` |
+| | `test_component_without_rule` | `calculation`, `TEST_EXTRA` |
+| `test_contributions.py` | `test_no_participant_type`, `test_no_region`, `test_month_days_missing`, `test_missing_engine_component` | `calculation`, with *participant type*, *region*, *rebuild*, `NET` |
+
+### `tests/test_checks.py` — `TestChecks(PayslipCase)` (step 6)
+
+Employees get their identifiers with `_identify` unless the test is about them, so `missing_ids` stays out of the way.
+
+| Test | Asserts |
+|---|---|
+| `test_level_default` | `TRAVEL` flagged in the OT base, on a contract: a `nature` `warning` with component `TRAVEL` |
+| `test_level_parameter` | the same with `vn.check.nature` = `note`: a `note` |
+| `test_level_per_component` | `vn.check.nature` = `error` and `vn.check.nature.TEST_TRAVEL` = `off`: no `nature` result |
+| `test_bad_level_value` | `vn.check.nature` = `maybe`: the default, `warning` |
+| `test_integrity_ignores_level` | `vn.check.negative_net` = `off` and an entered deduction of 6,000,000 on `SAL` 4,500,000: `negative_net` `error` (TC-F03) |
+| `test_period_open` | the period's attendance open: `period_open` `error` naming the period; closed: none (TC-F01) |
+| `test_stop_keeps_batch` | two employees with `PROD`, one summary without attainment source, both computed in one `compute_sheet`: the first stopped (`missing_attainment`, draft, no line), the second computed (`verify`, a `NET` line) (TC-F12) |
+| `test_unapproved_entry` | an unapproved `ONE` line: `unapproved_entry` `error` with component `ONE` (TC-F13) |
+| `test_missing_ids` | an employee without identifiers: `missing_ids` naming the bank account, personal ID number and SI number; after `_identify`: none (TC-F04) |
+| `test_min_wage` | `SAL` 3,500,000: `min_wage` `error`; with `vn.check.min_wage` = `warning`: `warning` (TC-F02, TC-F09) |
+| `test_daily_min` | `DAILY` 100,000 (below 17,800 × 8): `daily_min` `error` |
+| `test_probation_length` | a clause from 2026-10-01 to 2026-10-14: job `vocational` (30 days) none; `other` (6 scheduled days; the calendar gives 12) a `warning`; `vn.policy.probation_rate` 0.80 a `warning` for the rate |
+| `test_deduction_kind` | an entered deduction component of nature `adjustment` with a line: `deduction_kind` `warning` with that component (TC-F14) |
+| `test_ot_limit` | `WD` 36 and `RD` 16: `ot_limit` `warning`; `WD` 20 with `ot_hours_ytd` 290: `warning` (TC-F05) |
+| `test_variable_constant` | `PROD` at attainment 1 and done payslips for the five months before, their snapshots holding a `PROD` line at attainment 1: `variable_constant` `warning` with component `PROD`; a `PERF` employee likewise with `vn.check.variable_constant.TEST_PERF` = `note`: `note` (TC-F11, TC-F15); one earlier month at 0.9: none |
+| `test_net_change` | `SAL` 4,500,000 gives an October net of 4,027,500 (less 472,500 insurance, no PIT); a done September payslip whose snapshot has net 3,000,000 (a change of 34%): `net_change` `warning`; net 4,000,000: none |
+| `test_ie_scope` | IE units 100 for an employee of pay group `office`: `ie_scope` `warning`; `worker`: none (TC-F06) |
+| `test_level_review` | a `PROD` pay line with `review_date` 2026-10-15: `level_review` `warning` with component `PROD` |
+| `test_dependent_document` | a PIT dependent counted in October without document: `dependent_document` `warning`; with a document: none |
+| `test_finder_error` | `vn.policy.constant_months` deleted, `PROD` at attainment 1: a `variable_constant` `error` naming the parameter; the other checks still ran |
+| `test_note_by_reviewer` | a reviewer writes a result's note: `noted_by` is the reviewer; an officer reads the result (positive control) and gets `AccessError` writing the note |
+| `test_results_replaced` | two calculations: no duplicate result; the cause put right and recalculated: the result is gone |
+| `test_payslip_level` | a `warning` and a `note`: `l10n_vn_check_level` `warning`; no result: empty |
+| `test_snapshot_checks` | the snapshot's `checks` lists each result's code, level and message |
+
 ## Readme
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 5 adds the rest of the payslip: social, health and unemployment insurance by fund with the 14-day rule, the union fee and dues, PIT (progressive with OT and capped exemptions, or flat), damage compensation decisions deducted within the legal cap, net pay and the amount to pay after advances; step 4 adds the calculation of earnings: the pay context computed per payslip from pay lines, the monthly input and parameters, with probation, attainment and OT, shown as exact payslip lines through the *Pay Component* rule type, and kept as a snapshot; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
-| `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month); step 4: a structure marked *Vietnamese Pay Context* with one *Pay Component* rule per component; a payslip of such a structure covers one month, takes the latest contract of the month, reads the month's input, and shows one line per pay line and piece, with dates, days, hours and rates in the optional columns; step 5: the structure also needs the engine components (insurance, dues, PIT, damage, net, to pay, employer funds); contracts need a participant type and employees a region; *Monthly Inputs → Damage Decisions* records work-rules decisions, deducted oldest first within the 30% cap |
+| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 6 adds the checks: integrity, legal and policy checks on every payslip, with levels set by dated parameters per check and per component, results the reviewer annotates, and stops that no longer halt a batch; step 5 adds the rest of the payslip: social, health and unemployment insurance by fund with the 14-day rule, the union fee and dues, PIT (progressive with OT and capped exemptions, or flat), damage compensation decisions deducted within the legal cap, net pay and the amount to pay after advances; step 4 adds the calculation of earnings: the pay context computed per payslip from pay lines, the monthly input and parameters, with probation, attainment and OT, shown as exact payslip lines through the *Pay Component* rule type, and kept as a snapshot; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
+| `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month); step 4: a structure marked *Vietnamese Pay Context* with one *Pay Component* rule per component; a payslip of such a structure covers one month, takes the latest contract of the month, reads the month's input, and shows one line per pay line and piece, with dates, days, hours and rates in the optional columns; step 5: the structure also needs the engine components (insurance, dues, PIT, damage, net, to pay, employer funds); contracts need a participant type and employees a region; *Monthly Inputs → Damage Decisions* records work-rules decisions, deducted oldest first within the 30% cap; step 6: *Payroll → Configuration → Payroll Checks* lists the checks; a check's level is the time parameter `vn.check.<code>` (or `vn.check.<code>.<component code>`) with the value error, warning, note or off; the payslip's *Checks* page and *Monthly Inputs → Check Results* show the results, and reviewers write their notes there; the contract's probation job category |

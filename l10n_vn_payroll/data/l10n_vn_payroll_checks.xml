@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="check_period_open" model="l10n_vn.payroll.check">
+        <field name="code">period_open</field>
+        <field name="name">Attendance or IE period not closed</field>
+        <field name="sequence">10</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_calculation" model="l10n_vn.payroll.check">
+        <field name="code">calculation</field>
+        <field name="name">Payslip cannot be calculated</field>
+        <field name="sequence">20</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_missing_attainment" model="l10n_vn.payroll.check">
+        <field name="code">missing_attainment</field>
+        <field name="name">Attainment or score missing</field>
+        <field name="sequence">30</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_missing_segments" model="l10n_vn.payroll.check">
+        <field name="code">missing_segments</field>
+        <field name="name">Segments missing for a split month</field>
+        <field name="sequence">40</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_unapproved_entry" model="l10n_vn.payroll.check">
+        <field name="code">unapproved_entry</field>
+        <field name="name">Entered amount without an approver</field>
+        <field name="sequence">50</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_negative_net" model="l10n_vn.payroll.check">
+        <field name="code">negative_net</field>
+        <field name="name">Negative net pay</field>
+        <field name="sequence">60</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_missing_ids" model="l10n_vn.payroll.check">
+        <field name="code">missing_ids</field>
+        <field name="name">Bank account, personal ID or SI number missing</field>
+        <field name="sequence">70</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_min_wage" model="l10n_vn.payroll.check">
+        <field name="code">min_wage</field>
+        <field name="name">Salary below the regional minimum wage</field>
+        <field name="sequence">80</field>
+        <field name="kind">legal</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_daily_min" model="l10n_vn.payroll.check">
+        <field name="code">daily_min</field>
+        <field name="name">Daily rate below the hourly minimum</field>
+        <field name="sequence">90</field>
+        <field name="kind">legal</field>
+        <field name="default_level">error</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_nature" model="l10n_vn.payroll.check">
+        <field name="code">nature</field>
+        <field name="name">Component flags inconsistent with its legal nature</field>
+        <field name="sequence">100</field>
+        <field name="kind">legal</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="True" />
+    </record>
+    <record id="check_probation_length" model="l10n_vn.payroll.check">
+        <field name="code">probation_length</field>
+        <field name="name">Probation longer than the legal limit, or rate below the minimum</field>
+        <field name="sequence">110</field>
+        <field name="kind">legal</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_deduction_kind" model="l10n_vn.payroll.check">
+        <field name="code">deduction_kind</field>
+        <field name="name">Deduction of a kind the law does not allow</field>
+        <field name="sequence">120</field>
+        <field name="kind">legal</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="True" />
+    </record>
+    <record id="check_ot_limit" model="l10n_vn.payroll.check">
+        <field name="code">ot_limit</field>
+        <field name="name">Overtime above the monthly or yearly limit</field>
+        <field name="sequence">130</field>
+        <field name="kind">legal</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_variable_constant" model="l10n_vn.payroll.check">
+        <field name="code">variable_constant</field>
+        <field name="name">Variable pay unchanged at 100% for months</field>
+        <field name="sequence">140</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="True" />
+    </record>
+    <record id="check_net_change" model="l10n_vn.payroll.check">
+        <field name="code">net_change</field>
+        <field name="name">Net pay changed sharply from last month</field>
+        <field name="sequence">150</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_ie_scope" model="l10n_vn.payroll.check">
+        <field name="code">ie_scope</field>
+        <field name="name">IE units for an employee outside IE scope</field>
+        <field name="sequence">160</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_level_review" model="l10n_vn.payroll.check">
+        <field name="code">level_review</field>
+        <field name="name">Level past its review date</field>
+        <field name="sequence">170</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="True" />
+    </record>
+    <record id="check_dependent_document" model="l10n_vn.payroll.check">
+        <field name="code">dependent_document</field>
+        <field name="name">Dependent without registration document</field>
+        <field name="sequence">180</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_advance_limit" model="l10n_vn.payroll.check">
+        <field name="code">advance_limit</field>
+        <field name="name">Advance above the limit</field>
+        <field name="sequence">190</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_advance_carried" model="l10n_vn.payroll.check">
+        <field name="code">advance_carried</field>
+        <field name="name">Advance larger than net pay, carried forward</field>
+        <field name="sequence">200</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+</odoo>

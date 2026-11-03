@@ -3,24 +3,25 @@
     <record id="hr_employee_view_form_l10n_vn_payroll" model="ir.ui.view">
         <field name="name">hr.employee.form.l10n_vn_payroll</field>
         <field name="model">hr.employee</field>
-        <field name="inherit_id" ref="hr.view_employee_form" />
+        <field name="inherit_id" ref="payroll.hr_employee_view_form" />
         <field name="arch" type="xml">
-            <xpath expr="//notebook" position="inside">
-                <page string="Payroll" name="l10n_vn_payroll" groups="payroll.group_payroll_user">
-                    <group>
-                        <group>
-                            <field name="l10n_vn_pay_group" />
-                            <field name="l10n_vn_attendance_mode" />
-                            <field name="l10n_vn_region" />
-                        </group>
-                        <group>
-                            <field name="l10n_vn_resident" />
-                            <field name="l10n_vn_union_member" />
-                            <field name="l10n_vn_nursing_break" />
-                            <field name="l10n_vn_pit_commitment_year" options="{'format': false}" />
-                        </group>
+            <xpath expr="//page[@name='payroll_settings']" position="inside">
+                <group name="l10n_vn_payroll">
+                    <group string="Pay Profile">
+                        <field name="l10n_vn_pay_group" />
+                        <field name="l10n_vn_attendance_mode" />
+                        <field name="l10n_vn_region" />
                     </group>
-                </page>
+                    <group string="Tax and Union">
+                        <field name="l10n_vn_resident" />
+                        <field name="l10n_vn_union_member" />
+                        <field name="l10n_vn_nursing_break" />
+                        <field name="l10n_vn_pit_commitment_year" options="{'format': false}" />
+                    </group>
+                </group>
+            </xpath>
+            <xpath expr="//field[@name='passport_id']" position="after">
+                <field name="l10n_vn_personal_id" />
             </xpath>
         </field>
     </record>

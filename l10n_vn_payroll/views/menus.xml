@@ -29,6 +29,13 @@
         sequence="33"
     />
     <menuitem
+        id="menu_l10n_vn_payroll_check"
+        name="Payroll Checks"
+        parent="payroll.payroll_menu_configuration"
+        action="l10n_vn_payroll_check_action"
+        sequence="34"
+    />
+    <menuitem
         id="menu_l10n_vn_payroll_inputs_root"
         name="Monthly Inputs"
         parent="payroll.payroll_menu_root"
@@ -55,5 +62,12 @@
         parent="menu_l10n_vn_payroll_inputs_root"
         action="l10n_vn_payroll_damage_action"
         sequence="3"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_check_result"
+        name="Check Results"
+        parent="menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_check_result_action"
+        sequence="4"
     />
 </odoo>

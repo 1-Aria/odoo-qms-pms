@@ -15,3 +15,4 @@ from . import test_acceptance
 from . import test_contributions
 from . import test_pit
 from . import test_damage
+from . import test_checks

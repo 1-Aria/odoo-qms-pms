@@ -53,3 +53,11 @@ labour contract a minimum wage region. Monthly inputs built before step 5 need o
 month's scheduled days. *Monthly Inputs → Damage Decisions*: record each work-rules decision with its
 amount; payslips deduct from the oldest first, and a decision is settled once approved payslips have
 taken all of it. An entered deduction is typed as a positive amount.
+
+**Checks** (step 6): *Payroll → Configuration → Payroll Checks* lists the checks and their default
+levels. To change a level, add a time parameter of type text `vn.check.<code>` (or
+`vn.check.<code>.<component code>` for one component) with the value `error`, `warning`, `note` or
+`off`, from the date it applies. Each payslip's *Checks* page shows its results, and *Monthly Inputs →
+Check Results* lists them all; reviewers write a note on each warning. A payslip with an integrity
+error has no lines until the cause is put right and it is calculated again. For the probation limit,
+fill in the contract's *Probation Job Category*.

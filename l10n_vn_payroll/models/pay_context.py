@@ -33,6 +33,14 @@ def _jsonable(value):
     return value
 
 
+class IntegrityStop(UserError):
+    """The payslip cannot be calculated: an error result of check ``code`` (D62)."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
 class PayContext:
     """Builds the contexts of a batch of payslips, sharing parameter reads.
 
@@ -77,6 +85,8 @@ class PayContext:
                 {
                     "id": line.id,
                     "piece": index,
+                    "component_id": line.component_id.id,
+                    "review_date": _iso(line.review_date),
                     "component": line.component_id.code,
                     "scale_key": line.scale_key or None,
                     "amount": float(amount),
@@ -188,7 +198,7 @@ class PayContext:
         segments = {(s.date_from, s.date_to): s for s in inp.segment_ids}
         wanted = [(p["date_from"], p["date_to"]) for p in pieces]
         if sorted(segments) != wanted:
-            raise UserError(
+            raise IntegrityStop("missing_segments", 
                 self.env._(
                     "The monthly input of %(employee)s for %(month)s needs segments for "
                     "%(pieces)s; rebuild it.",
@@ -216,7 +226,7 @@ class PayContext:
         if not variable:
             return None
         if not inp.attainment_source:
-            raise UserError(
+            raise IntegrityStop("missing_attainment", 
                 self.env._("%(employee)s has no attainment or score for %(month)s.", **names)
             )
         cap = _dec(self.param("vn.policy.attainment_cap", month_end, company))
@@ -250,7 +260,7 @@ class PayContext:
                         "paid_days" if component.proration == "paid_days" else "days_worked"
                     ]
                     value = amount * days / std * r * a
-                value = self._condition(component, value, inp, company, month_end)
+                value, met = self._condition(component, value, inp, company, month_end)
                 lines.append(
                     self._line(
                         component,
@@ -262,29 +272,34 @@ class PayContext:
                         date_to=_iso(piece["date_to"]) if multi else None,
                         attainment=float(a) if component.variable else None,
                         pay_line_id=pay_line.id,
+                        condition=met,
                     )
                 )
         for pay_line, value, a in month_level.values():
             component = pay_line.component_id
-            value = self._condition(component, value, inp, company, month_end)
+            value, met = self._condition(component, value, inp, company, month_end)
             lines.append(
                 self._line(
                     component,
                     value,
                     attainment=float(a) if component.variable else None,
                     pay_line_id=pay_line.id,
+                    condition=met,
                 )
             )
         return lines
 
     def _condition(self, component, value, inp, company, month_end):
-        """The attendance condition: the line is paid as computed or zeroed (D38)."""
+        """The attendance condition: the line is paid as computed or zeroed (D38).
+
+        Returns the value and whether the condition held (None without a condition, D69).
+        """
         if component.condition != "attendance":
-            return value
+            return value, None
         limit = self.param("vn.policy.attendance_late_max", month_end, company)
         if inp.unexcused_absences or inp.late_arrivals > limit:
-            return Decimal(0)
-        return value
+            return Decimal(0), False
+        return value, True
 
     def _entered_lines(self, inp, unapproved):
         """Approved entered amounts and adjustments (D39)."""
@@ -343,7 +358,7 @@ class PayContext:
             piece["hourly"] = base / (std * HOURS_PER_DAY)
             for category, hours in piece["ot_hours_json"].items():
                 if hours and category not in paid:
-                    raise UserError(
+                    raise IntegrityStop("calculation", 
                         self.env._(
                             "%(employee)s has %(category)s overtime and no active component "
                             "pays it.",
@@ -360,7 +375,7 @@ class PayContext:
 
             def factor(category):
                 if category not in factors:
-                    raise UserError(
+                    raise IntegrityStop("calculation", 
                         self.env._(
                             "vn.ot.factors has no factor for %(category)s.", category=category
                         )
@@ -422,7 +437,7 @@ class PayContext:
         """
         for piece in pieces:
             if not piece["contract"].l10n_vn_participant_type_id:
-                raise UserError(
+                raise IntegrityStop("calculation", 
                     self.env._(
                         "Contract %(contract)s of %(employee)s has no participant type.",
                         contract=piece["contract"].name,
@@ -430,7 +445,7 @@ class PayContext:
                     )
                 )
         if not inp.month_scheduled_days:
-            raise UserError(
+            raise IntegrityStop("calculation", 
                 self.env._(
                     "The monthly input of %(employee)s for %(month)s has no scheduled days "
                     "for the month; rebuild it.",
@@ -469,7 +484,7 @@ class PayContext:
                     base += amount * std if component.proration == "per_day" else amount
         region = employee.l10n_vn_region
         if (kind.floor == "min_wage" or kind.fund_ui) and not region:
-            raise UserError(self.env._("%(employee)s has no minimum wage region.", **names))
+            raise IntegrityStop("calculation", self.env._("%(employee)s has no minimum wage region.", **names))
         reference = _dec(self.param("vn.si.reference_level", day, company))
         floor = Decimal(0)
         if kind.floor == "min_wage":
@@ -640,7 +655,7 @@ class PayContext:
         def line(code, amount, **values):
             component = engine.get(code)
             if not component:
-                raise UserError(
+                raise IntegrityStop("calculation", 
                     self.env._("No active component with engine code %(code)s.", code=code)
                 )
             return self._line(component, Decimal(amount), **values)
@@ -697,6 +712,7 @@ class PayContext:
             "pay_line_id": None,
             "input_line_id": None,
             "piece": None,
+            "condition": None,
         }
         line.update(values)
         return line

@@ -1,7 +1,6 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from odoo import Command
-from odoo.exceptions import UserError
 from odoo.tests import tagged
 
 from .common import D
@@ -62,21 +61,18 @@ class TestContributions(PayslipCase):
         employee, contract = self._salary()
         contract.l10n_vn_participant_type_id = False
         self._input(employee)
-        with self.assertRaisesRegex(UserError, "participant type"):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "calculation", "participant type")
 
     def test_no_region(self):
         employee, _contract = self._salary()
         employee.l10n_vn_region = False
         self._input(employee)
-        with self.assertRaisesRegex(UserError, "region"):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "calculation", "region")
 
     def test_month_days_missing(self):
         employee, _contract = self._salary()
         self._input(employee, month_scheduled_days=0)
-        with self.assertRaisesRegex(UserError, "rebuild"):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "calculation", "rebuild")
 
     def test_month_scheduled_days_built(self):
         # a calendar of its own: a new company copies the current company's calendar
@@ -115,5 +111,4 @@ class TestContributions(PayslipCase):
         self.engine["NET"].active = False
         employee, _contract = self._salary()
         self._input(employee)
-        with self.assertRaisesRegex(UserError, "NET"):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "calculation", "NET")

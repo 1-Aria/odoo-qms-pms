@@ -49,6 +49,17 @@ class HrContract(models.Model):
         default="none",
         groups=PAYROLL_GROUPS,
     )
+    l10n_vn_probation_job = fields.Selection(
+        [
+            ("manager", "Enterprise manager"),
+            ("college", "College degree or above"),
+            ("vocational", "Vocational qualification"),
+            ("other", "Other work"),
+        ],
+        string="Probation Job Category",
+        help="Sets the legal probation limit (vn.probation.max_days) the checks compare with.",
+        groups=PAYROLL_GROUPS,
+    )
 
     def _l10n_vn_sync_wage(self):
         """Keep ``wage`` equal to the lines in force today that set it.

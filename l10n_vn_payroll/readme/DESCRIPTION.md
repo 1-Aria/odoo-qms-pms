@@ -36,3 +36,9 @@ This first step holds the configuration layer:
   compensation decisions deducted oldest first within 30% of pay after insurance and PIT; net pay, and
   the amount to pay once salary advances are settled (the advances themselves come with
   `l10n_vn_payroll_account`). Deductions show as negative lines.
+- **Checks** (step 6): 20 integrity, legal and policy checks run on every payslip — period not closed,
+  missing attainment or identifiers, unapproved entries, negative net pay, the minimum wage, probation
+  limits, unlawful deductions, OT limits, variable pay unchanged for months, sharp changes in net pay,
+  and more. A check's level (error, warning, note or off) is a dated parameter, per check and per
+  component. Results sit on the payslip, where reviewers write their notes. A payslip that cannot be
+  calculated gets an error result instead of stopping the rest of the batch.

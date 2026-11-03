@@ -1,6 +1,5 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo.exceptions import UserError
 from odoo.tests import tagged
 
 from .common import D
@@ -103,10 +102,10 @@ class TestPayslipContract(PayslipCase):
                 "company_id": self.company.id,
             }
         )
-        with self.assertRaises(UserError):
-            payslip.compute_sheet()
+        payslip.compute_sheet()
+        self._stopped(payslip, "calculation", "calendar month")
+        self.assertEqual(payslip.state, "draft")
 
     def test_no_input(self):
         employee, _contract = self._hire()
-        with self.assertRaisesRegex(UserError, employee.name):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "calculation", employee.name)

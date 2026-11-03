@@ -31,3 +31,10 @@ access_damage_reader,l10n_vn.payroll.damage reader,model_l10n_vn_payroll_damage,
 access_damage_approver,l10n_vn.payroll.damage approver,model_l10n_vn_payroll_damage,group_payroll_approver,1,0,0,0
 access_damage_allocation_user,l10n_vn.payroll.damage.allocation user,model_l10n_vn_payroll_damage_allocation,payroll.group_payroll_user,1,1,1,1
 access_damage_allocation_reader,l10n_vn.payroll.damage.allocation reader,model_l10n_vn_payroll_damage_allocation,group_payroll_reader,1,0,0,0
+access_check_user,l10n_vn.payroll.check user,model_l10n_vn_payroll_check,payroll.group_payroll_user,1,0,0,0
+access_check_reader,l10n_vn.payroll.check reader,model_l10n_vn_payroll_check,group_payroll_reader,1,0,0,0
+access_check_approver,l10n_vn.payroll.check approver,model_l10n_vn_payroll_check,group_payroll_approver,1,0,0,0
+access_check_result_user,l10n_vn.payroll.check.result user,model_l10n_vn_payroll_check_result,payroll.group_payroll_user,1,0,0,0
+access_check_result_reviewer,l10n_vn.payroll.check.result reviewer,model_l10n_vn_payroll_check_result,group_payroll_reviewer,1,1,0,0
+access_check_result_reader,l10n_vn.payroll.check.result reader,model_l10n_vn_payroll_check_result,group_payroll_reader,1,0,0,0
+access_check_result_approver,l10n_vn.payroll.check.result approver,model_l10n_vn_payroll_check_result,group_payroll_approver,1,0,0,0

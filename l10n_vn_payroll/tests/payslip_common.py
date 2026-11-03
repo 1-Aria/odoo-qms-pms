@@ -36,6 +36,8 @@ class PayslipCase(PayrollCase):
             ("vn.policy.base_salary", "3700000"),
             ("vn.policy.ot_supplement", "3846"),
             ("vn.policy.ot_min_hours_day", "0.8"),
+            ("vn.policy.constant_months", "6"),
+            ("vn.policy.net_change", "0.30"),
         ):
             cls._parameter(code, [(D(2026, 1, 1), value)])
         prod_scale = cls._scale(
@@ -287,6 +289,42 @@ class PayslipCase(PayrollCase):
         )
         self.assertEqual(shown, {self._code(c) for c in expected}, case)
         self.assertEqual(self._totals(payslip, "GROSS"), [data["gross"]], f"{case}: gross")
+
+    # ------------------------------------------------------------------ step 6
+    def _results(self, payslip, code):
+        return payslip.l10n_vn_check_result_ids.filtered(lambda r: r.check_id.code == code)
+
+    def _stopped(self, payslip, code, text):
+        """The payslip was stopped by an integrity check (D62)."""
+        results = self._results(payslip, code)
+        self.assertEqual(len(results), 1, f"one {code} result")
+        self.assertEqual(results.level, "error")
+        self.assertIn(text, results.message)
+        self.assertFalse(payslip.line_ids, "a stopped payslip keeps no line")
+        self.assertFalse(payslip.l10n_vn_context, "a stopped payslip keeps no snapshot")
+
+    def _identify(self, employee):
+        bank = self.env["res.partner.bank"].create(
+            {"acc_number": f"TEST-{employee.id}", "partner_id": employee.work_contact_id.id}
+        )
+        employee.write(
+            {
+                "bank_account_id": bank.id,
+                "l10n_vn_personal_id": f"0790{employee.id:08d}",
+                "ssnid": f"79{employee.id:08d}",
+            }
+        )
+
+    def _parameter_text(self, code, value):
+        return self.env["base.time.parameter"].create(
+            {
+                "name": code,
+                "code": code,
+                "type": "string",
+                "company_id": self.company.id,
+                "version_ids": [Command.create({"date_from": D(2026, 1, 1), "value": value})],
+            }
+        )
 
     # ------------------------------------------------------------------ step 5
     def _dependents(self, employee, count, date_from=D(2026, 1, 1)):

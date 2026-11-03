@@ -3,7 +3,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 
 from odoo import Command, fields
-from odoo.exceptions import UserError
 from odoo.tests import tagged
 
 from .common import D
@@ -45,8 +44,9 @@ class TestPayContext(PayslipCase):
     def test_missing_segments(self):
         employee, _contract = self._hire(lines=self._sal_change())
         self._input(employee)
-        with self.assertRaisesRegex(UserError, "2026-10-01–2026-10-14, 2026-10-15–2026-10-31"):
-            self._payslip(employee)
+        self._stopped(
+            self._payslip(employee), "missing_segments", "2026-10-01–2026-10-14, 2026-10-15–2026-10-31"
+        )
 
     def test_bases(self):
         components = {}
@@ -80,8 +80,7 @@ class TestPayContext(PayslipCase):
     def test_missing_attainment(self):
         employee, _contract = self._hire(lines=[(self.prod, {"scale_key": "Entry"})])
         inp = self._input(employee)
-        with self.assertRaisesRegex(UserError, "attainment"):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "missing_attainment", "attainment")
         inp.write({"attainment_source": "supervisor", "attainment": 0})
         self.assertEqual(self._totals(self._payslip(employee), "PROD"), [0])
 
@@ -115,8 +114,7 @@ class TestPayContext(PayslipCase):
         self.ot_hol.active = False
         employee, _contract = self._hire(lines=[(self.sal, {"amount": 4500000})])
         self._input(employee, ot_hours_json={"HOL": 4})
-        with self.assertRaisesRegex(UserError, "HOL"):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "calculation", "HOL")
 
     def test_ot_last_piece(self):
         employee, _contract = self._hire(lines=self._sal_change())
@@ -132,8 +130,7 @@ class TestPayContext(PayslipCase):
         )
         employee, _contract = self._hire()
         self._input(employee, lines=[(extra, {"amount": 100000})])
-        with self.assertRaisesRegex(UserError, "TEST_EXTRA"):
-            self._payslip(employee)
+        self._stopped(self._payslip(employee), "calculation", "TEST_EXTRA")
 
     def test_snapshot_replaced(self):
         employee, _contract = self._hire(lines=[(self.sal, {"amount": 4500000})])
