@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="mrp_bom_form_view_conversion_cost" model="ir.ui.view">
+        <field name="name">mrp.bom.form.conversion.cost</field>
+        <field name="model">mrp.bom</field>
+        <field name="inherit_id" ref="mrp.mrp_bom_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='code']" position="after">
+                <field name="conversion_minutes" invisible="type != 'normal'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="mrp_bom_tree_view_conversion_cost" model="ir.ui.view">
+        <field name="name">mrp.bom.list.conversion.cost</field>
+        <field name="model">mrp.bom</field>
+        <field name="inherit_id" ref="mrp.mrp_bom_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='code']" position="after">
+                <field name="conversion_minutes" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
