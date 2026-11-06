@@ -1,7 +1,10 @@
-A standard conversion cost for manufactured products. Each normal bill of materials holds its
-conversion minutes per unit, and each company holds a conversion cost per minute. A new
-manufacturing order gets minutes × rate as its *Extra Unit Cost*, which Odoo adds to the finished
-goods' value when the order is done.
+A standard conversion cost for manufactured products. When a manufacturing order is done, its
+*Extra Unit Cost* is set to its bill of materials' conversion minutes × the company's approved
+conversion cost rate in force on the valuation date. Odoo adds that amount to the finished goods'
+value. The order keeps the rate and the minutes it used.
 
-Only normal bills of materials are covered: subcontracted orders carry the subcontractor's price.
-The figure is copied when the order is created and can be edited until the order is done.
+Rates are dated, approved by accounting administrators, and locked once approved. A correction is a
+new rate with a later start date.
+
+Only normal bills of materials with minutes are covered. Other orders are left as they are,
+subcontracted ones included.

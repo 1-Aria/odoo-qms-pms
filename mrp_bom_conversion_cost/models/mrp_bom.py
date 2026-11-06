@@ -12,9 +12,9 @@ class MrpBom(models.Model):
         default=0.0,
         tracking=True,
         help="Standard minutes of conversion work per unit of the product, in "
-        "the product's unit of measure (for a garment, its SAM). New "
-        "manufacturing orders get these minutes × the company's conversion "
-        "cost per minute as their Extra Unit Cost.",
+        "the product's unit of measure (for a garment, its SAM). "
+        "Manufacturing orders are valued at these minutes × the conversion "
+        "cost rate in force on the day they are done.",
     )
 
     _sql_constraints = [

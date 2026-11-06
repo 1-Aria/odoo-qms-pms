@@ -3,8 +3,8 @@
 {
     "name": "BoM Conversion Cost",
     "summary": "Value manufactured goods with a standard conversion cost: "
-    "BoM minutes × a company rate per minute",
-    "version": "18.0.1.0.0",
+    "BoM minutes × an approved, dated rate per minute",
+    "version": "18.0.1.1.0",
     "author": "1-Aria",
     "website": "https://github.com/1-Aria/odoo-qms-pms",
     "license": "AGPL-3",
@@ -13,9 +13,11 @@
         "mrp_account",
     ],
     "data": [
+        "security/ir.model.access.csv",
+        "security/mrp_conversion_cost_rate_security.xml",
+        "views/mrp_conversion_cost_rate_views.xml",
         "views/mrp_bom_views.xml",
         "views/mrp_production_views.xml",
-        "views/res_config_settings_views.xml",
     ],
     "installable": True,
 }

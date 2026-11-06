@@ -1,1 +1,1 @@
-from . import mrp_bom, mrp_production, res_company, res_config_settings
+from . import mrp_bom, mrp_conversion_cost_rate, mrp_production

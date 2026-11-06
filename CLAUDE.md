@@ -192,11 +192,15 @@ read the latest.
   rules), `ie_base` (master data, SAM versions, periods, production records), `ie_time` (off-standard
   grants, time accounting, exceptions), `ie_quality` (defects, repair), `ie_skill`. Then `ie_line`,
   `ie_incentive`, `ie_valuation`, `ie_realtime`. The technical design's §1 holds the current map.
-- `mrp_bom_conversion_cost` is interim and outside the suite (technical design TD-52). It sets each new
-  MO's *Extra Unit Cost* to the BoM's conversion minutes × a company rate per minute, so finished goods
-  carry a conversion cost before `ie_valuation` exists. `ie_valuation` later takes over for products with
-  an IE standard, and this module stays as the fallback for the rest. Spec:
-  `docs/modules/mrp_bom_conversion_cost.md`.
+- `mrp_bom_conversion_cost` comes before the suite and sits outside it (technical design TD-52). When an MO
+  is done, it sets the MO's *Extra Unit Cost* to the BoM's conversion minutes × the company's approved
+  conversion cost rate in force on the valuation date, and the MO keeps the rate and minutes it used.
+  Finished goods therefore carry a conversion cost before `ie_valuation` exists.
+  - Rates (`mrp.conversion.cost.rate`) are dated, approved by accounting administrators and locked once
+    approved.
+  - `ie_valuation` will depend on it and read the same rates. For products with an IE standard it supplies
+    the minutes from IE's SAM; the BoM's minutes stay for the rest.
+  - Spec: `docs/modules/mrp_bom_conversion_cost.md`.
 
 ---
 

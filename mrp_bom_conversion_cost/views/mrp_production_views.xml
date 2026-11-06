@@ -7,9 +7,19 @@
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='user_id']" position="after">
+                <field name="conversion_cost_estimate"
+                    groups="mrp.group_mrp_manager"
+                    invisible="state in ('done', 'cancel') or not conversion_cost_estimate"/>
                 <field name="extra_cost"
                     groups="mrp.group_mrp_manager"
-                    readonly="state in ('done', 'cancel')"/>
+                    readonly="1"
+                    invisible="state != 'done'"/>
+                <field name="conversion_rate_id"
+                    groups="mrp.group_mrp_manager"
+                    invisible="not conversion_rate_id"/>
+                <field name="conversion_minutes"
+                    groups="mrp.group_mrp_manager"
+                    invisible="not conversion_rate_id"/>
             </xpath>
         </field>
     </record>

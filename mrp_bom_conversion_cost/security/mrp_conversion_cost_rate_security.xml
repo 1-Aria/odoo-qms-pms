@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="mrp_conversion_cost_rate_company_rule" model="ir.rule">
+        <field name="name">Conversion cost rate: multi-company</field>
+        <field name="model_id" ref="model_mrp_conversion_cost_rate"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>
