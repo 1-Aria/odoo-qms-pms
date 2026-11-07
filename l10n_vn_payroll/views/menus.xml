@@ -70,4 +70,11 @@
         action="l10n_vn_payroll_check_result_action"
         sequence="4"
     />
+    <menuitem
+        id="menu_l10n_vn_payroll_analysis"
+        name="Payroll Analysis"
+        parent="menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_analysis_action"
+        sequence="5"
+    />
 </odoo>

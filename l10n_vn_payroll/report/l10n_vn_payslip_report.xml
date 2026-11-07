@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="action_report_l10n_vn_payslip" model="ir.actions.report">
+        <field name="name">Payslip (Vietnam)</field>
+        <field name="model">hr.payslip</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l10n_vn_payroll.report_l10n_vn_payslip</field>
+        <field name="report_file">l10n_vn_payroll.report_l10n_vn_payslip</field>
+        <field
+            name="print_report_name"
+        >'Payslip - %s - %s' % (object.employee_id.name, object.date_from.strftime('%m-%Y'))</field>
+        <field name="binding_model_id" ref="payroll.model_hr_payslip" />
+        <field name="binding_type">report</field>
+        <field name="groups_id" eval="[(4, ref('payroll.group_payroll_user'))]" />
+    </record>
+
+    <template id="report_l10n_vn_payslip_document">
+        <t t-set="money" t-value="{'widget': 'monetary', 'display_currency': o.company_id.currency_id}" />
+        <div class="page" style="font-size: 12px;">
+            <h4 class="mb-0">PHIẾU LƯƠNG <small class="text-muted">Payslip</small></h4>
+            <p>
+                Tháng <small>Month</small>: <strong t-out="o.date_from.strftime('%m/%Y')" />
+            </p>
+            <table class="table table-sm table-borderless mb-2">
+                <tr>
+                    <td>Họ tên <small class="text-muted">Name</small></td>
+                    <td><strong t-out="o.employee_id.name" /></td>
+                    <td>Mã NV <small class="text-muted">No.</small></td>
+                    <td t-out="o.employee_id.sudo().identification_id or ''" />
+                </tr>
+                <tr>
+                    <td>Bộ phận <small class="text-muted">Department</small></td>
+                    <td t-out="o.employee_id.department_id.name or ''" />
+                    <td>Chức vụ <small class="text-muted">Job</small></td>
+                    <td t-out="o.employee_id.job_id.name or ''" />
+                </tr>
+            </table>
+
+            <h6>THỜI GIAN LÀM VIỆC <small class="text-muted">Time</small></h6>
+            <t t-set="inp" t-value="o.l10n_vn_input_id" />
+            <table class="table table-sm table-bordered mb-2">
+                <tr>
+                    <td>Ngày theo lịch <br /><small class="text-muted">Scheduled days</small></td>
+                    <td>Ngày công <br /><small class="text-muted">Days worked</small></td>
+                    <td>Nghỉ có lương <br /><small class="text-muted">Paid leave</small></td>
+                    <td>Ngày không lương <br /><small class="text-muted">Unpaid days</small></td>
+                    <td>Ngày hưởng lương <br /><small class="text-muted">Paid days</small></td>
+                    <td>Tăng ca ngày thường <br /><small class="text-muted">OT workday (h)</small></td>
+                    <td>Tăng ca ngày nghỉ <br /><small class="text-muted">OT rest day (h)</small></td>
+                    <td>Tăng ca ngày lễ <br /><small class="text-muted">OT holiday (h)</small></td>
+                </tr>
+                <tr class="text-end">
+                    <td t-out="inp.scheduled_days" t-options="{'widget': 'float', 'precision': 2}" />
+                    <td t-out="o.l10n_vn_days_worked" t-options="{'widget': 'float', 'precision': 2}" />
+                    <td t-out="inp.company_leave_days" t-options="{'widget': 'float', 'precision': 2}" />
+                    <td t-out="o.l10n_vn_unpaid_days" t-options="{'widget': 'float', 'precision': 2}" />
+                    <td t-out="o.l10n_vn_paid_days" t-options="{'widget': 'float', 'precision': 2}" />
+                    <td t-out="o.l10n_vn_ot_wd_hours" t-options="{'widget': 'float', 'precision': 2}" />
+                    <td t-out="o.l10n_vn_ot_rd_hours" t-options="{'widget': 'float', 'precision': 2}" />
+                    <td t-out="o.l10n_vn_ot_hol_hours" t-options="{'widget': 'float', 'precision': 2}" />
+                </tr>
+            </table>
+
+            <t t-set="vn_lines" t-value="o.line_ids.filtered(lambda l: l.l10n_vn_component_id)" />
+            <h6>THU NHẬP <small class="text-muted">Earnings</small></h6>
+            <table class="table table-sm mb-2">
+                <tr t-foreach="vn_lines.filtered(lambda l: l.l10n_vn_component_id.kind == 'earning')" t-as="line">
+                    <td t-out="line.name" />
+                    <td class="text-end">
+                        <t t-if="line.l10n_vn_days"><span t-out="line.l10n_vn_days" t-options="{'widget': 'float', 'precision': 2}" /> ngày</t>
+                        <t t-if="line.l10n_vn_hours"><span t-out="line.l10n_vn_hours" t-options="{'widget': 'float', 'precision': 2}" /> giờ × <span t-out="line.l10n_vn_factor" /></t>
+                    </td>
+                    <td class="text-end" t-out="line.total" t-options="money" />
+                </tr>
+                <tr class="fw-bold">
+                    <td colspan="2">Tổng thu nhập <small class="text-muted">Gross</small></td>
+                    <td class="text-end" t-out="o.l10n_vn_gross" t-options="money" />
+                </tr>
+            </table>
+
+            <h6>KHẤU TRỪ <small class="text-muted">Deductions</small></h6>
+            <table class="table table-sm mb-2">
+                <tr t-foreach="vn_lines.filtered(lambda l: l.l10n_vn_component_id.kind == 'deduction' and l.total)" t-as="line">
+                    <td t-out="line.name" />
+                    <td class="text-end" t-out="line.total" t-options="money" />
+                </tr>
+                <tr class="fw-bold">
+                    <td>Thực lĩnh <small class="text-muted">Net pay</small></td>
+                    <td class="text-end" t-out="o.l10n_vn_net" t-options="money" />
+                </tr>
+                <tr t-if="o.l10n_vn_advance">
+                    <td>Đã tạm ứng <small class="text-muted">Advance settled</small></td>
+                    <td class="text-end" t-out="-o.l10n_vn_advance" t-options="money" />
+                </tr>
+                <tr class="fw-bold">
+                    <td>Còn được lĩnh <small class="text-muted">To pay</small></td>
+                    <td class="text-end" t-out="o.l10n_vn_to_pay" t-options="money" />
+                </tr>
+            </table>
+
+            <h6>CÔNG TY ĐÓNG <small class="text-muted">Paid by the company</small></h6>
+            <table class="table table-sm mb-0">
+                <tr t-foreach="vn_lines.filtered(lambda l: l.l10n_vn_component_id.kind == 'employer')" t-as="line">
+                    <td t-out="line.name" />
+                    <td class="text-end" t-out="line.total" t-options="money" />
+                </tr>
+                <tr class="fw-bold">
+                    <td>Tổng chi phí <small class="text-muted">Employer cost</small></td>
+                    <td class="text-end" t-out="o.l10n_vn_employer_cost" t-options="money" />
+                </tr>
+            </table>
+        </div>
+    </template>
+
+    <template id="report_l10n_vn_payslip">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <t t-call="l10n_vn_payroll.report_l10n_vn_payslip_document" />
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

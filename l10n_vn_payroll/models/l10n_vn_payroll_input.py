@@ -8,6 +8,8 @@ import pytz
 from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
+from .hr_payslip_run import LOCKED_STATES
+
 DAY_FIGURES = (
     "scheduled_days",
     "month_scheduled_days",
@@ -98,10 +100,18 @@ class L10nVnPayrollInput(models.Model):
         ),
     ]
 
+    ot_wd_hours = fields.Float(string="OT workday", digits=DIGITS, compute="_compute_ot_hours", store=True)
+    ot_rd_hours = fields.Float(string="OT rest day", digits=DIGITS, compute="_compute_ot_hours", store=True)
+    ot_hol_hours = fields.Float(string="OT holiday", digits=DIGITS, compute="_compute_ot_hours", store=True)
+
     @api.depends("ot_hours_json")
     def _compute_ot_hours(self):
         for record in self:
-            record.ot_hours = sum((record.ot_hours_json or {}).values())
+            hours = record.ot_hours_json or {}
+            record.ot_hours = sum(hours.values())
+            record.ot_wd_hours = hours.get("WD", 0)
+            record.ot_rd_hours = hours.get("RD", 0)
+            record.ot_hol_hours = hours.get("HOL", 0)
 
     @api.depends("ot_hours_json", "leave_days_json")
     def _compute_displays(self):
@@ -118,7 +128,39 @@ class L10nVnPayrollInput(models.Model):
                                employee=record.employee_id.name)
                 )
 
+    # ------------------------------------------------------------------ the lock (D76)
+    def _l10n_vn_locked_inputs(self):
+        """The inputs of ``self`` read by a payslip of an approved or paid run."""
+        if not self.ids:
+            return self.browse()
+        payslips = self.env["hr.payslip"].sudo().search(
+            [
+                ("l10n_vn_input_id", "in", self.ids),
+                ("payslip_run_id.l10n_vn_period_id", "!=", False),
+                ("payslip_run_id.state", "in", LOCKED_STATES),
+            ]
+        )
+        return payslips.l10n_vn_input_id
+
+    def _l10n_vn_raise_if_locked(self):
+        if self.env.su:
+            return
+        locked = self._l10n_vn_locked_inputs()
+        if locked:
+            raise UserError(
+                self.env._(
+                    "The monthly input of %(employee)s for %(period)s was paid in an approved run.",
+                    employee=locked[0].employee_id.name,
+                    period=locked[0].period_id.name,
+                )
+            )
+
+    def unlink(self):
+        self._l10n_vn_raise_if_locked()
+        return super().unlink()
+
     def write(self, vals):
+        self._l10n_vn_raise_if_locked()
         if FIGURES.intersection(vals) and any(r.period_id.attendance_closed for r in self):
             raise UserError(
                 self.env._("Attendance is closed: the summary's figures cannot change.")
@@ -433,6 +475,21 @@ class L10nVnPayrollInputSegment(models.Model):
         for record in self:
             record.ot_display = _ot_text(record.ot_hours_json)
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        self.env["l10n_vn.payroll.input"].browse(
+            [v["input_id"] for v in vals_list if v.get("input_id")]
+        )._l10n_vn_raise_if_locked()
+        return super().create(vals_list)
+
+    def write(self, vals):
+        self.input_id._l10n_vn_raise_if_locked()
+        return super().write(vals)
+
+    def unlink(self):
+        self.input_id._l10n_vn_raise_if_locked()
+        return super().unlink()
+
 
 class L10nVnPayrollInputLine(models.Model):
     _name = "l10n_vn.payroll.input.line"
@@ -480,10 +537,22 @@ class L10nVnPayrollInputLine(models.Model):
                     )
                 )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        self.env["l10n_vn.payroll.input"].browse(
+            [v["input_id"] for v in vals_list if v.get("input_id")]
+        )._l10n_vn_raise_if_locked()
+        return super().create(vals_list)
+
     def write(self, vals):
+        self.input_id._l10n_vn_raise_if_locked()
         if {"component_id", "amount", "hours", "period_ref"}.intersection(vals):
             vals = dict(vals, approved_by=False, approved_at=False)
         return super().write(vals)
+
+    def unlink(self):
+        self.input_id._l10n_vn_raise_if_locked()
+        return super().unlink()
 
     def _check_approver(self):
         if not self.env.user.has_group("l10n_vn_payroll.group_payroll_approver"):

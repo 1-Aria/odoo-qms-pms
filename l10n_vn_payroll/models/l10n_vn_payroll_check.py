@@ -478,7 +478,19 @@ class L10nVnPayrollCheckResult(models.Model):
         for result in self:
             result.level_order = LEVEL_ORDER.get(result.level, 9)
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        self.env["hr.payslip"].browse(
+            [v["payslip_id"] for v in vals_list if v.get("payslip_id")]
+        )._l10n_vn_raise_if_locked()
+        return super().create(vals_list)
+
     def write(self, vals):
+        self.payslip_id._l10n_vn_raise_if_locked()
         if "note" in vals:
             vals = dict(vals, noted_by=self.env.uid, noted_at=fields.Datetime.now())
         return super().write(vals)
+
+    def unlink(self):
+        self.payslip_id._l10n_vn_raise_if_locked()
+        return super().unlink()

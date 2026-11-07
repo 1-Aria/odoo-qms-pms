@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="xlsx_payroll_register" model="xlsx.template">
+            <field name="name">Payroll Register</field>
+            <field name="res_model">hr.payslip.run</field>
+            <field name="fname">payroll_register.xlsx</field>
+            <field name="datas" type="base64" file="l10n_vn_payroll/templates/payroll_register.xlsx" />
+        </record>
+        <record id="xlsx_payroll_register_line_1" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">10</field>
+            <field name="section_type">sheet</field>
+            <field name="sheet">1</field>
+        </record>
+        <record id="xlsx_payroll_register_line_2" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">20</field>
+            <field name="section_type">head</field>
+            <field name="row_field">_HEAD_</field>
+        </record>
+        <record id="xlsx_payroll_register_line_3" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">30</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">A1</field>
+            <field name="field_name">name</field>
+        </record>
+        <record id="xlsx_payroll_register_line_4" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">40</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">A2</field>
+            <field name="field_name">l10n_vn_period_id.name</field>
+        </record>
+        <record id="xlsx_payroll_register_line_5" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">50</field>
+            <field name="section_type">row</field>
+            <field name="row_field">slip_ids</field>
+        </record>
+        <record id="xlsx_payroll_register_line_6" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">60</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">A5</field>
+            <field name="field_name">employee_id.identification_id</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_payroll_register_line_7" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">70</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">B5</field>
+            <field name="field_name">employee_id.name</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_payroll_register_line_8" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">80</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">C5</field>
+            <field name="field_name">employee_id.department_id.name</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_payroll_register_line_9" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">90</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">D5</field>
+            <field name="field_name">l10n_vn_paid_days</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_payroll_register_line_10" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">100</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">E5</field>
+            <field name="field_name">l10n_vn_days_worked</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_payroll_register_line_11" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">110</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">F5</field>
+            <field name="field_name">l10n_vn_ot_hours</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_payroll_register_line_12" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">120</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">G5</field>
+            <field name="field_name">l10n_vn_salary_pay</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_13" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">130</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">H5</field>
+            <field name="field_name">l10n_vn_ot_pay</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_14" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">140</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">I5</field>
+            <field name="field_name">l10n_vn_bonus_pay</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_15" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">150</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">J5</field>
+            <field name="field_name">l10n_vn_other_pay</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_16" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">160</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">K5</field>
+            <field name="field_name">l10n_vn_gross</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_17" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">170</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">L5</field>
+            <field name="field_name">l10n_vn_employee_insurance</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_18" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">180</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">M5</field>
+            <field name="field_name">l10n_vn_dues</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_19" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">190</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">N5</field>
+            <field name="field_name">l10n_vn_pit</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_20" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">200</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">O5</field>
+            <field name="field_name">l10n_vn_damage</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_21" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">210</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">P5</field>
+            <field name="field_name">l10n_vn_other_deductions</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_22" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">220</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">Q5</field>
+            <field name="field_name">l10n_vn_net</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_23" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">230</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">R5</field>
+            <field name="field_name">l10n_vn_advance</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_24" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">240</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">S5</field>
+            <field name="field_name">l10n_vn_to_pay</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_payroll_register_line_25" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_payroll_register" />
+            <field name="sequence">250</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">T5</field>
+            <field name="field_name">l10n_vn_employer_cost</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff" model="xlsx.template">
+            <field name="name">Attendance Sign-off</field>
+            <field name="res_model">l10n_vn.payroll.period</field>
+            <field name="fname">attendance_signoff.xlsx</field>
+            <field name="datas" type="base64" file="l10n_vn_payroll/templates/attendance_signoff.xlsx" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_1" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">10</field>
+            <field name="section_type">sheet</field>
+            <field name="sheet">1</field>
+        </record>
+        <record id="xlsx_attendance_signoff_line_2" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">20</field>
+            <field name="section_type">head</field>
+            <field name="row_field">_HEAD_</field>
+        </record>
+        <record id="xlsx_attendance_signoff_line_3" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">30</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">A1</field>
+            <field name="field_name">company_id.name</field>
+        </record>
+        <record id="xlsx_attendance_signoff_line_4" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">40</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">A2</field>
+            <field name="field_name">name</field>
+        </record>
+        <record id="xlsx_attendance_signoff_line_5" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">50</field>
+            <field name="section_type">row</field>
+            <field name="row_field">input_ids</field>
+        </record>
+        <record id="xlsx_attendance_signoff_line_6" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">60</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">A5</field>
+            <field name="field_name">employee_id.identification_id</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_7" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">70</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">B5</field>
+            <field name="field_name">employee_id.name</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_8" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">80</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">C5</field>
+            <field name="field_name">department_id.name</field>
+            <field name="is_sum" eval="False" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_9" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">90</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">D5</field>
+            <field name="field_name">scheduled_days</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_10" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">100</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">E5</field>
+            <field name="field_name">days_worked</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_11" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">110</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">F5</field>
+            <field name="field_name">company_leave_days</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_12" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">120</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">G5</field>
+            <field name="field_name">si_leave_days</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_13" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">130</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">H5</field>
+            <field name="field_name">unpaid_leave_days</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_14" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">140</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">I5</field>
+            <field name="field_name">unexcused_absences</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_15" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">150</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">J5</field>
+            <field name="field_name">ot_wd_hours</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_16" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">160</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">K5</field>
+            <field name="field_name">ot_rd_hours</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_17" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">170</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">L5</field>
+            <field name="field_name">ot_hol_hours</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_18" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">180</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">M5</field>
+            <field name="field_name">ot_hours</field>
+            <field name="is_sum" eval="True" />
+        </record>
+        <record id="xlsx_attendance_signoff_line_19" model="xlsx.template.export">
+            <field name="template_id" ref="xlsx_attendance_signoff" />
+            <field name="sequence">190</field>
+            <field name="section_type">data</field>
+            <field name="excel_cell">N5</field>
+            <field name="field_name">paid_break_hours</field>
+            <field name="is_sum" eval="True" />
+        </record>
+    </data>
+</odoo>

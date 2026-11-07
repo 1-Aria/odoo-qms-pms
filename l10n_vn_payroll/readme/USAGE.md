@@ -61,3 +61,17 @@ levels. To change a level, add a time parameter of type text `vn.check.<code>` (
 Check Results* lists them all; reviewers write a note on each warning. A payslip with an integrity
 error has no lines until the cause is put right and it is calculated again. For the probation limit,
 fill in the contract's *Probation Job Category*.
+
+**Runs** (step 7): *Payroll → Payslips Batches*, create a batch and choose its *Payroll Period* (and, for an
+off-cycle run, its employees). Close the month's attendance first. *Calculate* (officer) makes and
+calculates the payslips; correct inputs and calculate again as often as needed. *Review* (reviewer) needs
+no error left and a note on each warning; the *Errors / Warnings* button lists them. *Approve* (an
+approver who did not calculate the run) confirms the payslips; *Mark as Paid* once paid. After approval
+nothing in the run changes: enter corrections on a later month's input, with the month they belong to.
+
+**Reports** (step 8): *Print Payslips* on a run prints every employee's payslip; a single one prints
+from the payslip's *Print* menu. *Monthly Inputs → Payroll Analysis* pivots the lines of every run by
+employee, department, month or pay item, and downloads to Excel. The *Payroll Register* (on runs) and
+*Attendance Sign-off* (on payroll periods) templates are in *Excel Import/Export → Templates*: edit
+their layout there, and add their export button from the template's form.
+

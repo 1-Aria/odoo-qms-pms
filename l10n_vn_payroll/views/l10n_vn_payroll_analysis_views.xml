@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_analysis_view_pivot" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.analysis.pivot</field>
+        <field name="model">l10n_vn.payroll.analysis</field>
+        <field name="arch" type="xml">
+            <pivot string="Payroll Analysis" sample="1">
+                <field name="employee_id" type="row" />
+                <field name="section" type="col" />
+                <field name="component_id" type="col" />
+                <field name="amount" type="measure" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_analysis_view_graph" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.analysis.graph</field>
+        <field name="model">l10n_vn.payroll.analysis</field>
+        <field name="arch" type="xml">
+            <graph string="Payroll Analysis" type="bar">
+                <field name="date_from" interval="month" />
+                <field name="amount" type="measure" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_analysis_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.analysis.list</field>
+        <field name="model">l10n_vn.payroll.analysis</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="date_from" />
+                <field name="run_id" />
+                <field name="run_state" />
+                <field name="employee_id" />
+                <field name="department_id" />
+                <field name="component_id" />
+                <field name="kind" />
+                <field name="section" />
+                <field name="amount" sum="Total" />
+                <field name="currency_id" column_invisible="True" />
+                <field name="company_id" groups="base.group_multi_company" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_analysis_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.analysis.search</field>
+        <field name="model">l10n_vn.payroll.analysis</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id" />
+                <field name="department_id" />
+                <field name="component_id" />
+                <field name="run_id" />
+                <filter name="approved" string="Approved" domain="[('run_state', 'in', ('approved', 'paid'))]" />
+                <separator />
+                <filter name="earnings" string="Earnings" domain="[('kind', '=', 'earning')]" />
+                <filter name="deductions" string="Deductions" domain="[('kind', '=', 'deduction')]" />
+                <filter name="employer" string="Employer" domain="[('kind', '=', 'employer')]" />
+                <group expand="0" string="Group By">
+                    <filter name="group_month" string="Month" context="{'group_by': 'date_from:month'}" />
+                    <filter name="group_department" string="Department" context="{'group_by': 'department_id'}" />
+                    <filter name="group_section" string="Section" context="{'group_by': 'section'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_analysis_action" model="ir.actions.act_window">
+        <field name="name">Payroll Analysis</field>
+        <field name="res_model">l10n_vn.payroll.analysis</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_approved': 1}</field>
+    </record>
+</odoo>

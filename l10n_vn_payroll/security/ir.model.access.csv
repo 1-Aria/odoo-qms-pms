@@ -38,3 +38,17 @@ access_check_result_user,l10n_vn.payroll.check.result user,model_l10n_vn_payroll
 access_check_result_reviewer,l10n_vn.payroll.check.result reviewer,model_l10n_vn_payroll_check_result,group_payroll_reviewer,1,1,0,0
 access_check_result_reader,l10n_vn.payroll.check.result reader,model_l10n_vn_payroll_check_result,group_payroll_reader,1,0,0,0
 access_check_result_approver,l10n_vn.payroll.check.result approver,model_l10n_vn_payroll_check_result,group_payroll_approver,1,0,0,0
+access_payslip_run_user,hr.payslip.run officer,payroll.model_hr_payslip_run,payroll.group_payroll_user,1,1,1,1
+access_payslip_run_reader,hr.payslip.run reader,payroll.model_hr_payslip_run,group_payroll_reader,1,0,0,0
+access_payslip_run_approver,hr.payslip.run approver,payroll.model_hr_payslip_run,group_payroll_approver,1,0,0,0
+access_payslip_reader,hr.payslip reader,payroll.model_hr_payslip,group_payroll_reader,1,0,0,0
+access_payslip_approver,hr.payslip approver,payroll.model_hr_payslip,group_payroll_approver,1,0,0,0
+access_payslip_line_reader,hr.payslip.line reader,payroll.model_hr_payslip_line,group_payroll_reader,1,0,0,0
+access_payslip_line_approver,hr.payslip.line approver,payroll.model_hr_payslip_line,group_payroll_approver,1,0,0,0
+access_payslip_worked_days_reader,hr.payslip.worked_days reader,payroll.model_hr_payslip_worked_days,group_payroll_reader,1,0,0,0
+access_payslip_worked_days_approver,hr.payslip.worked_days approver,payroll.model_hr_payslip_worked_days,group_payroll_approver,1,0,0,0
+access_payslip_input_reader,hr.payslip.input reader,payroll.model_hr_payslip_input,group_payroll_reader,1,0,0,0
+access_payslip_input_approver,hr.payslip.input approver,payroll.model_hr_payslip_input,group_payroll_approver,1,0,0,0
+access_analysis_user,l10n_vn.payroll.analysis officer,model_l10n_vn_payroll_analysis,payroll.group_payroll_user,1,0,0,0
+access_analysis_reader,l10n_vn.payroll.analysis reader,model_l10n_vn_payroll_analysis,group_payroll_reader,1,0,0,0
+access_analysis_approver,l10n_vn.payroll.analysis approver,model_l10n_vn_payroll_analysis,group_payroll_approver,1,0,0,0

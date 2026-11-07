@@ -16,3 +16,6 @@ from . import test_contributions
 from . import test_pit
 from . import test_damage
 from . import test_checks
+from . import test_run
+from . import test_lock
+from . import test_report

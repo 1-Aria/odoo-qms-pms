@@ -108,6 +108,10 @@ class L10nVnPayrollPeriod(models.Model):
     def action_reopen_attendance(self):
         if not self.env.user.has_group("payroll.group_payroll_manager"):
             raise AccessError(self.env._("Only payroll managers reopen attendance."))
+        if self.sudo().input_ids._l10n_vn_locked_inputs():
+            raise UserError(
+                self.env._("A run of this period is approved: its attendance stays closed.")
+            )
         self.write(
             {
                 "attendance_closed": False,

@@ -134,6 +134,29 @@
                     </field>
                 </page>
             </xpath>
+            <xpath expr="//page[@name='computation']/group" position="after">
+                <group string="Summary" name="l10n_vn_summary" invisible="not l10n_vn_context">
+                    <group>
+                        <field name="l10n_vn_paid_days" />
+                        <field name="l10n_vn_days_worked" />
+                        <field name="l10n_vn_ot_wd_hours" />
+                        <field name="l10n_vn_ot_rd_hours" />
+                        <field name="l10n_vn_ot_hol_hours" />
+                        <field name="l10n_vn_si_base" />
+                        <field name="l10n_vn_taxable" />
+                    </group>
+                    <group>
+                        <field name="l10n_vn_currency_id" invisible="1" />
+                        <field name="l10n_vn_gross" />
+                        <field name="l10n_vn_employee_insurance" />
+                        <field name="l10n_vn_pit" />
+                        <field name="l10n_vn_net" />
+                        <field name="l10n_vn_advance" />
+                        <field name="l10n_vn_to_pay" />
+                        <field name="l10n_vn_employer_cost" />
+                    </group>
+                </group>
+            </xpath>
             <xpath expr="//group[@name='top']//field[@name='contract_id']" position="after">
                 <field
                     name="l10n_vn_check_level"

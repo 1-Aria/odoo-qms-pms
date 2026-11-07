@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_payslip_run_view_form_l10n_vn_payroll" model="ir.ui.view">
+        <field name="name">hr.payslip.run.form.l10n_vn_payroll</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="inherit_id" ref="payroll.hr_payslip_run_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='close_payslip_run']" position="attributes">
+                <attribute name="invisible">state != 'draft' or l10n_vn_period_id</attribute>
+            </xpath>
+            <xpath expr="//header/button[@type='action']" position="attributes">
+                <attribute name="invisible">state != 'draft' or l10n_vn_period_id</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='draft_payslip_run']" position="attributes">
+                <attribute name="invisible">state != 'close' or l10n_vn_period_id</attribute>
+            </xpath>
+            <xpath expr="//header/field[@name='state']" position="before">
+                <button
+                    name="action_l10n_vn_calculate"
+                    type="object"
+                    string="Calculate"
+                    class="oe_highlight"
+                    invisible="not l10n_vn_period_id or state not in ('draft', 'calculated', 'reviewed')"
+                    groups="payroll.group_payroll_user"
+                />
+                <button
+                    name="action_l10n_vn_review"
+                    type="object"
+                    string="Review"
+                    class="oe_highlight"
+                    invisible="not l10n_vn_period_id or state != 'calculated'"
+                    groups="l10n_vn_payroll.group_payroll_reviewer"
+                />
+                <button
+                    name="action_l10n_vn_back_to_calculated"
+                    type="object"
+                    string="Back to Calculated"
+                    invisible="not l10n_vn_period_id or state != 'reviewed'"
+                    groups="payroll.group_payroll_user"
+                />
+                <button
+                    name="action_l10n_vn_approve"
+                    type="object"
+                    string="Approve"
+                    class="oe_highlight"
+                    invisible="not l10n_vn_period_id or state != 'reviewed'"
+                    groups="l10n_vn_payroll.group_payroll_approver"
+                />
+                <button
+                    name="action_print_l10n_vn_payslips"
+                    type="object"
+                    string="Print Payslips"
+                    invisible="not l10n_vn_period_id or not slip_ids"
+                />
+                <button
+                    name="action_l10n_vn_mark_paid"
+                    type="object"
+                    string="Mark as Paid"
+                    invisible="not l10n_vn_period_id or state != 'approved'"
+                    groups="payroll.group_payroll_user"
+                />
+            </xpath>
+            <xpath expr="//header/field[@name='state']" position="attributes">
+                <attribute name="statusbar_visible">draft,calculated,reviewed,approved,paid</attribute>
+            </xpath>
+            <xpath expr="//sheet/label[@for='name']" position="before">
+                <div class="oe_button_box" name="button_box" invisible="not l10n_vn_period_id">
+                    <button
+                        name="action_open_l10n_vn_checks"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-check-square-o"
+                    >
+                        <div class="o_stat_info">
+                            <span class="o_stat_value">
+                                <field name="l10n_vn_error_count" />
+                                /
+                                <field name="l10n_vn_warning_count" />
+                            </span>
+                            <span class="o_stat_text">Errors / Warnings</span>
+                        </div>
+                    </button>
+                </div>
+            </xpath>
+            <xpath expr="//group[@name='period_group']/label" position="before">
+                <field name="l10n_vn_period_id" readonly="state != 'draft'" />
+                <field
+                    name="l10n_vn_kind"
+                    invisible="not l10n_vn_period_id"
+                    readonly="state != 'draft'"
+                />
+                <field
+                    name="l10n_vn_employee_ids"
+                    widget="many2many_tags"
+                    invisible="l10n_vn_kind != 'off_cycle'"
+                    readonly="state != 'draft'"
+                />
+            </xpath>
+            <xpath expr="//group[@name='other']" position="after">
+                <group string="Workflow" name="l10n_vn_workflow" invisible="not l10n_vn_period_id">
+                    <field name="l10n_vn_calculated_by" />
+                    <field name="l10n_vn_calculated_at" />
+                    <field name="l10n_vn_reviewed_by" />
+                    <field name="l10n_vn_reviewed_at" />
+                    <field name="l10n_vn_approved_by" />
+                    <field name="l10n_vn_approved_at" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="hr_payslip_run_view_tree_l10n_vn_payroll" model="ir.ui.view">
+        <field name="name">hr.payslip.run.list.l10n_vn_payroll</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="inherit_id" ref="payroll.hr_payslip_run_view_tree" />
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="l10n_vn_period_id" optional="show" />
+                <field name="l10n_vn_kind" optional="show" />
+            </xpath>
+        </field>
+    </record>
+</odoo>

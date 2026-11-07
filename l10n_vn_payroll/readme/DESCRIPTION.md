@@ -42,3 +42,14 @@ This first step holds the configuration layer:
   and more. A check's level (error, warning, note or off) is a dated parameter, per check and per
   component. Results sit on the payslip, where reviewers write their notes. A payslip that cannot be
   calculated gets an error result instead of stopping the rest of the batch.
+- **Runs** (step 7): a payslip batch of a payroll period, regular or off-cycle, moves Draft → Calculated →
+  Reviewed → Approved → Paid. Calculating makes and calculates the period's payslips; review needs no
+  errors and a note on every warning; approval is by someone other than the person who calculated, and
+  an employee is paid by one approved run per month. Once approved, the payslips, their lines, the
+  monthly inputs they read and the pay lines they used are locked; corrections go into a later month.
+- **Reports** (step 8): each payslip keeps its totals (time and OT by category, pay by section,
+  deductions, net, amount to pay, employer cost) for lists, exports and Excel templates; a payroll
+  analysis view for pivots that download to Excel; the employee payslip in Vietnamese with English
+  labels (Labor Code Art. 95); two editable Excel templates, the payroll register and the attendance
+  sign-off sheet.
+

@@ -3,9 +3,12 @@
 import datetime
 
 from odoo import api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
+from .hr_payslip_run import LOCKED_STATES
 from .l10n_vn_payroll_component import LINE_SOURCES
+
+FROZEN = {"component_id", "amount", "scale_key", "in_cell", "contract_id", "date_from"}
 
 FAR_FUTURE = datetime.date.max
 
@@ -155,13 +158,56 @@ class L10nVnPayrollContractLine(models.Model):
         lines.contract_id._l10n_vn_sync_wage()
         return lines
 
+    # ------------------------------------------------------------------ after approval (D77)
+    def _l10n_vn_used_until(self):
+        """{line id: the last day of the latest locked payslip that used it}"""
+        used = {}
+        if not self.ids:
+            return used
+        payslips = self.env["hr.payslip"].sudo().search(
+            [
+                ("employee_id", "in", self.sudo().contract_id.employee_id.ids),
+                ("payslip_run_id.l10n_vn_period_id", "!=", False),
+                ("payslip_run_id.state", "in", LOCKED_STATES),
+            ]
+        )
+        for payslip in payslips:
+            ids = {p["id"] for p in (payslip.l10n_vn_context or {}).get("pay_lines", [])}
+            for line_id in ids & set(self.ids):
+                used[line_id] = max(used.get(line_id, payslip.date_to), payslip.date_to)
+        return used
+
+    def _l10n_vn_refuse(self):
+        raise UserError(
+            self.env._(
+                "This pay line was used by an approved payslip: end it and add a new line "
+                "instead."
+            )
+        )
+
     def write(self, vals):
+        if not self.env.su:
+            used = self._l10n_vn_used_until()
+            if used:
+                if FROZEN.intersection(vals):
+                    self._l10n_vn_refuse()
+                new_end = fields.Date.to_date(vals.get("date_to")) if "date_to" in vals else None
+                if new_end and any(new_end < until for until in used.values()):
+                    raise UserError(
+                        self.env._(
+                            "This pay line was used by an approved payslip until %(date)s; it "
+                            "cannot end before.",
+                            date=max(used.values()),
+                        )
+                    )
         contracts = self.contract_id
         result = super().write(vals)
         (contracts | self.contract_id)._l10n_vn_sync_wage()
         return result
 
     def unlink(self):
+        if not self.env.su and self._l10n_vn_used_until():
+            self._l10n_vn_refuse()
         contracts = self.contract_id
         result = super().unlink()
         contracts.exists()._l10n_vn_sync_wage()

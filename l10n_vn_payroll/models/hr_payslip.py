@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from odoo import Command, api, fields, models
 from odoo.exceptions import UserError
 
+from .hr_payslip_run import LOCKED_STATES
 from .hr_salary_rule import RULE_TYPE
 from .pay_context import IntegrityStop, PayContext, _dec, _round
 
@@ -29,6 +30,31 @@ class HrPayslip(models.Model):
         compute="_compute_l10n_vn_check_level",
         store=True,
     )
+    # ------------------------------------------------------------------ totals (D79, D80)
+    l10n_vn_currency_id = fields.Many2one(related="company_id.currency_id")
+    l10n_vn_paid_days = fields.Float(string="Paid Days", digits=(16, 4), readonly=True, copy=False)
+    l10n_vn_days_worked = fields.Float(string="Days Worked", digits=(16, 4), readonly=True, copy=False)
+    l10n_vn_unpaid_days = fields.Float(string="Unpaid Days", digits=(16, 4), readonly=True, copy=False)
+    l10n_vn_ot_hours = fields.Float(string="OT Hours", digits=(16, 4), readonly=True, copy=False)
+    l10n_vn_ot_wd_hours = fields.Float(string="OT Workday", digits=(16, 4), readonly=True, copy=False)
+    l10n_vn_ot_rd_hours = fields.Float(string="OT Rest Day", digits=(16, 4), readonly=True, copy=False)
+    l10n_vn_ot_hol_hours = fields.Float(string="OT Holiday", digits=(16, 4), readonly=True, copy=False)
+    l10n_vn_salary_pay = fields.Monetary(string="Salary", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_ot_pay = fields.Monetary(string="OT Pay", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_bonus_pay = fields.Monetary(string="Bonus", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_other_pay = fields.Monetary(string="Other Pay", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_gross = fields.Monetary(string="Gross", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_employee_insurance = fields.Monetary(string="Employee Insurance", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_dues = fields.Monetary(string="Union Dues", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_pit = fields.Monetary(string="PIT", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_damage = fields.Monetary(string="Damage Compensation", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_other_deductions = fields.Monetary(string="Other Deductions", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_net = fields.Monetary(string="Net Pay", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_advance = fields.Monetary(string="Advance Settled", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_to_pay = fields.Monetary(string="To Pay", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_employer_cost = fields.Monetary(string="Employer Cost", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_si_base = fields.Monetary(string="SI Base", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
+    l10n_vn_taxable = fields.Monetary(string="Taxable Income", currency_field="l10n_vn_currency_id", readonly=True, copy=False)
     l10n_vn_damage_allocation_ids = fields.One2many(
         "l10n_vn.payroll.damage.allocation",
         "payslip_id",
@@ -43,6 +69,89 @@ class HrPayslip(models.Model):
             payslip.l10n_vn_check_level = next(
                 (level for level in ("error", "warning", "note") if level in levels), False
             )
+
+    # ------------------------------------------------------------------ the lock (D76)
+    def _l10n_vn_locked(self):
+        self.ensure_one()
+        run = self.sudo().payslip_run_id
+        return bool(run.l10n_vn_period_id) and run.state in LOCKED_STATES
+
+    def _l10n_vn_raise_if_locked(self):
+        """Approved payslips do not change; the superuser (the approval itself) excepted."""
+        if self.env.su:
+            return
+        for payslip in self.sudo():
+            if payslip._l10n_vn_locked():
+                raise UserError(
+                    self.env._(
+                        "Payslip %(number)s belongs to an approved run and cannot change; "
+                        "correct it in a later month.",
+                        number=payslip.number or payslip.name,
+                    )
+                )
+
+    def write(self, vals):
+        self._l10n_vn_raise_if_locked()
+        return super().write(vals)
+
+    def unlink(self):
+        self._l10n_vn_raise_if_locked()
+        return super().unlink()
+
+    @api.model
+    def _l10n_vn_totals(self, context):
+        """The payslip's totals from its snapshot (D80); empty without one."""
+        sections = {"salary": "l10n_vn_salary_pay", "ot": "l10n_vn_ot_pay",
+                    "bonus": "l10n_vn_bonus_pay", "other": "l10n_vn_other_pay"}
+        names = [
+            "l10n_vn_paid_days", "l10n_vn_days_worked", "l10n_vn_unpaid_days", "l10n_vn_ot_hours",
+            "l10n_vn_ot_wd_hours", "l10n_vn_ot_rd_hours", "l10n_vn_ot_hol_hours",
+            *sections.values(), "l10n_vn_gross", "l10n_vn_employee_insurance", "l10n_vn_dues",
+            "l10n_vn_pit", "l10n_vn_damage", "l10n_vn_other_deductions", "l10n_vn_net",
+            "l10n_vn_advance", "l10n_vn_to_pay", "l10n_vn_employer_cost", "l10n_vn_si_base",
+            "l10n_vn_taxable",
+        ]
+        if not context:
+            return dict.fromkeys(names, 0)
+        values = dict.fromkeys(names, 0)
+        inp = context.get("input", {})
+        ot = inp.get("ot_hours_json") or {}
+        values.update(
+            l10n_vn_paid_days=inp.get("paid_days") or 0,
+            l10n_vn_days_worked=inp.get("days_worked") or 0,
+            l10n_vn_unpaid_days=inp.get("unpaid_days") or 0,
+            l10n_vn_ot_hours=sum(ot.values()),
+            l10n_vn_ot_wd_hours=ot.get("WD", 0),
+            l10n_vn_ot_rd_hours=ot.get("RD", 0),
+            l10n_vn_ot_hol_hours=ot.get("HOL", 0),
+        )
+        lines = context.get("lines", [])
+        components = self.env["l10n_vn.payroll.component"].sudo().browse(
+            {line["component_id"] for line in lines}
+        )
+        section_of = {c.id: c.section for c in components}
+        for line in lines:
+            if line["kind"] == "earning" and section_of.get(line["component_id"]) in sections:
+                values[sections[section_of[line["component_id"]]]] += line["amount"]
+            elif line["kind"] == "employer":
+                values["l10n_vn_employer_cost"] += line["amount"]
+        values.update(
+            l10n_vn_gross=context.get("gross", 0),
+            l10n_vn_employee_insurance=context.get("employee_insurance", 0),
+            l10n_vn_dues=context.get("dues", 0),
+            l10n_vn_pit=(context.get("pit") or {}).get("pit", 0),
+            l10n_vn_damage=(context.get("damage") or {}).get("total", 0),
+            l10n_vn_other_deductions=-sum(
+                line["amount"] for line in lines
+                if line["kind"] == "deduction" and line.get("input_line_id")
+            ),
+            l10n_vn_net=context.get("net", 0),
+            l10n_vn_advance=context.get("settled", 0),
+            l10n_vn_to_pay=context.get("to_pay", 0),
+            l10n_vn_si_base=(context.get("contributions") or {}).get("si_capped") or 0,
+            l10n_vn_taxable=(context.get("pit") or {}).get("taxable") or 0,
+        )
+        return values
 
     def _l10n_vn_is_vn(self):
         self.ensure_one()
@@ -155,6 +264,11 @@ class HrPayslip(models.Model):
 
     # ------------------------------------------------------------------ calculation (D42)
     def compute_sheet(self):
+        self._l10n_vn_raise_if_locked()
+        # recalculating after review sends the run back (D75)
+        self.sudo().payslip_run_id.filtered(
+            lambda run: run.l10n_vn_period_id and run.state == "reviewed"
+        ).write({"state": "calculated", "l10n_vn_reviewed_by": False, "l10n_vn_reviewed_at": False})
         vn = self.filtered(lambda payslip: payslip._l10n_vn_is_vn())
         stopped = vn._l10n_vn_prepare()
         result = super(HrPayslip, self - stopped).compute_sheet()
@@ -222,6 +336,7 @@ class HrPayslip(models.Model):
                 "contract_id": main.id,
                 "l10n_vn_input_id": inp.id,
                 "l10n_vn_context": context,
+                **self._l10n_vn_totals(context),
                 "worked_days_line_ids": [Command.clear()]
                 + [Command.create(v) for v in self._l10n_vn_worked_day_vals(inp, main)],
             }
@@ -247,7 +362,7 @@ class HrPayslip(models.Model):
         )
         self.sudo().line_ids.unlink()
         self.sudo().l10n_vn_damage_allocation_ids.unlink()
-        self.write({"l10n_vn_context": False})
+        self.write({"l10n_vn_context": False, **self._l10n_vn_totals(False)})
 
     def _l10n_vn_run_checks(self):
         """Runs every active check on each payslip's snapshot (D59-D61, D63)."""
