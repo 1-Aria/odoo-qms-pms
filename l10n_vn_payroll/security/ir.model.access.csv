@@ -52,3 +52,12 @@ access_payslip_input_approver,hr.payslip.input approver,payroll.model_hr_payslip
 access_analysis_user,l10n_vn.payroll.analysis officer,model_l10n_vn_payroll_analysis,payroll.group_payroll_user,1,0,0,0
 access_analysis_reader,l10n_vn.payroll.analysis reader,model_l10n_vn_payroll_analysis,group_payroll_reader,1,0,0,0
 access_analysis_approver,l10n_vn.payroll.analysis approver,model_l10n_vn_payroll_analysis,group_payroll_approver,1,0,0,0
+access_statement_user,l10n_vn.payroll.statement officer,model_l10n_vn_payroll_statement,payroll.group_payroll_user,1,1,1,1
+access_statement_reader,l10n_vn.payroll.statement reader,model_l10n_vn_payroll_statement,group_payroll_reader,1,0,0,0
+access_statement_approver,l10n_vn.payroll.statement approver,model_l10n_vn_payroll_statement,group_payroll_approver,1,0,0,0
+access_statement_line_user,l10n_vn.payroll.statement_line officer,model_l10n_vn_payroll_statement_line,payroll.group_payroll_user,1,1,1,1
+access_statement_line_reader,l10n_vn.payroll.statement_line reader,model_l10n_vn_payroll_statement_line,group_payroll_reader,1,0,0,0
+access_statement_line_approver,l10n_vn.payroll.statement_line approver,model_l10n_vn_payroll_statement_line,group_payroll_approver,1,0,0,0
+access_opening_user,l10n_vn.payroll.opening officer,model_l10n_vn_payroll_opening,payroll.group_payroll_user,1,1,1,1
+access_opening_reader,l10n_vn.payroll.opening reader,model_l10n_vn_payroll_opening,group_payroll_reader,1,0,0,0
+access_opening_approver,l10n_vn.payroll.opening approver,model_l10n_vn_payroll_opening,group_payroll_approver,1,0,0,0

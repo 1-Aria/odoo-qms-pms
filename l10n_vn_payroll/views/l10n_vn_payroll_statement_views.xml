@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_statement_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.statement.list</field>
+        <field name="model">l10n_vn.payroll.statement</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="kind" />
+                <field name="date_from" />
+                <field name="date_to" />
+                <field name="state" />
+                <field name="line_count" />
+                <field name="company_id" groups="base.group_multi_company" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_statement_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.statement.form</field>
+        <field name="model">l10n_vn.payroll.statement</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_generate" type="object" string="Generate" class="oe_highlight" invisible="state != 'draft'" />
+                    <button name="action_done" type="object" string="Done" invisible="state != 'draft' or not line_count" />
+                    <button name="action_draft" type="object" string="Back to Draft" invisible="state != 'done'" groups="payroll.group_payroll_manager" />
+                    <field name="state" widget="statusbar" />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_lines" type="object" class="oe_stat_button" icon="fa-list">
+                            <field name="line_count" widget="statinfo" string="Lines" />
+                        </button>
+                    </div>
+                    <h1><field name="name" /></h1>
+                    <group>
+                        <group>
+                            <field name="kind" readonly="state != 'draft'" />
+                            <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'" />
+                        </group>
+                        <group>
+                            <field name="date_from" readonly="state != 'draft'" />
+                            <field name="date_to" readonly="state != 'draft'" />
+                        </group>
+                    </group>
+                    <field name="note" placeholder="Note" />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_statement_line_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.statement.line.list</field>
+        <field name="model">l10n_vn.payroll.statement.line</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="currency_id" column_invisible="True" />
+                <field name="employee_number" />
+                <field name="employee_id" />
+                <field name="personal_id" />
+                <field name="si_number" />
+                <field name="date_from" optional="show" />
+                <field name="change_type" optional="show" />
+                <field name="change_date" optional="show" />
+                <field name="si_base" optional="show" sum="Total" />
+                <field name="ui_base" optional="hide" sum="Total" />
+                <field name="ee_si" optional="show" sum="Total" />
+                <field name="ee_hi" optional="show" sum="Total" />
+                <field name="ee_ui" optional="show" sum="Total" />
+                <field name="er_pension" optional="show" sum="Total" />
+                <field name="er_sickness" optional="show" sum="Total" />
+                <field name="er_accident" optional="show" sum="Total" />
+                <field name="er_hi" optional="show" sum="Total" />
+                <field name="er_ui" optional="show" sum="Total" />
+                <field name="union_fee" optional="show" sum="Total" />
+                <field name="dues" optional="show" sum="Total" />
+                <field name="income" optional="show" sum="Total" />
+                <field name="income_exempt" optional="show" sum="Total" />
+                <field name="insurance" optional="show" sum="Total" />
+                <field name="dependents" optional="show" />
+                <field name="family_deduction" optional="show" sum="Total" />
+                <field name="taxable" optional="show" sum="Total" />
+                <field name="pit" optional="show" sum="Total" />
+                <field name="pit_method" optional="hide" />
+                <field name="months" optional="hide" />
+                <field name="ot_wd_hours" optional="show" sum="Total" />
+                <field name="ot_rd_hours" optional="show" sum="Total" />
+                <field name="ot_hol_hours" optional="show" sum="Total" />
+                <field name="ot_pay" optional="show" sum="Total" />
+                <field name="ot_exempt" optional="show" sum="Total" />
+                <field name="note" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_statement_action" model="ir.actions.act_window">
+        <field name="name">Statements</field>
+        <field name="res_model">l10n_vn.payroll.statement</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

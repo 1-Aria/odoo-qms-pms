@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_opening_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.opening.list</field>
+        <field name="model">l10n_vn.payroll.opening</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="currency_id" column_invisible="True" />
+                <field name="year" options="{'format': false}" />
+                <field name="employee_id" />
+                <field name="months" />
+                <field name="income" sum="Total" />
+                <field name="income_exempt" sum="Total" />
+                <field name="insurance" sum="Total" />
+                <field name="family_deduction" sum="Total" />
+                <field name="taxable" sum="Total" />
+                <field name="pit" sum="Total" />
+                <field name="ot_hours" sum="Total" />
+                <field name="note" optional="hide" />
+                <field name="company_id" groups="base.group_multi_company" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_opening_action" model="ir.actions.act_window">
+        <field name="name">Opening Data</field>
+        <field name="res_model">l10n_vn.payroll.opening</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

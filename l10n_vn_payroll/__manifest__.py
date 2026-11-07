@@ -40,6 +40,8 @@
         "views/hr_payslip_run_views.xml",
         "views/l10n_vn_payroll_analysis_views.xml",
         "report/l10n_vn_payslip_report.xml",
+        "views/l10n_vn_payroll_statement_views.xml",
+        "views/l10n_vn_payroll_opening_views.xml",
         "views/menus.xml",
     ],
     "installable": True,

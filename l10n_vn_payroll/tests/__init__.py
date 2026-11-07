@@ -19,3 +19,4 @@ from . import test_checks
 from . import test_run
 from . import test_lock
 from . import test_report
+from . import test_statement

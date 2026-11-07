@@ -17,3 +17,5 @@ from . import l10n_vn_payroll_damage
 from . import l10n_vn_payroll_check
 from . import hr_payslip_run
 from . import l10n_vn_payroll_analysis
+from . import l10n_vn_payroll_statement
+from . import l10n_vn_payroll_opening

@@ -52,4 +52,8 @@ This first step holds the configuration layer:
   analysis view for pivots that download to Excel; the employee payslip in Vietnamese with English
   labels (Labor Code Art. 95); two editable Excel templates, the payroll register and the attendance
   sign-off sheet.
+- **Statements and opening data** (step 9): SI contributions and changes, PIT for a period and for the
+  year, the OT schedule and the union fee and dues, generated as lists from approved payslips and
+  exported with Odoo's export; the year-to-date figures of months paid before go-live, which the annual
+  PIT and the yearly OT count add.
 

@@ -426,7 +426,15 @@ class L10nVnPayrollInput(models.Model):
             "unexcused_absences": absences,
             "leave_days_json": {k: round(v, 4) for k, v in leave_days.items()},
             "ot_hours_json": ot_sum(rows),
-            "ot_hours_ytd": sum(earlier.mapped("ot_hours")),
+            "ot_hours_ytd": sum(earlier.mapped("ot_hours")) + sum(
+                self.env["l10n_vn.payroll.opening"].sudo().search(
+                    [
+                        ("company_id", "=", period.company_id.id),
+                        ("employee_id", "=", self.employee_id.id),
+                        ("year", "=", period.date_from.year),
+                    ]
+                ).mapped("ot_hours")
+            ),
             "paid_break_hours": round(break_hours, 4),
         }
         segments = []

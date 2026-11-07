@@ -77,4 +77,18 @@
         action="l10n_vn_payroll_analysis_action"
         sequence="5"
     />
+    <menuitem
+        id="menu_l10n_vn_payroll_statement"
+        name="Statements"
+        parent="menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_statement_action"
+        sequence="6"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_opening"
+        name="Opening Data"
+        parent="menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_opening_action"
+        sequence="7"
+    />
 </odoo>

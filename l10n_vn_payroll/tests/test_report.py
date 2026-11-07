@@ -64,9 +64,14 @@ class TestReport(RunCase):
             "l10n_vn_payroll.action_report_l10n_vn_payslip", run.slip_ids.ids
         )
         html = html.decode()
-        self.assertEqual(html.count('class="page"'), len(run.slip_ids))
-        for slip in run.slip_ids:
-            self.assertIn(slip.employee_id.name, html)
+        pages = html.split('class="page"')[1:]
+        self.assertEqual(len(pages), len(run.slip_ids))
+        lang = self.env["res.lang"]._lang_get(self.env.lang or "en_US")
+        # pages follow the payslips' order; each shows its own employee and amount to pay
+        for slip, page in zip(run.slip_ids, pages):
+            self.assertIn(slip.employee_id.name, page)
+            self.assertTrue(slip.l10n_vn_to_pay)
+            self.assertIn(lang.format("%.0f", slip.l10n_vn_to_pay, grouping=True), page)
         self.assertIn("Ngày công", html)
         self.assertIn("Còn được lĩnh", html)
 

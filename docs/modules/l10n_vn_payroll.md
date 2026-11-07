@@ -3,8 +3,8 @@
 Vietnamese payroll on OCA `payroll`: pay components with their SI, OT and PIT treatment, salary and
 productivity scales, dated pay lines on contracts, contribution profiles, monthly inputs, the pay
 context that calculates every payslip, checks, the run workflow and lock, the payslip and the
-statutory statements. Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.3.md` (PTD-xx),
-on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`. Base module:
+statutory statements. Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` (PTD-xx),
+on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`. Base module:
 `docs/modules/base_time_parameter_strict.md`. Posting, the bank file and advances are
 `l10n_vn_payroll_account`; the garment company's configuration is `l10n_vn_payroll_garment`.
 
@@ -20,8 +20,8 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | 5 | Calculation II: the month's scheduled days on the summary; SI liability by the 14-day rule; the SI base, floor and caps; employee and employer insurance by fund, union fee and dues; PIT, progressive with exemptions and flat; damage decisions with their allocations; net pay; the advance hook for `l10n_vn_payroll_account` with `ADVANCE` and `TO_PAY`; deductions shown negative; tests on the whole payslip of 42 acceptance cases | done | 2026-11-03, two runs. First: `-u`, 160 tests, 1 failure: `test_month_scheduled_days_built` assumed the test company works Monday–Friday, but a new company copies the current company's calendar (Monday–Saturday on the instance); the test now has its own calendar. Second: `-u`, `exit=0`, 160 tests, 0 failures; UI checked by Peter: *Damage Decisions*, *Scheduled days in the month* on the input; May 2026 summaries rebuilt (287, each 26 days in the month). Trial on the test copy (`payroll-trial/`), May 2026, employees 441, 391, 378: payslips 1996–1998, SI base 3,700,000, insurance 296,000 + 55,500 + 37,000, employer 518,000 + 111,000 + 18,500 + 111,000 + 37,000 + union fee 74,000, PIT 0; net 5,405,433, 4,071,292, 3,897,324, each checked by hand |
 | 6 | Checks: the catalogue of 20 checks as data, levels from dated parameters per check and per component, results on the payslip with the reviewer's note, the payslip's worst level; the pay context's integrity stops become error results, so the other payslips of a batch still calculate; the probation job on the contract | done | 2026-11-04, three runs. First: `-u`, 184 tests, 1 failure: `test_missing_ids` found the tax code set on a new employee, because OCA's `hr_employee_id` fills `identification_id` with the employee number; the national ID got its own field, `l10n_vn_personal_id`, used as the tax code (D70). Second and third: `-u`, `exit=0`, 184 tests, 0 failures; between them, after Peter's UI check, the pay fields moved into OCA's *Payroll* tab (the form showed two) and the personal ID into *Private Information*. UI checked by Peter. Trial on the test copy, May 2026, employees 441, 391, 378: payslips 2377–2379 with the same amounts as in step 5; checks `missing_ids` (no personal ID or SI number) and `variable_constant` (`vn.policy.constant_months` not configured), both errors as expected |
 | 7 | Runs: the period run, regular or off-cycle; Draft → Calculated → Reviewed → Approved → Paid; payslips generated and calculated by the run; review blocked by errors and unnoted warnings; approval by another user, payslips confirmed without recalculation; one payment per employee and period; the lock on approved payslips, their lines, inputs and the pay lines they used; batch access for officers, reviewers, approvers and readers, payslip access for approvers and readers | done | 2026-11-07, one run: `-u`, `exit=0`, 207 tests, 0 failures. UI checked by Peter on the test copy: run *May VN* of period 2026-05 (run 34) calculated and reviewed by Peter, approved by another user, marked as paid; payslips 2546–2548 done with no check results once the personal IDs, SI numbers and the two policy parameters were filled in; an approved payslip refused changes; a payroll approver without HR roles opened the payslips and their lines |
-| 8 | Reports: the payslip's totals copied from its snapshot (time, OT by category, pay by section, deductions, net, to pay, employer cost); OT by category on the monthly input; a payroll analysis view for pivots; the employee payslip PDF in Vietnamese with English labels; two `excel_import_export` templates shipped as starting points, the payroll register on the run and the attendance sign-off sheet on the period | specified | |
-| 9 | Statutory statements and opening data | planned | |
+| 8 | Reports: the payslip's totals copied from its snapshot (time, OT by category, pay by section, deductions, net, to pay, employer cost); OT by category on the monthly input; a payroll analysis view for pivots; the employee payslip PDF in Vietnamese with English labels; two `excel_import_export` templates shipped as starting points, the payroll register on the run and the attendance sign-off sheet on the period | done | 2026-11-07, one run: `-u`, `exit=0`, 214 tests, 0 failures. UI checked by Peter: the payslip PDF, the two templates exported, the analysis pivot. Run 34 had been calculated before step 8, so its totals were empty and its printout showed 0 for time, gross, net and to pay; filled once from the snapshots as superuser (`_l10n_vn_totals`), after setting the trial's OT components to section `ot`; the printout then matched the hand-checked figures (441: gross 5,793,933, to pay 5,405,433) |
+| 9 | Statements and opening data: `l10n_vn.payroll.statement` with its lines, generated from approved payslips — SI contributions, SI changes, PIT for a month or quarter, the annual PIT finalisation, the OT schedule (Decree 253), the union fee and dues — as plain lists exported through Odoo's export; `l10n_vn.payroll.opening`, the year-to-date figures of months paid before go-live, imported with Odoo's import and read by the annual PIT and by `ot_hours_ytd` | done | 2026-11-07, one run: `-u`, `exit=0`, 224 tests, 0 failures. UI checked by Peter: an SI contributions statement for May 2026 listed run 34's employees (SI base 3,700,000, employee SI 296,000), exported to Excel; opening data entered |
 
 ## Divergences from the design
 
@@ -60,6 +60,9 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | 31 | §21: the period's inputs read-only once its run is approved | an input is read-only once a payslip that read it sits in an approved or paid run (step 7, D76) | An approved off-cycle run covers a few employees; their inputs lock, the others stay open for the regular run |
 | 32 | §20.2: the run carries the workflow, nothing on runs' access | officers create and calculate runs; reviewers, approvers and readers read them (step 7, D78) | OCA grants `hr.payslip.run` to payroll managers only (`oca/payroll/payroll/security/ir.model.access.csv:10`), so an officer could not open a run |
 | 33 | §24: a payslip report alone | totals on the payslip, an analysis view and Excel templates beside it, all reading the same approved figures (step 8, D79–D84) | Peter works payroll in Excel through `excel_import_export`; Labor Code Art. 95(3) needs a statement per employee per payment, the accountant a register, HR a signed attendance sheet (Peter, 2026-11-07) |
+| 34 | §25.1: each kind with an `excel_import_export` template in the filing tool's layout | plain lists: the statement's lines, exported with Odoo's own export (step 9, D86) | The SI e-declaration and tax portal layouts are not available yet (PTD-OPEN-08, Peter 2026-11-07); a template is added later without code |
+| 35 | §25.1 kinds: `pit_certificate`; no OT schedule | no `pit_certificate` kind, its figures are the annual statement's line for the employee; an `ot_schedule` kind for the OT hours and amounts Decree 253 requires (FR-46) (step 9, D85) | The certificate is a printed document from the annual figures, added with its form; FR-46 names the OT schedule, §25.1 does not |
+| 36 | §25.2 and FR-66: opening data with leave balances and dependents | income, PIT, insurance and OT hours only (step 9, D88) | Leave balances live in core's time off allocations and dependents on the employee's relatives (step 2); both are entered there |
 
 ## Decisions
 
@@ -149,6 +152,11 @@ on `Payroll Requirements Specification v0.5.md` (FR-xx) and `Pay Policy v0.5.md`
 | D82 | **Payroll analysis:** `l10n_vn.payroll.analysis`, a read-only SQL view with one row per line of a Vietnamese payslip in a run: month, company, run and its state, employee, department, component, its kind and section, and the line's total. Pivot, graph and list views; Odoo's pivot downloads to Excel, so ad-hoc reports need no template |
 | D83 | **The employee payslip** (Labor Code Art. 95(3), FR-41, FR-42): a QWeb PDF per payslip, Vietnamese labels with English in smaller type beneath; blocks: company and month; employee (name, employee number `identification_id`, department, job); **time** (scheduled days, days worked, paid leave, unpaid days, paid days, OT hours per category); **earnings** (each line with its days or hours, rate and amount, grouped by section); **deductions** (each line); net pay, advance settled, amount to pay; **paid by the company** (each employer line, the employer cost). One A4 page per payslip; printable from a payslip or for a whole run |
 | D84 | **Excel templates** (`excel_import_export`, PTD-14): two starting templates ship in a `noupdate` data file, so edits made in the UI survive upgrades. *Payroll Register* on `hr.payslip.run`, a row per payslip: number, name, department, the time totals, pay by section, gross, each deduction total, net, advance, to pay, employer cost, a signature column, and column sums. *Attendance Sign-off* on `l10n_vn.payroll.period`, a row per summary: number, name, department, scheduled days, days worked, company-paid leave, SI-paid leave, unpaid leave, unexcused absences, OT hours per category and in total, paid break hours, a signature column. Peter's own templates stay as they are |
+| D85 | **Statement kinds** (FR-45 to FR-47): `si_monthly` (per employee contributing in the month: SI base, UI base, each employee and employer fund, union fee, dues); `si_changes` (per employee whose contribution changed against the previous month: `join`, `leave`, `absence`, `return`, `base`); `pit_period` (per employee paid in the dates: income, exempt income, insurance, dependents, family deduction, taxable income, PIT, method); `pit_annual` (the same for a year, opening data included, with the months paid); `ot_schedule` (per employee and month: OT hours per category, OT pay, OT exempt from PIT); `union` (per employee: union fee and dues) |
+| D86 | **Source:** the snapshots of the company's Vietnamese payslips whose run is `approved` or `paid` and whose month lies in the statement's dates; a statement never recalculates pay (PTD-15). Each statement is a list of lines, exported with Odoo's export |
+| D87 | **The SI changes** compare each employee's month with the month before: contributing now and not before → `join` when a contract started in the month, else `return`; contributing before and not now → `leave` when the main contract ended by the month's last day, else `absence` (14-day rule: sick leave, maternity, unpaid leave); contributing in both with another SI base → `base`. The change date is the contract's start or end, else the month's first day |
+| D88 | **Opening data** (FR-66): `l10n_vn.payroll.opening`, per company, employee and year, for the months paid outside the module: months, income, exempt income, insurance, family deduction, taxable income, PIT, OT hours. Entered or imported with Odoo's import. The annual PIT statement adds it; a summary's `ot_hours_ytd` adds its OT hours for the same year |
+| D89 | **Statement states:** `draft` (generate replaces the lines) and `done` (lines frozen: the statement and its lines refuse `write` and `unlink`, superuser excepted); only a draft statement is deleted. Officers generate and close; reviewers, approvers and readers read |
 
 ## Folder structure
 
@@ -176,7 +184,9 @@ l10n_vn_payroll/
 │   ├── l10n_vn_payroll_damage.py                    # 5
 │   ├── l10n_vn_payroll_check.py                     # 6
 │   ├── hr_payslip_run.py                            # 7
-│   └── l10n_vn_payroll_analysis.py                  # 8
+│   ├── l10n_vn_payroll_analysis.py                  # 8
+│   ├── l10n_vn_payroll_statement.py                 # 9
+│   └── l10n_vn_payroll_opening.py                   # 9
 ├── data/
 │   ├── l10n_vn_payroll_parameters.xml
 │   ├── l10n_vn_payroll_participant_types.xml        # 2
@@ -207,6 +217,8 @@ l10n_vn_payroll/
 │   ├── l10n_vn_payroll_check_views.xml              # 6
 │   ├── hr_payslip_run_views.xml                     # 7
 │   ├── l10n_vn_payroll_analysis_views.xml           # 8
+│   ├── l10n_vn_payroll_statement_views.xml          # 9
+│   ├── l10n_vn_payroll_opening_views.xml            # 9
 │   └── menus.xml
 ├── tests/
 │   ├── __init__.py, common.py
@@ -234,6 +246,7 @@ l10n_vn_payroll/
 │   ├── test_run.py                                  # 7
 │   ├── test_lock.py                                 # 7
 │   ├── test_report.py                               # 8
+│   ├── test_statement.py                            # 9
 │   └── data/
 │       └── acceptance_cases.json                    # 4 (as acceptance_earnings.json), 5
 └── readme/
@@ -256,7 +269,7 @@ Files of later steps are added to this tree with their step.
 | `category` | `Human Resources/Payroll` |
 | `countries` | `["vn"]` |
 | `depends` | `payroll`, `base_time_parameter_strict` (step 1); `hr_employee_relative` (step 2); `excel_import_export` (step 8) |
-| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `data/l10n_vn_payroll_checks.xml` (6), `data/l10n_vn_payroll_xlsx_templates.xml` (8), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/l10n_vn_payroll_period_views.xml` (3), `views/l10n_vn_payroll_input_views.xml` (3), `views/hr_leave_type_views.xml` (3), `views/hr_payroll_structure_views.xml`, `views/hr_salary_rule_views.xml`, `views/hr_payslip_views.xml` (4), `views/l10n_vn_payroll_damage_views.xml` (5), `views/l10n_vn_payroll_check_views.xml` (6), `views/hr_payslip_run_views.xml` (7), `views/l10n_vn_payroll_analysis_views.xml`, `report/l10n_vn_payslip_report.xml` (8), `views/menus.xml` |
+| `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `data/l10n_vn_payroll_checks.xml` (6), `data/l10n_vn_payroll_xlsx_templates.xml` (8), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/l10n_vn_payroll_period_views.xml` (3), `views/l10n_vn_payroll_input_views.xml` (3), `views/hr_leave_type_views.xml` (3), `views/hr_payroll_structure_views.xml`, `views/hr_salary_rule_views.xml`, `views/hr_payslip_views.xml` (4), `views/l10n_vn_payroll_damage_views.xml` (5), `views/l10n_vn_payroll_check_views.xml` (6), `views/hr_payslip_run_views.xml` (7), `views/l10n_vn_payroll_analysis_views.xml`, `report/l10n_vn_payslip_report.xml` (8), `views/l10n_vn_payroll_statement_views.xml`, `views/l10n_vn_payroll_opening_views.xml` (9), `views/menus.xml` |
 | `installable` | `True` |
 
 The security file loads first: the access file names its groups.
@@ -266,8 +279,8 @@ The security file loads first: the access file names its groups.
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company`, `from . import l10n_vn_payroll_participant_type` (2), `from . import hr_employee` (2), `from . import hr_employee_relative` (2), `from . import l10n_vn_payroll_period`, `from . import l10n_vn_payroll_input`, `from . import hr_leave_type` (3), `from . import hr_payroll_structure`, `from . import hr_salary_rule`, `from . import hr_payslip_line`, `from . import hr_payslip` (4), `from . import l10n_vn_payroll_damage` (5), `from . import l10n_vn_payroll_check` (6), `from . import hr_payslip_run` (7), `from . import l10n_vn_payroll_analysis` (8). `pay_context.py` holds no model and is imported by `hr_payslip.py` |
-| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security`, `from . import test_participant_type`, `from . import test_contract_profile`, `from . import test_employee_payroll`, `from . import test_pit_method` (2), `from . import test_input_build`, `from . import test_input_workflow` (3), `from . import test_payslip_contract`, `from . import test_pay_context` (4), `from . import test_acceptance` (4, renamed in 5), `from . import test_contributions`, `from . import test_pit`, `from . import test_damage` (5), `from . import test_checks` (6), `from . import test_run`, `from . import test_lock` (7), `from . import test_report` (8) |
+| `models/__init__.py` | `from . import l10n_vn_payroll_component`, `from . import l10n_vn_payroll_scale`, `from . import l10n_vn_payroll_contract_line`, `from . import hr_contract`, `from . import res_company`, `from . import l10n_vn_payroll_participant_type` (2), `from . import hr_employee` (2), `from . import hr_employee_relative` (2), `from . import l10n_vn_payroll_period`, `from . import l10n_vn_payroll_input`, `from . import hr_leave_type` (3), `from . import hr_payroll_structure`, `from . import hr_salary_rule`, `from . import hr_payslip_line`, `from . import hr_payslip` (4), `from . import l10n_vn_payroll_damage` (5), `from . import l10n_vn_payroll_check` (6), `from . import hr_payslip_run` (7), `from . import l10n_vn_payroll_analysis` (8), `from . import l10n_vn_payroll_statement`, `from . import l10n_vn_payroll_opening` (9). `pay_context.py` holds no model and is imported by `hr_payslip.py` |
+| `tests/__init__.py` | `from . import test_component`, `from . import test_scale`, `from . import test_contract_line`, `from . import test_statutory_parameters`, `from . import test_security`, `from . import test_participant_type`, `from . import test_contract_profile`, `from . import test_employee_payroll`, `from . import test_pit_method` (2), `from . import test_input_build`, `from . import test_input_workflow` (3), `from . import test_payslip_contract`, `from . import test_pay_context` (4), `from . import test_acceptance` (4, renamed in 5), `from . import test_contributions`, `from . import test_pit`, `from . import test_damage` (5), `from . import test_checks` (6), `from . import test_run`, `from . import test_lock` (7), `from . import test_report` (8), `from . import test_statement` (9) |
 
 ## Groups and rules — `security/l10n_vn_payroll_security.xml`
 
@@ -288,6 +301,7 @@ The security file loads first: the access file names its groups.
 | `rule_damage_company`, `rule_damage_allocation_company` (5) | `ir.rule` | the step 5 models; global; the same |
 | `rule_check_result_company` (6) | `ir.rule` | `l10n_vn.payroll.check.result`; global; the same |
 | `rule_analysis_company` (8) | `ir.rule` | `l10n_vn.payroll.analysis`; global; the same |
+| `rule_statement_company`, `rule_statement_line_company`, `rule_opening_company` (9) | `ir.rule` | the step 9 models; global; the same |
 
 ## Access — `security/ir.model.access.csv`
 
@@ -340,6 +354,9 @@ The security file loads first: the access file names its groups.
 | `access_payslip_worked_days_reader`, `access_payslip_worked_days_approver` (7) | `payroll.model_hr_payslip_worked_days` | the same | 1 | 0 | 0 | 0 |
 | `access_payslip_input_reader`, `access_payslip_input_approver` (7) | `payroll.model_hr_payslip_input` | the same | 1 | 0 | 0 | 0 |
 | `access_analysis_user`, `access_analysis_reader`, `access_analysis_approver` (8) | `model_l10n_vn_payroll_analysis` | officer, reader, approver | 1 | 0 | 0 | 0 |
+| `access_statement_user`, `access_statement_line_user`, `access_opening_user` (9) | the step 9 models | `payroll.group_payroll_user` | 1 | 1 | 1 | 1 |
+| `access_statement_reader`, `access_statement_line_reader`, `access_opening_reader` (9) | the same | `group_payroll_reader` | 1 | 0 | 0 | 0 |
+| `access_statement_approver`, `access_statement_line_approver`, `access_opening_approver` (9) | the same | `group_payroll_approver` | 1 | 0 | 0 | 0 |
 
 Approvers approve through `action_approve`, which writes as superuser after checking the group (D28). Check results are created and deleted by the calculation as superuser (step 6); reviewers write their notes. A run's transitions check the user's group and then work as superuser (step 7, D72); officers delete only draft runs (`hr.payslip.run.unlink`).
 
@@ -1092,6 +1109,75 @@ Monetary fields in `l10n_vn_currency_id` (related `company_id.currency_id`), Flo
 | `amount` | Monetary | the line's `total` |
 | `currency_id` | Many2one | the company's |
 
+### `l10n_vn.payroll.statement`, `.statement.line` — `models/l10n_vn_payroll_statement.py` (step 9)
+
+**`l10n_vn.payroll.statement`** — `_description = "Payroll Statement"`, `_order = "date_from desc, kind"`, `_check_company_auto = True`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `name` | Char | stored compute: the kind's label and the dates |
+| `kind` | Selection | required: `si_monthly` *SI contributions*, `si_changes` *SI changes*, `pit_period` *PIT for a period*, `pit_annual` *Annual PIT finalisation*, `ot_schedule` *OT schedule*, `union` *Union fee and dues* (D85) |
+| `date_from`, `date_to` | Date | required; `date_from` the first day of a month, `date_to` the last day of a month (constraint) |
+| `company_id` | Many2one `res.company` | required, default `self.env.company` |
+| `state` | Selection | `draft` *Draft*, `done` *Done*; default `draft`, readonly |
+| `line_ids` | One2many `l10n_vn.payroll.statement.line` | `statement_id`, readonly |
+| `line_count` | Integer | compute |
+| `note` | Text | |
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_payslips()` | D86: the company's payslips with a Vietnamese run in `approved` or `paid` and `date_from` within the dates, as superuser, by employee and month |
+| `action_generate()` | officer; draft only; deletes the lines and creates them by `_l10n_vn_lines_<kind>()`, each returning a list of line values |
+| `_l10n_vn_lines_si_monthly`, `_l10n_vn_lines_si_changes`, `_l10n_vn_lines_pit_period`, `_l10n_vn_lines_pit_annual`, `_l10n_vn_lines_ot_schedule`, `_l10n_vn_lines_union` | D85, D87, D88; figures from the snapshots: contributions' `si_capped`, `ui_capped` and the engine lines; `pit`'s `exempt`, `taxable`, `dependents`, `method`; `gross`, `employee_insurance`; the OT lines (component `amount_source` `ot`) with their hours and the `ot_exempt` |
+| `action_done()` | officer; draft → done |
+| `action_draft()` | payroll manager; done → draft |
+| `write`, `unlink` | a `done` statement refuses both unless superuser, `state` excepted for `action_draft`; `unlink` refused unless draft (D89) |
+| `action_open_lines()` | the lines in a list, for export |
+
+**`l10n_vn.payroll.statement.line`** — `_description = "Payroll Statement Line"`, `_order = "statement_id, employee_id, date_from"`. Lines of a done statement refuse `write`, `create` and `unlink` unless superuser.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `statement_id` | Many2one | required, `ondelete="cascade"`, index |
+| `company_id` | Many2one | related `statement_id.company_id`, stored |
+| `currency_id` | Many2one | related `company_id.currency_id` |
+| `kind` | Selection | related `statement_id.kind`, stored |
+| `employee_id` | Many2one `hr.employee` | required |
+| `employee_number` | Char | `identification_id` at generation |
+| `personal_id` | Char | `l10n_vn_personal_id` at generation (the tax code) |
+| `si_number` | Char | `ssnid` at generation |
+| `date_from` | Date | the month of the line (`ot_schedule`, `si_changes`) |
+| `change_type` | Selection | `join`, `leave`, `absence`, `return`, `base` |
+| `change_date` | Date | |
+| `si_base`, `ui_base` | Monetary | |
+| `ee_si`, `ee_hi`, `ee_ui`, `er_pension`, `er_sickness`, `er_accident`, `er_hi`, `er_ui`, `union_fee`, `dues` | Monetary | |
+| `income`, `income_exempt`, `insurance`, `family_deduction`, `taxable`, `pit` | Monetary | |
+| `dependents` | Integer | |
+| `pit_method` | Selection | `progressive`, `flat_short`, `flat_nonresident` |
+| `months` | Integer | months paid (annual) |
+| `ot_wd_hours`, `ot_rd_hours`, `ot_hol_hours` | Float `(16, 4)` | |
+| `ot_pay`, `ot_exempt` | Monetary | |
+| `note` | Char | |
+
+### `l10n_vn.payroll.opening` — `models/l10n_vn_payroll_opening.py` (step 9)
+
+`_description = "Payroll Opening Data"`, `_order = "year desc, employee_id"`, `_check_company_auto = True` (D88).
+
+| Field | Type | Attributes |
+|---|---|---|
+| `company_id` | Many2one `res.company` | required, default `self.env.company` |
+| `currency_id` | Many2one | related `company_id.currency_id` |
+| `employee_id` | Many2one `hr.employee` | required, `check_company=True` |
+| `year` | Integer | required |
+| `months` | Integer | months paid outside the module |
+| `income`, `income_exempt`, `insurance`, `family_deduction`, `taxable`, `pit` | Monetary | |
+| `ot_hours` | Float `(16, 4)` | |
+| `note` | Char | |
+
+SQL: `employee_year_unique`: `unique(company_id, employee_id, year)`.
+
+**`l10n_vn.payroll.input._l10n_vn_compute_figures`** (step 9): `ot_hours_ytd` also adds the `ot_hours` of the employee's opening data for the same company and year.
+
 ### `res.company` — `models/res_company.py`
 
 `_inherit = "res.company"`.
@@ -1342,6 +1428,17 @@ In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, 
 
 Also in step 8: the run form gains a header button *Print Payslips* (`action_print_l10n_vn_payslips`, when the run has payslips); the payslip form shows the totals in a group *Summary* on the *Salary Computation* page; the summary's list and form show `ot_wd_hours`, `ot_rd_hours`, `ot_hol_hours` (optional in the list).
 
+### `views/l10n_vn_payroll_statement_views.xml`, `views/l10n_vn_payroll_opening_views.xml` (step 9)
+
+| XML id | Type | Content |
+|---|---|---|
+| `l10n_vn_payroll_statement_view_list` | list | `name`, `kind`, `date_from`, `date_to`, `state`, `line_count`, `company_id` (multi-company group) |
+| `l10n_vn_payroll_statement_view_form` | form | header *Generate* (`action_generate`, draft), *Done* (`action_done`, draft), *Back to Draft* (`action_draft`, done, managers), state statusbar; `kind`, `date_from`, `date_to`, `company_id`; smart button *Lines* (`action_open_lines`, `line_count`); `note` |
+| `l10n_vn_payroll_statement_line_view_list` | list | `employee_number`, `employee_id`, `personal_id`, `si_number`, `date_from`, `change_type`, `change_date`, then every figure as an optional column (`ui_base`, `pit_method`, `months` and `note` hidden by default), sums on the money and hour columns; no create |
+| `l10n_vn_payroll_statement_action` | action | *Statements*, list, form |
+| `l10n_vn_payroll_opening_view_list` | list, editable `bottom` | `year`, `employee_id`, `months`, `income`, `income_exempt`, `insurance`, `family_deduction`, `taxable`, `pit`, `ot_hours`, `note`, `company_id` (multi-company group) |
+| `l10n_vn_payroll_opening_action` | action | *Opening Data*, list |
+
 ### `views/menus.xml`
 
 Under `payroll.payroll_menu_configuration` (*Payroll → Configuration*, payroll managers):
@@ -1364,6 +1461,8 @@ Under `payroll.payroll_menu_root` (step 3):
 | `menu_l10n_vn_payroll_damage` (5) | Damage Decisions | `l10n_vn_payroll_damage_action` | 3 | the same |
 | `menu_l10n_vn_payroll_check_result` (6) | Check Results | `l10n_vn_payroll_check_result_action` | 4 | the same |
 | `menu_l10n_vn_payroll_analysis` (8) | Payroll Analysis | `l10n_vn_payroll_analysis_action` | 5 | the same |
+| `menu_l10n_vn_payroll_statement` (9) | Statements | `l10n_vn_payroll_statement_action` | 6 | the same |
+| `menu_l10n_vn_payroll_opening` (9) | Opening Data | `l10n_vn_payroll_opening_action` | 7 | the same |
 
 ## Tests
 
@@ -1762,13 +1861,30 @@ Holds no test methods. **Fixtures:** the October period's attendance closed; whe
 | `test_time_totals` | a summary with paid 24, worked 22 and OT `WD` 10, `RD` 4: the payslip's time totals and the summary's `ot_wd_hours` 10, `ot_rd_hours` 4 |
 | `test_totals_cleared_on_stop` | a payslip stopped for missing attainment: its totals are empty |
 | `test_analysis_matches_payslip` | the analysis rows of a payslip's earnings sum to its `l10n_vn_gross`; its deduction and employer rows to the payslip's lines |
-| `test_payslip_report_renders` | `_render_qweb_html` of the report for an approved run's payslips: one page per payslip, each holding the employee's name, *Ngày công* and the to-pay amount |
+| `test_payslip_report_renders` | `_render_qweb_html` of the report for an approved run's payslips: one page per payslip, in their order, each holding its employee's name and its `l10n_vn_to_pay` formatted by the user's language (`res.lang.format`); *Ngày công* and *Còn được lĩnh* on the pages |
 | `test_templates_export` | both templates export (`xlsx.export.export_xlsx`) for a run and for the period without error, and the register holds one row per payslip |
 | `test_analysis_access` | a reader reads the analysis (positive control); a user without payroll roles gets `AccessError` |
+
+### `tests/test_statement.py` — `TestStatement(RunCase)` (step 9)
+
+A September 2026 period and run beside October's where a test needs two months.
+
+| Test | Asserts |
+|---|---|
+| `test_si_monthly` | an approved October run: one line per employee, `si_base` 4,500,000, `ee_si` 360,000, `er_pension` 630,000, `union_fee` 90,000, the same as the payslips' lines |
+| `test_only_approved` | a run only calculated: a generated statement has no line |
+| `test_si_changes` | September approved for `alice` and `bao`; October approved for `alice` with a `SAL` line raised from 2026-10-01, and `bao`'s contract ended 2026-09-30; a new employee hired 2026-10-01 in October's run: `alice` `base`, `bao` `leave` dated 2026-09-30, the new one `join` dated 2026-10-01 |
+| `test_pit_period` | the October statement's line for `alice`: `income`, `income_exempt`, `insurance`, `taxable`, `pit`, `pit_method` equal her snapshot's |
+| `test_pit_annual_with_opening` | opening data for `alice`, 2026, 9 months, income 40,000,000, PIT 100,000; an approved October run: her annual line has `months` 10, `income` 40,000,000 + October's gross, `pit` 100,000 + October's PIT |
+| `test_ot_schedule` | `alice` with OT `WD` 10 in October: her line has `ot_wd_hours` 10, `ot_pay` her OT lines' sum, `ot_exempt` the snapshot's |
+| `test_union` | `alice` a union member: her line's `dues` and `union_fee` equal her payslip's |
+| `test_regenerate_and_done` | generating twice keeps one set of lines; after *Done*, writing a line and `unlink` raise `UserError`; a manager's *Back to Draft* allows it again |
+| `test_opening_feeds_ot_ytd` | opening data with 120 OT hours for 2026: a built October summary's `ot_hours_ytd` is 120 |
+| `test_access` | a reader reads a statement and its lines (positive control); the reader's `create` raises `AccessError` |
 
 ## Readme
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 8 adds the reports: the payslip's totals, a payroll analysis, the employee payslip in Vietnamese with English labels, and Excel templates for the payroll register and the attendance sign-off sheet; step 7 adds the monthly run: Draft → Calculated → Reviewed → Approved → Paid, payslips generated and calculated by the run, review blocked by errors and unnoted warnings, approval by someone other than the preparer, one payment per employee and month, off-cycle runs, and the lock on everything an approved payslip used; step 6 adds the checks: integrity, legal and policy checks on every payslip, with levels set by dated parameters per check and per component, results the reviewer annotates, and stops that no longer halt a batch; step 5 adds the rest of the payslip: social, health and unemployment insurance by fund with the 14-day rule, the union fee and dues, PIT (progressive with OT and capped exemptions, or flat), damage compensation decisions deducted within the legal cap, net pay and the amount to pay after advances; step 4 adds the calculation of earnings: the pay context computed per payslip from pay lines, the monthly input and parameters, with probation, attainment and OT, shown as exact payslip lines through the *Pay Component* rule type, and kept as a snapshot; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
+| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 9 adds the statements (SI contributions and changes, PIT for a period and the year, the OT schedule, union fee and dues) as lists from approved payslips, and the opening data for months paid before go-live; step 8 adds the reports: the payslip's totals, a payroll analysis, the employee payslip in Vietnamese with English labels, and Excel templates for the payroll register and the attendance sign-off sheet; step 7 adds the monthly run: Draft → Calculated → Reviewed → Approved → Paid, payslips generated and calculated by the run, review blocked by errors and unnoted warnings, approval by someone other than the preparer, one payment per employee and month, off-cycle runs, and the lock on everything an approved payslip used; step 6 adds the checks: integrity, legal and policy checks on every payslip, with levels set by dated parameters per check and per component, results the reviewer annotates, and stops that no longer halt a batch; step 5 adds the rest of the payslip: social, health and unemployment insurance by fund with the 14-day rule, the union fee and dues, PIT (progressive with OT and capped exemptions, or flat), damage compensation decisions deducted within the legal cap, net pay and the amount to pay after advances; step 4 adds the calculation of earnings: the pay context computed per payslip from pay lines, the monthly input and parameters, with probation, attainment and OT, shown as exact payslip lines through the *Pay Component* rule type, and kept as a snapshot; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
 | `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month); step 4: a structure marked *Vietnamese Pay Context* with one *Pay Component* rule per component; a payslip of such a structure covers one month, takes the latest contract of the month, reads the month's input, and shows one line per pay line and piece, with dates, days, hours and rates in the optional columns; step 5: the structure also needs the engine components (insurance, dues, PIT, damage, net, to pay, employer funds); contracts need a participant type and employees a region; *Monthly Inputs → Damage Decisions* records work-rules decisions, deducted oldest first within the 30% cap; step 6: *Payroll → Configuration → Payroll Checks* lists the checks; a check's level is the time parameter `vn.check.<code>` (or `vn.check.<code>.<component code>`) with the value error, warning, note or off; the payslip's *Checks* page and *Monthly Inputs → Check Results* show the results, and reviewers write their notes there; the contract's probation job category; step 7: *Payroll → Payslips Batches*, a new batch with a *Payroll Period* (regular, or off-cycle with chosen employees): *Calculate* (officer), *Review* (reviewer: no errors, a note on every warning), *Approve* (an approver who did not calculate), *Mark as Paid*; corrections after approval are entered lines on a later month with the month they belong to; step 8: *Print Payslips* on a run, the payslip's *Print* menu, *Monthly Inputs → Payroll Analysis*, the *Payroll Register* and *Attendance Sign-off* templates in *Excel Import/Export* (edit them there; add their export action from the template) |

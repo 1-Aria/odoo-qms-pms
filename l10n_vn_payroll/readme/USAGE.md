@@ -75,3 +75,8 @@ employee, department, month or pay item, and downloads to Excel. The *Payroll Re
 *Attendance Sign-off* (on payroll periods) templates are in *Excel Import/Export → Templates*: edit
 their layout there, and add their export button from the template's form.
 
+**Statements** (step 9): *Monthly Inputs → Statements*, create one with its kind and months, *Generate*,
+then open its *Lines* and export them (select all, *Action → Export*). *Done* freezes a statement; a
+payroll manager can set it back to draft. Only approved runs count. *Opening Data*: one row per employee
+and year for the months paid before go-live; fill it by hand or with *Import records* from a spreadsheet.
+
