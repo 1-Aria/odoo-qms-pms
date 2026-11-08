@@ -80,3 +80,10 @@ then open its *Lines* and export them (select all, *Action → Export*). *Done* 
 payroll manager can set it back to draft. Only approved runs count. *Opening Data*: one row per employee
 and year for the months paid before go-live; fill it by hand or with *Import records* from a spreadsheet.
 
+
+**Time from attendance** (step 10): the summary follows the attendance settings: *Attendances →
+Configuration → Settings*, the two tolerances (the grace period and the overtime minimum; changing
+either recomputes all past overtime), and on the working calendar *Hours per Paid Day* and the night
+window. An employee's *Attendance Mode* (on the *Payroll* tab, defaulted from the pay group) decides
+whether scans or the calendar give the days worked. A day with a check-in and no check-out blocks
+review until the attendance is corrected.

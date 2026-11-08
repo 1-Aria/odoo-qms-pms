@@ -58,6 +58,14 @@ class TestAttendanceDays(AttendanceDayCase):
             self._day(self.employee, MON), normal_hours=8, overtime_hours=1, late=True
         )
 
+    def test_late_made_up_by_short_stay(self):
+        # 7 minutes late, 32 minutes stayed: the stay is within Odoo's company tolerance,
+        # so it is no overtime, but it makes up the lateness
+        self._scan(self.employee, MON, 7.5 + 7 / 60, 17.5 + 2 / 60)
+        self._check(
+            self._day(self.employee, MON), normal_hours=8, overtime_hours=0, late=True
+        )
+
     def test_afternoon_only(self):
         self._scan(self.employee, MON, 13, 17)
         self._check(

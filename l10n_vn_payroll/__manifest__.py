@@ -15,6 +15,7 @@
         "base_time_parameter_strict",
         "hr_employee_relative",
         "excel_import_export",
+        "hr_attendance_day",
     ],
     "data": [
         "security/l10n_vn_payroll_security.xml",

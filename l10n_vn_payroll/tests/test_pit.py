@@ -29,6 +29,13 @@ class TestPit(PayslipCase):
         expected = (Decimal(str(ot_pay)) * 10 / 20).quantize(Decimal(1), rounding=ROUND_HALF_UP)
         self.assertEqual(self._pit(payslip)["ot_exempt"], int(expected))
 
+    def test_daily_limit_not_taxed(self):
+        # the daily limit is a labour rule only (D96)
+        employee, _contract = self._salary()
+        self._input(employee, ot_hours_json={"WD": 10}, ot_over_daily_hours=2)
+        payslip = self._payslip(employee)
+        self.assertEqual(self._pit(payslip)["ot_exempt"], sum(self._totals(payslip, "OT_WD")))
+
     def test_adjustment_own_month(self):
         september = self.env["l10n_vn.payroll.period"].create(
             {"date_from": D(2026, 9, 1), "company_id": self.company.id}

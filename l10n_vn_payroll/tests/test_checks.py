@@ -204,6 +204,30 @@ class TestChecks(PayslipCase):
         self._input(employee, ot_hours_json={"WD": 20}, ot_hours_ytd=290)
         self.assertIn("year", self._results(self._payslip(employee), "ot_limit").message)
 
+    def test_ot_limit_daily(self):
+        employee, _c = self._salaried()
+        self._input(employee, ot_hours_json={"WD": 10}, ot_over_daily_hours=2)
+        self.assertIn("daily", self._results(self._payslip(employee), "ot_limit").message)
+
+    def test_long_days(self):
+        employee, _c = self._salaried()
+        self._input(employee, long_days=3)
+        payslip = self._payslip(employee)
+        result = self._results(payslip, "long_days")
+        self.assertEqual(result.level, "warning")
+        self.assertIn("3 days", result.message)
+        self._parameter_text("vn.check.long_days", "note")
+        payslip.compute_sheet()
+        self.assertEqual(self._results(payslip, "long_days").level, "note")
+
+    def test_period_open_incomplete(self):
+        employee, _c = self._salaried()
+        self._input(employee, incomplete_days=1)
+        self.period.attendance_closed = True
+        result = self._results(self._payslip(employee), "period_open")
+        self.assertEqual(result.level, "error")
+        self.assertIn("check-out", result.message)
+
     # ------------------------------------------------------------------ policy
     def test_variable_constant(self):
         employee, _c = self._worker()

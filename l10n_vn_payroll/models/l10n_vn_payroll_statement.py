@@ -246,7 +246,9 @@ class L10nVnPayrollStatement(models.Model):
             values.append(dict(
                 self._l10n_vn_person(slip.employee_id), date_from=slip.date_from,
                 ot_wd_hours=hours.get("WD", 0), ot_rd_hours=hours.get("RD", 0),
-                ot_hol_hours=hours.get("HOL", 0), ot_pay=ot_pay,
+                ot_hol_hours=hours.get("HOL", 0), night_hours=hours.get("NIGHT", 0),
+                ot_night_hours=sum(hours.get(k, 0) for k in ("NWD", "NWD_AFTER", "NRD", "NHOL")),
+                ot_pay=ot_pay,
                 ot_exempt=(context.get("pit") or {}).get("ot_exempt") or 0,
             ))
         return values
@@ -338,6 +340,8 @@ class L10nVnPayrollStatementLine(models.Model):
     ot_wd_hours = fields.Float(string="OT workday", digits=(16, 4))
     ot_rd_hours = fields.Float(string="OT rest day", digits=(16, 4))
     ot_hol_hours = fields.Float(string="OT holiday", digits=(16, 4))
+    night_hours = fields.Float(string="Night hours (normal)", digits=(16, 4))
+    ot_night_hours = fields.Float(string="OT at night", digits=(16, 4))
     ot_pay = fields.Monetary(string="OT Pay")
     ot_exempt = fields.Monetary(string="OT Exempt from PIT")
     note = fields.Char()

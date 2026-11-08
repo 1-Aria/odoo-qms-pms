@@ -18,6 +18,9 @@ class InputCase(PayrollCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # the grace period and the OT minimum are Odoo's tolerances (step 10)
+        cls.company.write({"overtime_employee_threshold": 5, "overtime_company_threshold": 48})
+        cls.company._l10n_vn_payroll_ensure_parameters()
         cls.cal = cls.env["resource.calendar"].create(
             {
                 "name": "Payroll Test 6x8",
@@ -46,7 +49,6 @@ class InputCase(PayrollCase):
         )
         cls.employee.write({"resource_calendar_id": cls.cal.id, "tz": TZ})
         cls.contract.write({"resource_calendar_id": cls.cal.id})
-        cls._parameter("vn.policy.ot_min_hours_day", [(D(2026, 1, 1), "0.8")])
         cls.env["resource.calendar.leaves"].create(
             {
                 "name": "Payroll Test Holiday",
@@ -99,10 +101,10 @@ class InputCase(PayrollCase):
         vals.update(values)
         return self.env["hr.leave.type"].create(vals)
 
-    def _leave(self, leave_type, first, last):
+    def _leave(self, leave_type, first, last, employee=None):
         leave = self.env["hr.leave"].create(
             {
-                "employee_id": self.employee.id,
+                "employee_id": (employee or self.employee).id,
                 "holiday_status_id": leave_type.id,
                 "request_date_from": first,
                 "request_date_to": last,
@@ -112,6 +114,55 @@ class InputCase(PayrollCase):
             leave.action_validate()
         return leave
 
-    def _build(self):
+    def _build(self, employee=None):
         self.period.action_build()
-        return self.period.input_ids.filtered(lambda i: i.employee_id == self.employee)
+        employee = employee or self.employee
+        return self.period.input_ids.filtered(lambda i: i.employee_id == employee)
+
+    def _calendar(self, name, ranges, **values):
+        """A Monday–Saturday calendar from ``(period, hour_from, hour_to)`` ranges."""
+        return self.env["resource.calendar"].create(
+            {
+                "name": name,
+                "company_id": self.company.id,
+                "tz": TZ,
+                "attendance_ids": [Command.clear()]
+                + [
+                    Command.create(
+                        {
+                            "name": f"{day} {period} {hour_from}",
+                            "dayofweek": str(day),
+                            "hour_from": hour_from,
+                            "hour_to": hour_to,
+                            "day_period": period,
+                        }
+                    )
+                    for day in range(6)
+                    for period, hour_from, hour_to in ranges
+                ],
+                **values,
+            }
+        )
+
+    def _hire_on(self, calendar):
+        """A second employee with an open contract on ``calendar`` from 2026-01-01."""
+        employee = self.env["hr.employee"].create(
+            {
+                "name": f"Payroll Test Employee on {calendar.name}",
+                "company_id": self.company.id,
+                "resource_calendar_id": calendar.id,
+                "tz": TZ,
+            }
+        )
+        self.env["hr.contract"].create(
+            {
+                "name": f"{employee.name} contract",
+                "employee_id": employee.id,
+                "company_id": self.company.id,
+                "date_start": D(2026, 1, 1),
+                "wage": 1,
+                "resource_calendar_id": calendar.id,
+                "state": "open",
+            }
+        )
+        return employee

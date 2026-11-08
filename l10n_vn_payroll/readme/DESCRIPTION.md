@@ -57,3 +57,11 @@ This first step holds the configuration layer:
   exported with Odoo's export; the year-to-date figures of months paid before go-live, which the annual
   PIT and the yearly OT count add.
 
+
+**Time from attendance** (step 10): the monthly summary reads each day's figures from
+`hr_attendance_day`. Odoo's attendance tolerances decide overtime (the grace period and the overtime
+minimum), and overtime is split into workday, rest day and holiday hours and their night variants,
+with normal hours at night under their own category. A calendar that combines shifts counts each
+shift as a day. Late arrivals, absences and days without check-out are counted, office staff on
+*present unless on leave* are paid their scheduled days, overtime above the daily limit is reported,
+and the check *Days with more than 12 hours of work* reports long days.

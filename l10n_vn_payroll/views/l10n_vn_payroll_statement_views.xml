@@ -87,6 +87,8 @@
                 <field name="ot_wd_hours" optional="show" sum="Total" />
                 <field name="ot_rd_hours" optional="show" sum="Total" />
                 <field name="ot_hol_hours" optional="show" sum="Total" />
+                <field name="night_hours" optional="show" sum="Total" />
+                <field name="ot_night_hours" optional="show" sum="Total" />
                 <field name="ot_pay" optional="show" sum="Total" />
                 <field name="ot_exempt" optional="show" sum="Total" />
                 <field name="note" optional="hide" />

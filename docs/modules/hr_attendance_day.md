@@ -8,6 +8,7 @@ Design: `docs/HR-Contract-Payroll/Attendance Daily Time — Design Note v0.2.md`
 | # | Scope | Status | Result |
 |---|---|---|---|
 | 1 | The whole module: the calendar fields and their form, `hr.employee._attendance_days()`, tests, readme | done | 2026-11-08, two runs. First: `-i`, 17 tests, 3 failures (`test_overtime`, `test_unapproved`, `test_batch`): the tests expected 1 h of overtime from a 07:30–18:30 scan, which is 1 h 30 after the 17:00 end, as Odoo and the module computed; the scans changed to 07:30–18:00, the code unchanged. Second: `-u`, `exit=0`, 17 tests, 0 failures. UI checked by Peter: the three fields on the calendar form |
+| 2 | Normal hours: time present beyond the overtime makes up lateness, also when Odoo's company tolerance ignores the stay (D6); `test_late_made_up_by_short_stay` | done | 2026-11-08, one run: `-u`, `exit=0`, 18 tests, 0 failures; May 2026 compared again on the test copy: no worker's days worked below the old summaries. Found by comparing May 2026 on the test copy, where 138 workers lost 1.3 days in total: a worker 7 minutes late who stayed 32 minutes lost the 7 minutes, against AD-04 |
 
 ## Divergences from the design
 
@@ -27,7 +28,7 @@ Design: `docs/HR-Contract-Payroll/Attendance Daily Time — Design Note v0.2.md`
 | D3 | **Intervals per calendar period:** for each period of `_get_calendar_periods()` and its calendar, scheduled intervals from `_attendance_intervals_batch()`, lunch from `_attendance_intervals_batch(lunch=True)`, expected intervals from `_work_intervals_batch()` (leave and public holidays removed), with `tz` the employee's `tz` when set, else none (the calendar's), as `hr_contract` does. Dates outside every period have no scheduled hours |
 | D4 | **The work day:** an attendance belongs to the local date of its check-in in `employee._get_tz()`, as in Odoo's overtime (`hr_attendance.py:296-304`); an interval belongs to the local date of its start. Odoo merges touching intervals (`resource/models/utils.py:117-131`), so quilting's two shifts are one interval 06:00–22:00. The intervals are read from one day before `date_from` to two days after `date_to`, so presence running past midnight meets the next day's schedule and night window. Calendars whose shifts cross midnight are not supported (divergence 4) |
 | D5 | **How much time is Odoo's** (AD-02): *D* = the sum of `hr.attendance.overtime.duration` for the employee and date with `adjustment` False; *V* = the sum over the day's attendances of max(0, `validated_overtime_hours`) |
-| D6 | **The figures** (note §5): `normal_hours` = 0 without attendance, else max(0, `expected_hours` + min(0, *D*)); `overtime_hours` = min(max(0, *D*), *V*); `unapproved_hours` = max(0, *D*) − `overtime_hours`; `day_hours` = the calendar's `paid_day_hours`, else `scheduled_hours`; `days_worked` = `normal_hours` ÷ `day_hours`, 0 when `day_hours` is 0 |
+| D6 | **The figures** (note §5): `normal_hours` = 0 without attendance, else max(0, min(`expected_hours`, max(`expected_hours` + min(0, *D*), `worked_hours` − max(0, *D*)))): Odoo's figure keeps the grace period, and the time present beyond the overtime makes up lateness even when Odoo's company tolerance ignores the stay (step 2); `overtime_hours` = min(max(0, *D*), *V*); `unapproved_hours` = max(0, *D*) − `overtime_hours`; `day_hours` = the calendar's `paid_day_hours`, else `scheduled_hours`; `days_worked` = `normal_hours` ÷ `day_hours`, 0 when `day_hours` is 0 |
 | D7 | **Night** (AD-07): the window from `night_start` to `night_end` of the date's calendar, crossing midnight when the start is later than the end, taken for the date and the days before and after. `normal_night_hours` = \|*P* ∩ *S* ∩ *N*\|; `overtime_night_hours` = min(`overtime_hours`, \|(*P* − *S*ₐₗₗ − *L*ₐₗₗ) ∩ *N*\|), where *S*ₐₗₗ and *L*ₐₗₗ are the expected and lunch intervals of the whole range, so presence running into the next day's schedule is not taken as overtime |
 | D8 | **Late arrival and early leave** (AD-08): references are the first expected interval's start and the last one's end on the date. On a calendar with `paid_day_hours`, the references are instead the start and end of the calendar line nearest to the first check-in and last check-out. The lines are the records of the date's scheduled intervals, placed on the date or the next day by their `dayofweek`, with `hour_to` 24 as midnight. Minutes are whole, from 0; `late` and `early_leave` are minutes above the company's `overtime_employee_threshold` |
 | D9 | **Absent and incomplete:** `absent` when `expected_hours` > 0 and the date has no attendance at all; `incomplete` when one of the date's attendances has no check-out. Open attendances count for neither presence nor overtime (Odoo computes no overtime for that day) |
@@ -171,6 +172,7 @@ The base week is 2026-10-05 (Monday) to 2026-10-11 (Sunday).
 | `test_late_within_grace` | Mon 07:34–17:00 | normal 8; `late_minutes` 4; `late` False |
 | `test_late_beyond_grace` | Mon 07:45–17:00 | normal 7.75; days 0.9688; `late_minutes` 15; `late` True |
 | `test_late_made_up` | Mon 07:45–18:15 | normal 8; overtime 1; `late` True |
+| `test_late_made_up_by_short_stay` (step 2) | Mon 07:37–17:32 | normal 8 (the 32 minutes make up the 7 late); overtime 0 (within the company tolerance); `late` True |
 | `test_afternoon_only` | Mon 13:00–17:00 | normal 4; days 0.5; `late_minutes` 330 |
 | `test_early_leave` | Mon 07:30–16:00 | normal 7; `early_leave_minutes` 60; `early_leave` True |
 | `test_rest_day` | Sun 07:30–11:30 | `rest`; scheduled 0; normal 0; overtime 4 |
@@ -184,4 +186,4 @@ The base week is 2026-10-05 (Monday) to 2026-10-11 (Sunday).
 | `test_two_contracts` | employee on `day_calendar` until 2026-10-07, then `shift_calendar` | scheduled 8 on Mon–Wed, 16 on Thu–Sat; `day_hours` 8 throughout |
 | `test_batch` | two employees, one scan each | both employees in the result, each with its own figures |
 
-**Expected count:** 17 tests.
+**Expected count:** 18 tests (17 in step 1).

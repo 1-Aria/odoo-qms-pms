@@ -124,6 +124,18 @@ STATUTORY_PARAMETERS = [
         [("2026-01-01", "300")],
     ),
     (
+        "vn.ot.limit.day_share",
+        "OT limit per day, share of the day's normal hours",
+        "float",
+        [("2026-01-01", "0.5")],
+    ),
+    (
+        "vn.ot.limit.day_total",
+        "Hours of work per day, normal and OT together",
+        "float",
+        [("2026-01-01", "12")],
+    ),
+    (
         "vn.damage.cap",
         "Damage compensation cap, share of pay after insurance and PIT",
         "float",

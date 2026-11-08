@@ -24,11 +24,14 @@ class TestInputBuild(InputCase):
         self._attend_month(skip=(day,))
         attendance = self._attend(day, "06:30", "16:30")
         inp = self._build()
-        self.assertEqual(inp.ot_hours_json, {"WD": 1.0})
-        self.assertAlmostEqual(inp.days_worked, 26)
-        attendance.check_in = self._utc(day, "07:00")
-        inp = self._build()
+        # each end within Odoo's 48-minute tolerance: no OT (divergence 38)
         self.assertEqual(inp.ot_hours, 0)
+        self.assertAlmostEqual(inp.days_worked, 26)
+        attendance.write(
+            {"check_in": self._utc(day, "07:00"), "check_out": self._utc(day, "17:00")}
+        )
+        inp = self._build()
+        self.assertEqual(inp.ot_hours_json, {"WD": 1.0})
         self.assertAlmostEqual(inp.days_worked, 26)
 
     def test_overtime_categories(self):

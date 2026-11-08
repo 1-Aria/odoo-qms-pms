@@ -120,7 +120,8 @@ class HrPayslip(models.Model):
             l10n_vn_paid_days=inp.get("paid_days") or 0,
             l10n_vn_days_worked=inp.get("days_worked") or 0,
             l10n_vn_unpaid_days=inp.get("unpaid_days") or 0,
-            l10n_vn_ot_hours=sum(ot.values()),
+            # normal night hours are a premium on normal time, not OT hours (D94)
+            l10n_vn_ot_hours=sum(v for k, v in ot.items() if k != "NIGHT"),
             l10n_vn_ot_wd_hours=ot.get("WD", 0),
             l10n_vn_ot_rd_hours=ot.get("RD", 0),
             l10n_vn_ot_hol_hours=ot.get("HOL", 0),

@@ -147,6 +147,7 @@ class PayContext:
                 "late_arrivals": inp.late_arrivals,
                 "ot_hours_json": inp.ot_hours_json or {},
                 "ot_hours_ytd": inp.ot_hours_ytd,
+                "ot_over_daily_hours": inp.ot_over_daily_hours,
                 "attainment": inp.attainment,
                 "attainment_source": inp.attainment_source or None,
                 "ie_units": inp.ie_units,

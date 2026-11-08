@@ -22,6 +22,8 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | 7 | Runs: the period run, regular or off-cycle; Draft → Calculated → Reviewed → Approved → Paid; payslips generated and calculated by the run; review blocked by errors and unnoted warnings; approval by another user, payslips confirmed without recalculation; one payment per employee and period; the lock on approved payslips, their lines, inputs and the pay lines they used; batch access for officers, reviewers, approvers and readers, payslip access for approvers and readers | done | 2026-11-07, one run: `-u`, `exit=0`, 207 tests, 0 failures. UI checked by Peter on the test copy: run *May VN* of period 2026-05 (run 34) calculated and reviewed by Peter, approved by another user, marked as paid; payslips 2546–2548 done with no check results once the personal IDs, SI numbers and the two policy parameters were filled in; an approved payslip refused changes; a payroll approver without HR roles opened the payslips and their lines |
 | 8 | Reports: the payslip's totals copied from its snapshot (time, OT by category, pay by section, deductions, net, to pay, employer cost); OT by category on the monthly input; a payroll analysis view for pivots; the employee payslip PDF in Vietnamese with English labels; two `excel_import_export` templates shipped as starting points, the payroll register on the run and the attendance sign-off sheet on the period | done | 2026-11-07, one run: `-u`, `exit=0`, 214 tests, 0 failures. UI checked by Peter: the payslip PDF, the two templates exported, the analysis pivot. Run 34 had been calculated before step 8, so its totals were empty and its printout showed 0 for time, gross, net and to pay; filled once from the snapshots as superuser (`_l10n_vn_totals`), after setting the trial's OT components to section `ot`; the printout then matched the hand-checked figures (441: gross 5,793,933, to pay 5,405,433) |
 | 9 | Statements and opening data: `l10n_vn.payroll.statement` with its lines, generated from approved payslips — SI contributions, SI changes, PIT for a month or quarter, the annual PIT finalisation, the OT schedule (Decree 253), the union fee and dues — as plain lists exported through Odoo's export; `l10n_vn.payroll.opening`, the year-to-date figures of months paid before go-live, imported with Odoo's import and read by the annual PIT and by `ot_hours_ytd` | done | 2026-11-07, one run: `-u`, `exit=0`, 224 tests, 0 failures. UI checked by Peter: an SI contributions statement for May 2026 listed run 34's employees (SI base 3,700,000, employee SI 296,000), exported to Excel; opening data entered |
+| 10 | Time from `hr_attendance_day`: the monthly summary reads each day's figures from `hr.employee._attendance_days()` instead of `hr.attendance`; Odoo's tolerances replace the 0.8 h rule; days worked per paid day (combined shifts); the night categories; late arrivals, absences and days without check-out from the day figures; the exception-driven mode's first reader; the daily OT limit reported by the `ot_limit` check; the check `long_days`; night hours in the OT schedule | done | 2026-11-08, one run: `-u`, `exit=0`, 236 tests, 0 failures. Corrected against the code: days worked per date are computed in payroll as normal hours ÷ hours of a paid day, the day figures' rule without their per-day rounding (D91); `long_days` takes sequence 135 and the other checks keep theirs |
+| 10.1 | Hours over the daily limit are at most the day's overtime (D95), so long normal days (quilting's double shifts) count only in `long_days`; `test_paid_day_hours` asserts it | done | 2026-11-08, one run: `-u`, `exit=0`, 236 tests, 0 failures; May 2026 compared again: 0 h over the daily limit. Found by comparing May 2026 on the test copy, where all 106.6 h over the daily limit came from quilting, which has no overtime |
 
 ## Divergences from the design
 
@@ -63,6 +65,12 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | 34 | §25.1: each kind with an `excel_import_export` template in the filing tool's layout | plain lists: the statement's lines, exported with Odoo's own export (step 9, D86) | The SI e-declaration and tax portal layouts are not available yet (PTD-OPEN-08, Peter 2026-11-07); a template is added later without code |
 | 35 | §25.1 kinds: `pit_certificate`; no OT schedule | no `pit_certificate` kind, its figures are the annual statement's line for the employee; an `ot_schedule` kind for the OT hours and amounts Decree 253 requires (FR-46) (step 9, D85) | The certificate is a printed document from the annual figures, added with its form; FR-46 names the OT schedule, §25.1 does not |
 | 36 | §25.2 and FR-66: opening data with leave balances and dependents | income, PIT, insurance and OT hours only (step 9, D88) | Leave balances live in core's time off allocations and dependents on the employee's relatives (step 2); both are entered there |
+| 37 | §1: no dependency on the attendance module | depends on `hr_attendance_day` (step 10, D90) | The attendance design note v0.2 (AD-01, AD-09; Peter, 2026-11-08): time rules live in the attendance module, payroll prices them. The summary read `hr.attendance` without declaring `hr_attendance`; the dependency closes that gap |
+| 38 | §10.4, D22: OT counted from `vn.policy.ot_min_hours_day` per day | Odoo's *Tolerance Time In Favor Of Company* decides it, through the day figures; the parameter is no longer read (step 10, D93, D100) | Design note AD-03: one OT figure, Odoo's. On a day both early and late within the tolerance, Odoo moves each end to the shift and counts no OT; early check-ins are moved by the automation rule anyway |
+| 39 | Divergence 10: late arrivals not computed | computed from the day figures, beyond Odoo's employee tolerance (step 10, D98) | The attendance bonus (`ATT`) needs them; `hr_attendance_day` computes them |
+| 40 | Divergence 11: night hours not computed | normal night hours under `NIGHT`, night OT under `NWD`, `NWD_AFTER`, `NRD`, `NHOL` (step 10, D93) | Quilting works past 22:00 (design note §8); the module now captures night time |
+| 41 | §19.2: `ot_limit` against the monthly and yearly limits | also the daily limit: 50% of the day's scheduled hours on a workday and 12 hours of work in the day (step 10, D95) | Labor Code Art. 107 and the rest-day limit of 12 h (Peter, 2026-11-08). The daily limit is a labour rule only: the PIT exemption keeps the monthly and yearly limits (Peter, 2026-11-08) |
+| 42 | §19.2: the catalogue | adds `long_days` (legal): days with more than 12 hours of work (step 10, D97) | Quilting's double shifts (design note §8, AD-10; Peter, 2026-11-08): reported, never enforced |
 
 ## Decisions
 
@@ -157,6 +165,18 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | D87 | **The SI changes** compare each employee's month with the month before: contributing now and not before → `join` when a contract started in the month, else `return`; contributing before and not now → `leave` when the main contract ended by the month's last day, else `absence` (14-day rule: sick leave, maternity, unpaid leave); contributing in both with another SI base → `base`. The change date is the contract's start or end, else the month's first day |
 | D88 | **Opening data** (FR-66): `l10n_vn.payroll.opening`, per company, employee and year, for the months paid outside the module: months, income, exempt income, insurance, family deduction, taxable income, PIT, OT hours. Entered or imported with Odoo's import. The annual PIT statement adds it; a summary's `ot_hours_ytd` adds its OT hours for the same year |
 | D89 | **Statement states:** `draft` (generate replaces the lines) and `done` (lines frozen: the statement and its lines refuse `write` and `unlink`, superuser excepted); only a draft statement is deleted. Officers generate and close; reviewers, approvers and readers read |
+| D90 | **The day figures** (step 10, divergence 37): `_l10n_vn_days()` calls `employee_id._attendance_days(month start, month end)` once and keeps the dates inside its period contracts' spans (D31). Per date it takes `day_type`, `scheduled_hours`, `expected_hours`, `worked_hours`, `normal_hours`, `day_hours`, `days_worked`, `normal_night_hours`, `overtime_hours`, `overtime_night_hours`, `late`, `absent`, `incomplete`. Leave stays classified by payer from `list_leaves` per contract calendar (D21) |
+| D91 | **Days per scheduled date:** worked = `normal_hours` ÷ `day_hours` (the rule of the day figures' `days_worked`, unrounded: summed over a month, their rounding to 4 decimals would move pay by a few dong), or `expected_hours` ÷ `day_hours` for an employee whose `l10n_vn_attendance_mode` is `exception` (D16's first reader; empty counts as `scan`); company leave = min(max(0, 1 − worked), company leave hours ÷ `scheduled_hours`), then SI and unpaid leave from what is left of the day; paid break days = credited hours ÷ `day_hours`. On a calendar with hours per paid day, worked may be 2 (two shifts) |
+| D92 | **Paid breaks** (amends D25): a date's shortfall = max(0, due − `normal_hours`) when `normal_hours` > 0, where due = `expected_hours`; on a calendar with hours per paid day (`day_hours` < `scheduled_hours`), due = `day_hours` × the whole shifts started (normal hours ÷ `day_hours`, rounded up), at most `expected_hours` |
+| D93 | **OT by category** (amends D22): on every date, day OT = `overtime_hours` − `overtime_night_hours` under `WD`, `RD` or `HOL` by `day_type` (`workday`, `rest`, `holiday`); night OT under `NWD` on a workday without day OT, `NWD_AFTER` on a workday with day OT, `NRD` on a rest day, `NHOL` on a holiday; `normal_night_hours` under `NIGHT`. No minimum of its own (divergence 38). Every employee, the exception-driven mode included |
+| D94 | **OT hours leave out `NIGHT`:** `ot_hours` and the payslip's `l10n_vn_ot_hours` sum every category but `NIGHT`, which is normal time paid a premium. The summary gains `night_hours` (`NIGHT`) and `ot_night_hours` (`NWD` + `NWD_AFTER` + `NRD` + `NHOL`), stored computes like `ot_wd_hours` |
+| D95 | **The daily OT limit:** per date, hours over the limit = on a workday min(`overtime_hours`, max(0, `overtime_hours` − `vn.ot.limit.day_share` × `scheduled_hours`, `normal_hours` + `overtime_hours` − `vn.ot.limit.day_total`)): only overtime can be over the limit, long normal days are `long_days` (step 10.1); on a rest day or holiday max(0, `overtime_hours` − `vn.ot.limit.day_total`). Their sum is `ot_over_daily_hours`; the parameters are read on the month's last day |
+| D96 | **PIT unchanged:** the OT exemption keeps the monthly and yearly limits only (D54); the daily limit is a labour rule, reported by `ot_limit`, and does not reduce the exemption (Peter, 2026-11-08) |
+| D97 | **`long_days`:** the number of dates whose `worked_hours` exceed `vn.ot.limit.day_total`; the check `long_days` (legal, default `warning`) finds it when above 0. The `ot_limit` check also finds `ot_over_daily_hours` above 0 |
+| D98 | **Late arrivals and absences:** `late_arrivals` = dates with `late`, `unexcused_absences` = dates with `absent`, both for the `scan` mode only (AD-OPEN-04). `late_arrivals` becomes a computed figure (in `FIGURES`, frozen at close) |
+| D99 | **Days without check-out:** `incomplete_days` = dates with `incomplete`; the check `period_open` (integrity) also finds them, since such a day pays no time until it is corrected |
+| D100 | **Retired:** the `hr.attendance` search, the public-holiday search and D22's minimum in `_l10n_vn_days`; `vn.policy.ot_min_hours_day` is no longer read |
+| D101 | **The OT schedule** (D85) adds `night_hours` and `ot_night_hours` per employee and month |
 
 ## Folder structure
 
@@ -233,6 +253,7 @@ l10n_vn_payroll/
 │   ├── test_pit_method.py                           # 2
 │   ├── input_common.py                              # 3
 │   ├── test_input_build.py                          # 3
+│   ├── test_input_time.py                           # 10
 │   ├── test_input_workflow.py                       # 3
 │   ├── payslip_common.py                            # 4, 5
 │   ├── test_payslip_contract.py                     # 4
@@ -268,7 +289,7 @@ Files of later steps are added to this tree with their step.
 | `license` | `AGPL-3` |
 | `category` | `Human Resources/Payroll` |
 | `countries` | `["vn"]` |
-| `depends` | `payroll`, `base_time_parameter_strict` (step 1); `hr_employee_relative` (step 2); `excel_import_export` (step 8) |
+| `depends` | `payroll`, `base_time_parameter_strict` (step 1); `hr_employee_relative` (step 2); `excel_import_export` (step 8); `hr_attendance_day` (step 10) |
 | `data` | `security/l10n_vn_payroll_security.xml`, `security/ir.model.access.csv`, `data/l10n_vn_payroll_parameters.xml`, `data/l10n_vn_payroll_participant_types.xml` (2), `data/l10n_vn_payroll_checks.xml` (6), `data/l10n_vn_payroll_xlsx_templates.xml` (8), `views/l10n_vn_payroll_component_views.xml`, `views/l10n_vn_payroll_scale_views.xml`, `views/l10n_vn_payroll_participant_type_views.xml` (2), `views/hr_contract_views.xml`, `views/hr_employee_views.xml` (2), `views/hr_employee_relative_views.xml` (2), `views/l10n_vn_payroll_period_views.xml` (3), `views/l10n_vn_payroll_input_views.xml` (3), `views/hr_leave_type_views.xml` (3), `views/hr_payroll_structure_views.xml`, `views/hr_salary_rule_views.xml`, `views/hr_payslip_views.xml` (4), `views/l10n_vn_payroll_damage_views.xml` (5), `views/l10n_vn_payroll_check_views.xml` (6), `views/hr_payslip_run_views.xml` (7), `views/l10n_vn_payroll_analysis_views.xml`, `report/l10n_vn_payslip_report.xml` (8), `views/l10n_vn_payroll_statement_views.xml`, `views/l10n_vn_payroll_opening_views.xml` (9), `views/menus.xml` |
 | `installable` | `True` |
 
@@ -1178,6 +1199,69 @@ SQL: `employee_year_unique`: `unique(company_id, employee_id, year)`.
 
 **`l10n_vn.payroll.input._l10n_vn_compute_figures`** (step 9): `ot_hours_ytd` also adds the `ot_hours` of the employee's opening data for the same company and year.
 
+### Step 10: time from `hr_attendance_day`
+
+#### `l10n_vn.payroll.input` changes — `models/l10n_vn_payroll_input.py`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `late_arrivals` | Integer | now a computed figure (D98), read-only unless `figures_locked` |
+| `ot_over_daily_hours` | Float `(16, 4)` | string *OT over the daily limit*; figure (D95) |
+| `long_days` | Integer | string *Days over 12 hours*; figure (D97) |
+| `incomplete_days` | Integer | string *Days without check-out*; figure (D99) |
+| `night_hours` | Float `(16, 4)` | string *Night hours (normal)*; stored compute from `ot_hours_json` (`NIGHT`) |
+| `ot_night_hours` | Float `(16, 4)` | string *OT at night*; stored compute from `ot_hours_json` (`NWD` + `NWD_AFTER` + `NRD` + `NHOL`) |
+
+- `FIGURES` gains `late_arrivals`, `ot_over_daily_hours`, `long_days`, `incomplete_days`.
+- Module constants: `NIGHT = "NIGHT"`, `NIGHT_OT = ("NWD", "NWD_AFTER", "NRD", "NHOL")`.
+- `_compute_ot_hours` (`@api.depends("ot_hours_json")`): `ot_hours` = the sum of every key but `NIGHT` (D94), and also sets `night_hours` and `ot_night_hours`.
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_days()` | D90. Per period contract, over its span in the month: the dates and their contract; `list_leaves(start, end, calendar=cal)` classified by D21 as before. Then `employee_id._attendance_days(period.date_from, period.date_to)` once, and per date of a span its figures merged into the date's row. The `hr.attendance` search and the public-holiday search are removed (D100) |
+| `_l10n_vn_compute_figures()` | per scheduled date (`scheduled_hours` > 0): days by D91, paid-break shortfall by D92; per date (scheduled or not): OT by D93, hours over the daily limit by D95, `long_days` by D97; counts by D98 and D99. `vn.policy.ot_min_hours_day` is not read. Segments sum `paid_days`, `days_worked` and `ot_hours_json` per piece as before |
+
+**The figures** (replacing the step 3 table's rows they name):
+
+| Figure | Rule |
+|---|---|
+| `days_worked` | the sum of D91's worked |
+| `company_leave_days`, `si_leave_days`, `unpaid_leave_days` | D91 |
+| paid break days | D92's credits ÷ `day_hours` |
+| `unexcused_absences` | dates with `absent`, scan mode only |
+| `late_arrivals` | dates with `late`, scan mode only |
+| `ot_hours_json` | D93, summed per category |
+| `ot_over_daily_hours` | D95 |
+| `long_days` | D97 |
+| `incomplete_days` | D99 |
+
+#### `hr.payslip` change — `models/hr_payslip.py`
+
+`_l10n_vn_totals`: `l10n_vn_ot_hours` sums `ot_hours_json` without `NIGHT` (D94).
+
+#### Pay context changes — `models/pay_context.py`
+
+- The snapshot's `input` gains `ot_over_daily_hours`. PIT is unchanged (D96).
+
+#### Checks — `models/l10n_vn_payroll_check.py`
+
+| Finder | Change |
+|---|---|
+| `_l10n_vn_find_period_open` | also a finding when the payslip's summary has `incomplete_days` > 0: *%(days)s days with an attendance without check-out.* |
+| `_l10n_vn_find_ot_limit` | also a finding when `ot_over_daily_hours` > 0: *%(hours)s OT hours above the daily limit.* |
+| `_l10n_vn_find_long_days` (new) | a finding when the summary's `long_days` > 0: *%(days)s days with more than %(limit)s hours of work.*, `limit` = `vn.ot.limit.day_total` |
+
+#### Statements — `models/l10n_vn_payroll_statement.py`
+
+`l10n_vn.payroll.statement.line` gains `night_hours` and `ot_night_hours` (Float); `_l10n_vn_lines_ot_schedule` fills them from the snapshot's `ot_hours_json` (D101), and a line is kept when any category has hours.
+
+#### `res.company` — `STATUTORY_PARAMETERS` additions
+
+| Code | Name | Type | Versions |
+|---|---|---|---|
+| `vn.ot.limit.day_share` | OT limit per day, share of the day's normal hours | float | 2026-01-01 `0.5` |
+| `vn.ot.limit.day_total` | Hours of work per day, normal and OT together | float | 2026-01-01 `12` |
+
 ### `res.company` — `models/res_company.py`
 
 `_inherit = "res.company"`.
@@ -1276,6 +1360,14 @@ Not `noupdate`: the catalogue follows the code (D59). XML ids `check_<code>`; se
 | `dependent_document` | Dependent without registration document | policy | warning | |
 | `advance_limit` | Advance above the limit | policy | warning | |
 | `advance_carried` | Advance larger than net pay, carried forward | policy | warning | |
+
+## Data — `data/l10n_vn_payroll_checks.xml` addition (step 10)
+
+| Code | Name | Kind | Default | Per component |
+|---|---|---|---|---|
+| `long_days` | Days with more than 12 hours of work | legal | warning | |
+
+Sequence 135, after `ot_limit` (130); the other checks keep theirs. `ot_limit`'s name becomes *Overtime above the daily, monthly or yearly limit*.
 
 ## Views
 
@@ -1386,6 +1478,10 @@ In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, 
 ### `views/l10n_vn_payroll_input_views.xml` addition (step 5)
 
 `month_scheduled_days` in the form's *Days* group, after `scheduled_days`, read-only unless `figures_locked`.
+
+### `views/l10n_vn_payroll_input_views.xml` addition (step 10)
+
+In the form: group *Overtime and breaks* gains `night_hours`, `ot_night_hours` and `ot_over_daily_hours` (the last read-only unless `figures_locked`); group *Other* gains `long_days` and `incomplete_days`, read-only unless `figures_locked`, and `late_arrivals` becomes read-only unless `figures_locked`.
 
 ### `views/l10n_vn_payroll_check_views.xml` (step 6)
 
@@ -1882,9 +1978,34 @@ A September 2026 period and run beside October's where a test needs two months.
 | `test_opening_feeds_ot_ytd` | opening data with 120 OT hours for 2026: a built October summary's `ot_hours_ytd` is 120 |
 | `test_access` | a reader reads a statement and its lines (positive control); the reader's `create` raises `AccessError` |
 
+### Step 10 changes to the earlier tests
+
+| File | Change |
+|---|---|
+| `tests/input_common.py` | `InputCase` sets the test company's `overtime_employee_threshold` 5 and `overtime_company_threshold` 48; the parameter `vn.policy.ot_min_hours_day` is no longer created |
+| `tests/test_input_build.py` | `test_early_arrival_and_short_overtime`: 06:30–16:30 gives no OT (each end within Odoo's 48-minute tolerance, divergence 38), 07:00–17:00 gives `WD` 1; days worked 26 both times. The other tests keep their figures |
+| `tests/test_pit.py` | `test_daily_limit_not_taxed`: `WD` 10 h with `ot_over_daily_hours` 2 and no monthly or yearly excess: the whole OT pay is exempt |
+| `tests/test_checks.py` | `test_long_days`: a summary with `long_days` 3: a `long_days` `warning`, and `note` with `vn.check.long_days` = `note`. `test_ot_limit_daily`: `ot_over_daily_hours` 2: an `ot_limit` `warning`. `test_period_open_incomplete`: a closed period and `incomplete_days` 1: a `period_open` `error` |
+| `tests/test_statement.py` | `test_ot_schedule`: `alice` also with `NIGHT` 4 and `NWD` 2: her line has `night_hours` 4 and `ot_night_hours` 2, and `ot_wd_hours` 10 as before |
+
+### `tests/test_input_time.py` — `TestInputTime(InputCase)` (step 10)
+
+| Test | Asserts |
+|---|---|
+| `test_grace_paid` | 07:04–16:00 on every scheduled day but the holiday: 26 days worked, `late_arrivals` 0 |
+| `test_late_arrivals` | full days, two of them 07:20–16:00: `late_arrivals` 2; days worked 26 − 2 × 20 ÷ 480 = 25.9167 |
+| `test_exception_mode` | pay group *Office*, no attendance, one day of a company-paid leave type: days worked 25, company leave days 2 (with the holiday), `unexcused_absences` 0, `late_arrivals` 0 |
+| `test_night_categories` | full days, except: Monday 07:00–23:00 (`WD` 6, `NWD_AFTER` 1); Tuesday 07:00–16:00 and 22:00–23:30 (`NWD` 1.5); Sunday 18:00–23:00 (`RD` 4, `NRD` 1): `ot_hours` 13.5, `ot_night_hours` 3.5, `night_hours` 0 |
+| `test_normal_night` | a second employee on a Monday–Saturday 15:00–23:00 calendar, attending 15:00–23:00 on its 27 scheduled days: `night_hours` 27, `ot_hours` 0, days worked 27 |
+| `test_paid_day_hours` | a second employee on a 06:00–14:00 / 14:00–22:00 calendar with `paid_day_hours` 8: Monday 06:00–14:00, Tuesday 06:00–22:00, Wednesday on a company-paid leave type: days worked 3, company leave days 1; `long_days` 1 and `ot_over_daily_hours` 0 (10.1) |
+| `test_daily_limit_and_long_days` | full days, except a workday 07:00–21:00 (OT 5 h, 1 h over) and a Sunday 07:00–20:00 (OT 13 h, 1 h over): `ot_over_daily_hours` 2, `long_days` 2 |
+| `test_incomplete_day` | full days, the last one (Saturday 31 October, created last: Odoo refuses an attendance after an open one) a check-in without check-out: `incomplete_days` 1, that day not worked, not absent |
+
+**Expected count after step 10:** 224 + 8 (`test_input_time`) + 1 (`test_pit`) + 3 (`test_checks`) = 236.
+
 ## Readme
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 9 adds the statements (SI contributions and changes, PIT for a period and the year, the OT schedule, union fee and dues) as lists from approved payslips, and the opening data for months paid before go-live; step 8 adds the reports: the payslip's totals, a payroll analysis, the employee payslip in Vietnamese with English labels, and Excel templates for the payroll register and the attendance sign-off sheet; step 7 adds the monthly run: Draft → Calculated → Reviewed → Approved → Paid, payslips generated and calculated by the run, review blocked by errors and unnoted warnings, approval by someone other than the preparer, one payment per employee and month, off-cycle runs, and the lock on everything an approved payslip used; step 6 adds the checks: integrity, legal and policy checks on every payslip, with levels set by dated parameters per check and per component, results the reviewer annotates, and stops that no longer halt a batch; step 5 adds the rest of the payslip: social, health and unemployment insurance by fund with the 14-day rule, the union fee and dues, PIT (progressive with OT and capped exemptions, or flat), damage compensation decisions deducted within the legal cap, net pay and the amount to pay after advances; step 4 adds the calculation of earnings: the pay context computed per payslip from pay lines, the monthly input and parameters, with probation, attainment and OT, shown as exact payslip lines through the *Pay Component* rule type, and kept as a snapshot; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
-| `readme/USAGE.md` | *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month); step 4: a structure marked *Vietnamese Pay Context* with one *Pay Component* rule per component; a payslip of such a structure covers one month, takes the latest contract of the month, reads the month's input, and shows one line per pay line and piece, with dates, days, hours and rates in the optional columns; step 5: the structure also needs the engine components (insurance, dues, PIT, damage, net, to pay, employer funds); contracts need a participant type and employees a region; *Monthly Inputs → Damage Decisions* records work-rules decisions, deducted oldest first within the 30% cap; step 6: *Payroll → Configuration → Payroll Checks* lists the checks; a check's level is the time parameter `vn.check.<code>` (or `vn.check.<code>.<component code>`) with the value error, warning, note or off; the payslip's *Checks* page and *Monthly Inputs → Check Results* show the results, and reviewers write their notes there; the contract's probation job category; step 7: *Payroll → Payslips Batches*, a new batch with a *Payroll Period* (regular, or off-cycle with chosen employees): *Calculate* (officer), *Review* (reviewer: no errors, a note on every warning), *Approve* (an approver who did not calculate), *Mark as Paid*; corrections after approval are entered lines on a later month with the month they belong to; step 8: *Print Payslips* on a run, the payslip's *Print* menu, *Monthly Inputs → Payroll Analysis*, the *Payroll Register* and *Attendance Sign-off* templates in *Excel Import/Export* (edit them there; add their export action from the template) |
+| `readme/DESCRIPTION.md` | Vietnamese payroll on OCA payroll; step 10 takes each day's time from `hr_attendance_day` (Odoo's tolerances decide overtime; night hours and night OT; late arrivals; combined shifts by hours per paid day; OT over the daily limit taxed; days over 12 hours reported); step 9 adds the statements (SI contributions and changes, PIT for a period and the year, the OT schedule, union fee and dues) as lists from approved payslips, and the opening data for months paid before go-live; step 8 adds the reports: the payslip's totals, a payroll analysis, the employee payslip in Vietnamese with English labels, and Excel templates for the payroll register and the attendance sign-off sheet; step 7 adds the monthly run: Draft → Calculated → Reviewed → Approved → Paid, payslips generated and calculated by the run, review blocked by errors and unnoted warnings, approval by someone other than the preparer, one payment per employee and month, off-cycle runs, and the lock on everything an approved payslip used; step 6 adds the checks: integrity, legal and policy checks on every payslip, with levels set by dated parameters per check and per component, results the reviewer annotates, and stops that no longer halt a batch; step 5 adds the rest of the payslip: social, health and unemployment insurance by fund with the 14-day rule, the union fee and dues, PIT (progressive with OT and capped exemptions, or flat), damage compensation decisions deducted within the legal cap, net pay and the amount to pay after advances; step 4 adds the calculation of earnings: the pay context computed per payslip from pay lines, the monthly input and parameters, with probation, attainment and OT, shown as exact payslip lines through the *Pay Component* rule type, and kept as a snapshot; step 2 adds participant types, the contract's pay profile and PIT method, the employee's payroll fields and PIT dependents; step 1: pay components with their SI, OT and PIT treatment and amount sources, salary and productivity scales with dated versions, dated pay lines on contracts that keep the contract wage in step, the payroll roles, and the statutory parameters created for Vietnamese companies |
+| `readme/USAGE.md` | step 10: the attendance settings that shape the summary (*Attendances → Configuration → Settings*: the two tolerances; *Hours per Paid Day* and the night window on the working calendar), an employee's attendance mode on the *Payroll* tab; *Payroll → Configuration → Pay Components, Pay Scales, Time Parameters*; the *Pay Lines* page on a contract: a change is a new line from its date, the old one ended the day before; what each amount source expects on a line; the roles (Officer, Reviewer, Approver, Reader, Manager) and that new users receive no payroll role; step 2: *Participant Types*, the contract's *Pay Lines* page heading (participant type, declared SI base, probation), the employee's *Payroll* page, dependents on the *Relatives* page (registered from and to the first day of a month); step 4: a structure marked *Vietnamese Pay Context* with one *Pay Component* rule per component; a payslip of such a structure covers one month, takes the latest contract of the month, reads the month's input, and shows one line per pay line and piece, with dates, days, hours and rates in the optional columns; step 5: the structure also needs the engine components (insurance, dues, PIT, damage, net, to pay, employer funds); contracts need a participant type and employees a region; *Monthly Inputs → Damage Decisions* records work-rules decisions, deducted oldest first within the 30% cap; step 6: *Payroll → Configuration → Payroll Checks* lists the checks; a check's level is the time parameter `vn.check.<code>` (or `vn.check.<code>.<component code>`) with the value error, warning, note or off; the payslip's *Checks* page and *Monthly Inputs → Check Results* show the results, and reviewers write their notes there; the contract's probation job category; step 7: *Payroll → Payslips Batches*, a new batch with a *Payroll Period* (regular, or off-cycle with chosen employees): *Calculate* (officer), *Review* (reviewer: no errors, a note on every warning), *Approve* (an approver who did not calculate), *Mark as Paid*; corrections after approval are entered lines on a later month with the month they belong to; step 8: *Print Payslips* on a run, the payslip's *Print* menu, *Monthly Inputs → Payroll Analysis*, the *Payroll Register* and *Attendance Sign-off* templates in *Excel Import/Export* (edit them there; add their export action from the template) |

@@ -101,14 +101,24 @@ class TestStatement(RunCase):
         self.assertEqual(line.pit, 100000 + context["pit"]["pit"])
 
     def test_ot_schedule(self):
+        for code, category in (("OT_NIGHT", "NIGHT"), ("OT_NWD", "NWD")):
+            self._rule(
+                self._component(code, amount_source="ot", legal_nature="overtime",
+                                pit_treatment="ot", proration=False, ot_category=category)
+            )
         worker, _contract = self._hire(lines=[(self.sal, {"amount": 4500000})])
         self._identify(worker)
-        self._input(worker, ot_hours_json={"WD": 10})
+        self._input(worker, ot_hours_json={"WD": 10, "NIGHT": 4, "NWD": 2})
         run = self._approved_run()
         slip = self._slip(run, worker)
         line = self._row(self._statement("ot_schedule"), worker)
         self.assertEqual(line.ot_wd_hours, 10)
-        self.assertEqual(line.ot_pay, sum(self._totals(slip, "OT_WD")))
+        self.assertEqual(line.night_hours, 4)
+        self.assertEqual(line.ot_night_hours, 2)
+        self.assertEqual(
+            line.ot_pay,
+            sum(sum(self._totals(slip, code)) for code in ("OT_WD", "OT_NIGHT", "OT_NWD")),
+        )
         self.assertEqual(line.ot_exempt, slip.l10n_vn_context["pit"]["ot_exempt"])
 
     def test_union(self):

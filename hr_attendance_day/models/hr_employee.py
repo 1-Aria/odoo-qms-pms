@@ -194,8 +194,14 @@ class HrEmployee(models.Model):
         )
         expected_hours = sum_intervals(expected)
 
-        # normal hours and overtime (D6)
-        normal_hours = max(0.0, expected_hours + min(0.0, overtime)) if closed else 0.0
+        # normal hours and overtime (D6). Odoo's figure keeps the grace period; time present
+        # beyond the overtime makes up lateness even when Odoo's company tolerance ignores it.
+        worked_hours = sum(closed.mapped("worked_hours"))
+        normal_hours = 0.0
+        if closed:
+            odoo_normal = expected_hours + min(0.0, overtime)
+            present = worked_hours - max(0.0, overtime)
+            normal_hours = max(0.0, min(expected_hours, max(odoo_normal, present)))
         approved = sum(max(0.0, a.validated_overtime_hours) for a in closed)
         overtime_hours = min(max(0.0, overtime), approved)
         unapproved_hours = max(0.0, overtime) - overtime_hours
@@ -231,7 +237,7 @@ class HrEmployee(models.Model):
             "day_type": day_type,
             "scheduled_hours": round(scheduled_hours, 4),
             "expected_hours": round(expected_hours, 4),
-            "worked_hours": round(sum(closed.mapped("worked_hours")), 4),
+            "worked_hours": round(worked_hours, 4),
             "normal_hours": round(normal_hours, 4),
             "day_hours": round(day_hours, 4),
             "days_worked": round(normal_hours / day_hours, 4) if day_hours else 0.0,

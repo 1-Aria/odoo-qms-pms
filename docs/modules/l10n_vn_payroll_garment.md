@@ -15,6 +15,7 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | 2 | `auditlog` rules (design §27), skipping models that already have a rule | planned | |
 | 3 | Pay lines proposed on the contract from the pay group and the level or grade and step (design §7); the go-live helper, outside `addons/` (design §29 step 4) | planned | |
 | 4 | Account mapping, after `l10n_vn_payroll_account` (design §28.2) | planned | |
+| 5 | Following `l10n_vn_payroll` step 10: `vn.check.long_days` = *note* (quilting's double shifts); `OT_NIGHT` PIT treatment `exempt` (a premium on normal hours, outside the OT hour limits); `vn.policy.ot_min_hours_day` no longer created | planned | |
 
 ## Divergences from the design
 

@@ -23,13 +23,13 @@ v0.2 (draft) · Nov 8, 2026 · @Peter · **Route A agreed**
 | AD-01 | **A small module, `hr_attendance_day`, derives each day's figures; payroll prices them.** It has one method that returns the figures per employee and date, plus three fields on the working calendar. No stored records, no screens, no scheduled job (§2, §4). | Agreed 2026-11-08 |
 | AD-02 | **Odoo decides how much time there is.** Expected hours, worked hours, the day's overtime, its approval and both tolerances are taken from `hr_attendance` as it computes them. The module derives the rest from them: normal hours, the night part, days worked, late arrivals, absences (§3, §5). | Agreed 2026-11-08 |
 | AD-03 | **The grace period and the 0.8 h OT minimum are Odoo's two tolerance settings:** *Tolerance Time In Favor Of Employee* 5 minutes and *Tolerance Time In Favor Of Company* 48 minutes. Payroll's `vn.policy.ot_min_hours_day` is retired (§6). | Agreed 2026-11-08 |
-| AD-04 | **Late minutes and overtime net out within a day, as Odoo computes it.** A worker 10 minutes late who stays an hour has a full normal day and 50 minutes of overtime, as payroll pays today (§5.2). | Agreed 2026-11-08 |
+| AD-04 | **Late minutes are made up by staying later**, as payroll paid before. A worker 10 minutes late who stays an hour has a full normal day and 50 minutes of overtime. A worker 7 minutes late who stays 32 minutes has a full normal day and no overtime: Odoo's company tolerance ignores the stay as overtime, and the module counts it as making up the lateness (§5.2; amended 2026-11-08 after the May comparison). | Agreed 2026-11-08 |
 | AD-05 | **The counting window is an Odoo automation rule, not module code.** The *Normalize Attendance* code runs on every new attendance, so an early check-in is moved to its shift start before Odoo computes overtime (§6). | Agreed 2026-11-08 |
 | AD-06 | **Hours per paid day, on the calendar.** A calendar may say how many hours make one paid day; days worked are then normal hours ÷ that number. Quilting's 16-hour calendar uses 8, which makes `MINW`'s hidden rule ("over 12 hours means 8") explicit (§5.3). | Agreed 2026-11-08 |
 | AD-07 | **Night hours with a window on the calendar** (22:00–06:00 by default). Night overtime is the overtime that falls at the end of the day, inside the window (§5.4). | Agreed 2026-11-08 |
 | AD-08 | **Late arrival:** the first check-in after the first expected start, beyond the grace period. On a calendar with hours per paid day, it is measured from the nearest shift start instead. Early leave is the same at the end of the day (§5.5). | Agreed 2026-11-08 |
 | AD-09 | **`l10n_vn_payroll` depends on `hr_attendance_day` and reads its method.** This reverses Payroll Technical Design §1 and divergence 7, and declares the attendance dependency payroll already needs. The attendance mode stays a payroll field (§7). | Agreed 2026-11-08 |
-| AD-10 | **Legal limits stay in payroll.** It adds the daily OT limit, which affects the PIT exemption, and the check `long_days` for days over 12 hours. The check reports and enforces nothing; its level is configuration (§7.3). | Agreed 2026-11-08 |
+| AD-10 | **Legal limits stay in payroll.** It adds the daily OT limit, reported by the `ot_limit` check, and the check `long_days` for days over 12 hours. The check reports and enforces nothing; its level is configuration (§7.3). | Agreed 2026-11-08 |
 
 ---
 
@@ -128,12 +128,12 @@ Notation for one employee and date:
 
 | Figure | Rule |
 | --- | --- |
-| `normal_hours` | No attendance → 0. Otherwise max(0, `expected_hours` + min(0, *D*)) |
+| `normal_hours` | No attendance → 0. Otherwise max(0, min(`expected_hours`, max(`expected_hours` + min(0, *D*), `worked_hours` − max(0, *D*)))) |
 | `overtime_hours` | min(max(0, *D*), *V*). With Odoo's *no validation*, *V* equals the overtime, so this is max(0, *D*) |
 | `unapproved_hours` | max(0, *D*) − `overtime_hours` |
 
 - A short day within the grace period is complete; a short day beyond it loses all its missing minutes (Attendance Spec §5.1 rule 2).
-- Minutes made up by staying later are netted by Odoo first (AD-04).
+- Minutes made up by staying later count (AD-04): Odoo nets them when the stay is above its company tolerance; when it is within, the time present beyond the overtime (`worked_hours` − max(0, *D*)) makes them up.
 - On a rest day or holiday *S* is empty, so all worked time is overtime.
 
 ### 5.3 Days worked
@@ -238,7 +238,7 @@ New statutory parameters, created per Vietnamese company like the others:
 | `vn.ot.limit.day_share` | 0.5 | OT above this share of the day's scheduled hours on a workday is over the daily limit |
 | `vn.ot.limit.day_total` | 12 | Hours of work above this in a day: over the daily limit on rest days and holidays, and the `long_days` check |
 
-- **The daily limit and PIT.** The summary gains `ot_over_daily_hours`. The OT exemption (D54) leaves those hours taxable before it applies the monthly and yearly limits.
+- **The daily limit is a labour rule only.** The summary gains `ot_over_daily_hours`, which the `ot_limit` check reports. The PIT exemption keeps the monthly and yearly limits (D54; Peter, 2026-11-08).
 - **The `long_days` check** is a legal check, default *warning*. Its finding is the number of days over 12 hours, and the summary gains `long_days`. Its level is a parameter like every check's. For the garment company it is *note* (proposed for `l10n_vn_payroll_garment`), since quilting's double shifts are the agreed arrangement.
 - The OT categories and factors are the engine's, as built.
 
@@ -296,7 +296,7 @@ New statutory parameters, created per Vietnamese company like the others:
 | --- | --- |
 | Attendance Specification | v0.5 status note: Route A (this note). §3 rosters, §5.4 off-site registration, §7 approval windows and §8 queue deferred. The grace period and OT minimum are Odoo's tolerances; early check-ins are moved by an automation rule; hours per paid day for combined shifts |
 | Payroll Technical Design | §1: `l10n_vn_payroll` depends on `hr_attendance_day`. §10.4 and §14: the summary reads the method; the daily limit; `long_days`. Corrections to divergences 7, 10 and 11 |
-| Vietnam Payroll Regulation Reference | The OT exemption covers the whole OT payment within the daily, monthly and yearly limits (Peter, 2026-11-07); `vn.ot.limit.day_share` and `vn.ot.limit.day_total` |
+| Vietnam Payroll Regulation Reference | The OT exemption covers the whole OT payment within the monthly and yearly limits; the daily limits (50% of normal hours, 12 hours of work) are labour rules only (Peter, 2026-11-07 and 2026-11-08); `vn.ot.limit.day_share` and `vn.ot.limit.day_total` |
 | `docs/modules/l10n_vn_payroll.md` | Step 10: D20, D22, D23 replaced; D16 gets its reader |
 | `docs/modules/l10n_vn_payroll_garment.md` | A later step: `vn.check.long_days` = *note*; `vn.policy.ot_min_hours_day` no longer created |
 | IE Technical Design | Attended minutes from `_attendance_days()` (normal + overtime hours); P-01 marked obsolete |

@@ -98,8 +98,16 @@
     </record>
     <record id="check_ot_limit" model="l10n_vn.payroll.check">
         <field name="code">ot_limit</field>
-        <field name="name">Overtime above the monthly or yearly limit</field>
+        <field name="name">Overtime above the daily, monthly or yearly limit</field>
         <field name="sequence">130</field>
+        <field name="kind">legal</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_long_days" model="l10n_vn.payroll.check">
+        <field name="code">long_days</field>
+        <field name="name">Days with more than 12 hours of work</field>
+        <field name="sequence">135</field>
         <field name="kind">legal</field>
         <field name="default_level">warning</field>
         <field name="per_component" eval="False" />

@@ -123,6 +123,16 @@ class L10nVnPayrollCheck(models.Model):
             findings.append(
                 (False, self.env._("IE figures of %(period)s are not closed.", period=period.name))
             )
+        incomplete = payslip.l10n_vn_input_id.sudo().incomplete_days
+        if incomplete:
+            findings.append(
+                (
+                    False,
+                    self.env._(
+                        "%(days)s days with an attendance without check-out.", days=incomplete
+                    ),
+                )
+            )
         return findings
 
     def _l10n_vn_find_negative_net(self, payslip, context):
@@ -306,6 +316,16 @@ class L10nVnPayrollCheck(models.Model):
         if not hours:
             return []
         findings = []
+        if inp.ot_over_daily_hours > 0:
+            findings.append(
+                (
+                    False,
+                    self.env._(
+                        "%(hours)s OT hours above the daily limit.",
+                        hours=f"{inp.ot_over_daily_hours:g}",
+                    ),
+                )
+            )
         month_limit = self._param(payslip, "vn.ot.limit.month")
         year_limit = self._param(payslip, "vn.ot.limit.year")
         if hours > month_limit:
@@ -407,6 +427,22 @@ class L10nVnPayrollCheck(models.Model):
                 )
             ]
         return []
+
+    def _l10n_vn_find_long_days(self, payslip, context):
+        days = payslip.l10n_vn_input_id.sudo().long_days
+        if not days:
+            return []
+        limit = self._param(payslip, "vn.ot.limit.day_total")
+        return [
+            (
+                False,
+                self.env._(
+                    "%(days)s days with more than %(limit)s hours of work.",
+                    days=days,
+                    limit=f"{limit:g}",
+                ),
+            )
+        ]
 
     def _l10n_vn_find_level_review(self, payslip, context):
         findings = []

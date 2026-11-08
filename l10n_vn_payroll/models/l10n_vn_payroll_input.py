@@ -1,6 +1,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 import datetime
+import math
 from collections import defaultdict
 
 import pytz
@@ -25,6 +26,10 @@ FIGURES = frozenset(
     DAY_FIGURES
     + (
         "unexcused_absences",
+        "late_arrivals",
+        "ot_over_daily_hours",
+        "long_days",
+        "incomplete_days",
         "leave_days_json",
         "ot_hours_json",
         "ot_hours_ytd",
@@ -34,10 +39,27 @@ FIGURES = frozenset(
     )
 )
 DIGITS = (16, 4)
-
-
-def _utc_naive(dt):
-    return dt.astimezone(pytz.utc).replace(tzinfo=None)
+# normal hours at night: a premium on normal time, not overtime (D94)
+NIGHT = "NIGHT"
+NIGHT_OT = ("NWD", "NWD_AFTER", "NRD", "NHOL")
+DAY_OT = {"workday": "WD", "rest": "RD", "holiday": "HOL"}
+NIGHT_OT_BY_TYPE = {"rest": "NRD", "holiday": "NHOL"}
+# a date of a period contract without schedule or attendance (D90)
+NO_DAY = {
+    "day_type": "rest",
+    "scheduled_hours": 0.0,
+    "expected_hours": 0.0,
+    "worked_hours": 0.0,
+    "normal_hours": 0.0,
+    "day_hours": 0.0,
+    "days_worked": 0.0,
+    "normal_night_hours": 0.0,
+    "overtime_hours": 0.0,
+    "overtime_night_hours": 0.0,
+    "late": False,
+    "absent": False,
+    "incomplete": False,
+}
 
 
 def _ot_text(values):
@@ -75,6 +97,9 @@ class L10nVnPayrollInput(models.Model):
     paid_break_hours = fields.Float()
     menstruation_days = fields.Integer()
     late_arrivals = fields.Integer()
+    ot_over_daily_hours = fields.Float(string="OT over the daily limit", digits=DIGITS)
+    long_days = fields.Integer(string="Days over 12 hours")
+    incomplete_days = fields.Integer(string="Days without check-out")
     attainment = fields.Float(digits=DIGITS)
     attainment_source = fields.Selection(
         [
@@ -103,15 +128,23 @@ class L10nVnPayrollInput(models.Model):
     ot_wd_hours = fields.Float(string="OT workday", digits=DIGITS, compute="_compute_ot_hours", store=True)
     ot_rd_hours = fields.Float(string="OT rest day", digits=DIGITS, compute="_compute_ot_hours", store=True)
     ot_hol_hours = fields.Float(string="OT holiday", digits=DIGITS, compute="_compute_ot_hours", store=True)
+    night_hours = fields.Float(
+        string="Night hours (normal)", digits=DIGITS, compute="_compute_ot_hours", store=True
+    )
+    ot_night_hours = fields.Float(
+        string="OT at night", digits=DIGITS, compute="_compute_ot_hours", store=True
+    )
 
     @api.depends("ot_hours_json")
     def _compute_ot_hours(self):
         for record in self:
             hours = record.ot_hours_json or {}
-            record.ot_hours = sum(hours.values())
+            record.ot_hours = sum(value for key, value in hours.items() if key != NIGHT)
             record.ot_wd_hours = hours.get("WD", 0)
             record.ot_rd_hours = hours.get("RD", 0)
             record.ot_hol_hours = hours.get("HOL", 0)
+            record.night_hours = hours.get(NIGHT, 0)
+            record.ot_night_hours = sum(hours.get(key, 0) for key in NIGHT_OT)
 
     @api.depends("ot_hours_json", "leave_days_json")
     def _compute_displays(self):
@@ -183,11 +216,14 @@ class L10nVnPayrollInput(models.Model):
             record.write(vals)
 
     def _l10n_vn_days(self):
-        """Per local date: scheduled hours, holiday, leave hours by payer, attendance."""
+        """Per local date of the period contracts: the day figures and leave hours by payer (D90)."""
         self.ensure_one()
         period = self.period_id
         employee = self.employee_id.sudo()
         contracts = employee._l10n_vn_period_contracts(period.date_from, period.date_to)
+        figures = {}
+        if contracts:
+            figures = employee._attendance_days(period.date_from, period.date_to)[employee.id]
         days = {}
         for contract in contracts:
             start = max(contract.date_start, period.date_from)
@@ -200,41 +236,16 @@ class L10nVnPayrollInput(models.Model):
             )
             day = start
             while day <= end:
-                days[day] = {
-                    "scheduled": 0.0,
-                    "holiday": False,
-                    "leave_company": 0.0,
-                    "leave_si": 0.0,
-                    "leave_unpaid": 0.0,
-                    "leave_types": defaultdict(float),
-                    "worked": 0.0,
-                    "ot_raw": 0.0,
-                    "ot_valid": 0.0,
-                    "attended": False,
-                    "contract": contract,
-                }
+                days[day] = dict(
+                    NO_DAY,
+                    **figures.get(day, {}),
+                    leave_company=0.0,
+                    leave_si=0.0,
+                    leave_unpaid=0.0,
+                    leave_types=defaultdict(float),
+                    contract=contract,
+                )
                 day += datetime.timedelta(days=1)
-            resource = employee.resource_id
-            intervals = calendar._attendance_intervals_batch(start_dt, end_dt, resources=resource)
-            for begin, stop, _line in intervals[resource.id]:
-                local_day = begin.astimezone(tz).date()
-                if local_day in days:
-                    days[local_day]["scheduled"] += (stop - begin).total_seconds() / 3600
-            holidays = self.env["resource.calendar.leaves"].sudo().search(
-                [
-                    ("resource_id", "=", False),
-                    ("calendar_id", "in", (calendar.id, False)),
-                    ("company_id", "in", (contract.company_id.id, False)),
-                    ("date_from", "<", _utc_naive(end_dt)),
-                    ("date_to", ">", _utc_naive(start_dt)),
-                ]
-            )
-            for holiday in holidays:
-                h_from = pytz.utc.localize(holiday.date_from).astimezone(tz).date()
-                h_to = pytz.utc.localize(holiday.date_to).astimezone(tz).date()
-                for local_day in days:
-                    if h_from <= local_day <= h_to and days[local_day]["contract"] == contract:
-                        days[local_day]["holiday"] = True
             for local_day, hours, leave in employee.list_leaves(start_dt, end_dt, calendar=calendar):
                 if local_day not in days:
                     continue
@@ -253,22 +264,6 @@ class L10nVnPayrollInput(models.Model):
                     info["leave_company"] += hours
                     name = leave_type.name
                 info["leave_types"][name] += hours
-            attendances = self.env["hr.attendance"].sudo().search(
-                [
-                    ("employee_id", "=", employee.id),
-                    ("check_in", ">=", _utc_naive(start_dt)),
-                    ("check_in", "<", _utc_naive(end_dt)),
-                ]
-            )
-            for attendance in attendances:
-                local_day = pytz.utc.localize(attendance.check_in).astimezone(tz).date()
-                if local_day in days:
-                    info = days[local_day]
-                    info["attended"] = True
-                    info["worked"] += attendance.worked_hours
-                    # core reports missing hours as negative overtime; only extra time counts
-                    info["ot_raw"] += max(0.0, attendance.overtime_hours)
-                    info["ot_valid"] += max(0.0, attendance.validated_overtime_hours)
         return days
 
     def _l10n_vn_month_scheduled_days(self):
@@ -331,50 +326,83 @@ class L10nVnPayrollInput(models.Model):
     def _l10n_vn_compute_figures(self):
         self.ensure_one()
         period = self.period_id
+        company = period.company_id
         days = self._l10n_vn_days()
-        minimum = self.env["base.time.parameter"]._strict_get(
-            "vn.policy.ot_min_hours_day", period.date_to, company=period.company_id
-        )
-        nursing_until = self.employee_id.sudo()._l10n_vn_nursing_until()
+        Param = self.env["base.time.parameter"]
+        day_share = Param._strict_get("vn.ot.limit.day_share", period.date_to, company=company)
+        day_total = Param._strict_get("vn.ot.limit.day_total", period.date_to, company=company)
+        employee = self.employee_id.sudo()
+        exception = employee.l10n_vn_attendance_mode == "exception"
+        nursing_until = employee._l10n_vn_nursing_until()
         per_day = {}
-        absences = 0
+        absences = late = long_days = incomplete = 0
+        over_daily = 0.0
         leave_days = defaultdict(float)
         for day in sorted(days):
             info = days[day]
+            scheduled = info["scheduled_hours"]
+            normal = info["normal_hours"]
+            day_hours = info["day_hours"]
             row = {"worked": 0.0, "company": 0.0, "si": 0.0, "unpaid": 0.0, "credit_days": 0.0,
-                   "remaining": 0.0, "scheduled": info["scheduled"], "ot": {}}
-            scheduled = info["scheduled"]
+                   "remaining": 0.0, "scheduled": scheduled, "day_hours": day_hours, "ot": {}}
             if scheduled > 0:
-                normal = max(0.0, info["worked"] - info["ot_raw"])
-                worked = min(1.0, normal / scheduled)
-                company = min(1.0 - worked, info["leave_company"] / scheduled)
-                si = min(1.0 - worked - company, info["leave_si"] / scheduled)
-                unpaid = min(1.0 - worked - company - si, info["leave_unpaid"] / scheduled)
-                shortfall = max(
-                    0.0,
-                    scheduled - normal - info["leave_company"] - info["leave_si"]
-                    - info["leave_unpaid"],
+                # days by D91
+                if exception:
+                    worked = info["expected_hours"] / day_hours if day_hours else 0.0
+                else:
+                    # the day figures' rule, unrounded: normal hours ÷ hours of a paid day
+                    worked = normal / day_hours if day_hours else 0.0
+                room = max(0.0, 1.0 - worked)
+                company_days = min(room, info["leave_company"] / scheduled)
+                si = min(max(0.0, room - company_days), info["leave_si"] / scheduled)
+                unpaid = min(
+                    max(0.0, room - company_days - si), info["leave_unpaid"] / scheduled
                 )
-                credit = 0.0
-                if normal > 0 and nursing_until and day < nursing_until:
-                    credit = min(1.0, shortfall)
-                row.update(worked=worked, company=company, si=si, unpaid=unpaid,
-                           credit_hours=credit,
-                           remaining=shortfall - credit if normal > 0 else 0.0)
-                if not info["attended"] and not (
-                    info["leave_company"] or info["leave_si"] or info["leave_unpaid"]
-                ):
-                    absences += 1
+                # paid breaks by D92
+                shortfall = credit = 0.0
+                if not exception and normal > 0:
+                    due = info["expected_hours"]
+                    if day_hours and day_hours < scheduled:
+                        shifts = math.ceil(round(normal / day_hours, 6))
+                        due = min(due, day_hours * shifts)
+                    shortfall = max(0.0, due - normal)
+                    if nursing_until and day < nursing_until:
+                        credit = min(1.0, shortfall)
+                row.update(worked=worked, company=company_days, si=si, unpaid=unpaid,
+                           credit_hours=credit, remaining=shortfall - credit)
+                if not exception:
+                    absences += info["absent"]
+                    late += info["late"]
                 for name, hours in info["leave_types"].items():
                     leave_days[name] += hours / scheduled
-            if info["ot_valid"] and info["ot_valid"] >= minimum:
-                if info["holiday"]:
-                    category = "HOL"
-                elif scheduled <= 0:
-                    category = "RD"
+            # OT by category (D93)
+            overtime = info["overtime_hours"]
+            night_ot = min(overtime, info["overtime_night_hours"])
+            day_ot = overtime - night_ot
+            day_type = info["day_type"]
+            categories = {}
+            if day_ot > 0:
+                categories[DAY_OT[day_type]] = day_ot
+            if night_ot > 0:
+                if day_type == "workday":
+                    key = "NWD_AFTER" if day_ot > 0 else "NWD"
                 else:
-                    category = "WD"
-                row["ot"] = {category: info["ot_valid"]}
+                    key = NIGHT_OT_BY_TYPE[day_type]
+                categories[key] = night_ot
+            if info["normal_night_hours"] > 0:
+                categories[NIGHT] = info["normal_night_hours"]
+            row["ot"] = categories
+            # the daily limit (D95) and long days (D97)
+            if day_type == "workday":
+                # only overtime can be over the limit: long normal days are long_days (D95)
+                over_daily += min(
+                    overtime,
+                    max(0.0, overtime - day_share * scheduled, normal + overtime - day_total),
+                )
+            else:
+                over_daily += max(0.0, overtime - day_total)
+            long_days += info["worked_hours"] > day_total
+            incomplete += info["incomplete"]
             per_day[day] = row
         pool = (self.menstruation_days or 0) * 0.5
         for day in sorted(per_day):
@@ -388,8 +416,8 @@ class L10nVnPayrollInput(models.Model):
                 pool -= extra
         break_hours = 0.0
         for row in per_day.values():
-            if row["scheduled"] > 0:
-                row["credit_days"] = row.get("credit_hours", 0.0) / row["scheduled"]
+            if row["scheduled"] > 0 and row["day_hours"] > 0:
+                row["credit_days"] = row.get("credit_hours", 0.0) / row["day_hours"]
                 break_hours += row.get("credit_hours", 0.0)
 
         def total(rows, key):
@@ -424,6 +452,10 @@ class L10nVnPayrollInput(models.Model):
             "unpaid_days": round(max(0.0, scheduled_days - paid_days), 4),
             "si_absence_days": round(max(0.0, scheduled_days - paid_days), 4),
             "unexcused_absences": absences,
+            "late_arrivals": late,
+            "ot_over_daily_hours": round(over_daily, 4),
+            "long_days": long_days,
+            "incomplete_days": incomplete,
             "leave_days_json": {k: round(v, 4) for k, v in leave_days.items()},
             "ot_hours_json": ot_sum(rows),
             "ot_hours_ytd": sum(earlier.mapped("ot_hours")) + sum(
