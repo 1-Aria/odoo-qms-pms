@@ -11,7 +11,8 @@ company on request:
 - **Options, inactive until switched on:** attendance bonus (`ATT`), responsibility allowance
   (`DUTY`), phone allowance (`PHONE`).
 - The statutory deductions, employer contributions and totals the engine calculates.
-- Policy parameters (region IV, 26 standard days, base salary, probation rate, attainment cap,
-  0.8 h daily OT minimum, the 6-month and 30% check thresholds) and the performance-pay check at
-  *note*.
+- Policy parameters (region IV, 26 standard days, base salary, probation rate, attainment cap, the
+  6-month and 30% check thresholds) and two checks at *note*: performance pay unchanged, and days
+  with more than 12 hours of work (quilting's double shifts).
+- The night work premium is fully exempt from PIT; night overtime follows the OT limits.
 - One salary structure, *VN_GARMENT*, with a rule per component.

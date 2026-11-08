@@ -58,10 +58,10 @@ class TestLoad(PayrollCase):
             ("vn.policy.base_salary", 3700000),
             ("vn.policy.probation_rate", 0.85),
             ("vn.policy.attainment_cap", 1),
-            ("vn.policy.ot_min_hours_day", 0.8),
             ("vn.policy.constant_months", 6),
             ("vn.policy.net_change", 0.30),
             ("vn.check.variable_constant.PERF", "note"),
+            ("vn.check.long_days", "note"),
         ):
             self.assertEqual(
                 Param._strict_get(code, D(2026, 10, 31), company=self.company), value, code
@@ -117,6 +117,9 @@ class TestLoad(PayrollCase):
         )
         night = self._component("OT_NWD_AFTER")
         self.assertEqual((night.ot_category, night.pit_treatment), ("NWD_AFTER", "ot"))
+        premium = self._component("OT_NIGHT")
+        self.assertEqual((premium.ot_category, premium.pit_treatment), ("NIGHT", "exempt"))
+        self.assertFalse(self._param("vn.policy.ot_min_hours_day"))
 
     def test_vietnamese_names(self):
         self.env["res.lang"]._activate_lang("vi_VN")

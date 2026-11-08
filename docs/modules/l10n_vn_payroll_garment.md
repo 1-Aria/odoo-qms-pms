@@ -15,7 +15,7 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | 2 | `auditlog` rules (design §27), skipping models that already have a rule | planned | |
 | 3 | Pay lines proposed on the contract from the pay group and the level or grade and step (design §7); the go-live helper, outside `addons/` (design §29 step 4) | planned | |
 | 4 | Account mapping, after `l10n_vn_payroll_account` (design §28.2) | planned | |
-| 5 | Following `l10n_vn_payroll` step 10: `vn.check.long_days` = *note* (quilting's double shifts); `OT_NIGHT` PIT treatment `exempt` (a premium on normal hours, outside the OT hour limits); `vn.policy.ot_min_hours_day` no longer created | planned | |
+| 5 | Following `l10n_vn_payroll` step 10: `vn.check.long_days` = *note* (quilting's double shifts); `OT_NIGHT` PIT treatment `exempt` (a premium on normal hours, outside the OT hour limits); `vn.policy.ot_min_hours_day` no longer created; version 18.0.1.1.0 | done | 2026-11-08, one run: `-u`, `exit=0`, 25 tests, 0 failures. On the test copy, which kept its step 1 records, `OT_NIGHT`'s PIT treatment is set by hand and a second load adds `vn.check.long_days` |
 
 ## Divergences from the design
 
@@ -46,6 +46,8 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | D11 | **Grade amounts** are Pay Policy v0.5 §4.1's placeholders; each person's amount is set at go-live (OPEN-20). G6 has no cell: its amount is on the pay line, overriding the cell (engine D2) |
 | D12 | **`ATT`** takes `vn.policy.attendance_bonus` (amount source `parameter`), not prorated, with the attendance condition (engine D38). Neither `vn.policy.attendance_bonus` nor `vn.policy.attendance_late_max` is created: switched on without them, a payslip stops with a `calculation` result naming the parameter |
 | D13 | **Probation** applies to every component paid as salary for the job: `BASE`, `PROD`, `PERF`, `DAILY` and `DUTY` (Labor Code Art. 26 on the salary of Art. 90, which includes allowances) |
+| D14 | **`OT_NIGHT` is fully PIT-exempt** (step 5): it is the 30% premium on normal hours worked at night, not overtime, so the OT exemption's hour limits (prorated by OT hours, `l10n_vn_payroll` D54, D94) do not apply to it. Night OT components stay `ot` |
+| D15 | **`long_days` at *note*** (step 5): quilting's double shifts are the agreed arrangement (attendance design note v0.2 §8), so they are reported without needing a reviewer's note on every payslip. `vn.policy.ot_min_hours_day` is no longer created: payroll reads Odoo's tolerance instead (`l10n_vn_payroll` D100); an existing one stays, unused |
 
 ## Folder structure
 
@@ -111,10 +113,10 @@ In the company, `country_id` the company's country, one version from 2026-01-01 
 | `vn.policy.base_salary` | Base salary | float | `3700000` |
 | `vn.policy.probation_rate` | Probation pay rate | float | `0.85` |
 | `vn.policy.attainment_cap` | Attainment and score cap | float | `1` |
-| `vn.policy.ot_min_hours_day` | Minimum OT hours counted per day | float | `0.8` |
 | `vn.policy.constant_months` | Months of unchanged variable pay before a check | integer | `6` |
 | `vn.policy.net_change` | Net pay change from last month before a check | float | `0.30` |
 | `vn.check.variable_constant.PERF` | Check level: performance pay unchanged | string | `note` |
+| `vn.check.long_days` | Check level: days with more than 12 hours of work | string | `note` (step 5, D15) |
 
 ### `SCALES`
 
@@ -154,7 +156,7 @@ Each `GRADE` cell's `grade` is the key's part before the dash and `step` the num
 | `OT_WD` | Overtime, workday / Làm thêm giờ ngày thường | `overtime` | `ot` | | | `ot` | | | | `ot` | `ot_category` `WD` |
 | `OT_RD` | Overtime, weekly rest day / Làm thêm giờ ngày nghỉ hằng tuần | `overtime` | `ot` | | | `ot` | | | | `ot` | `RD` |
 | `OT_HOL` | Overtime, public holiday / Làm thêm giờ ngày lễ, Tết | `overtime` | `ot` | | | `ot` | | | | `ot` | `HOL` |
-| `OT_NIGHT` | Night work premium / Phụ cấp làm việc ban đêm | `night` | `ot` | | | `ot` | | | | `ot` | `NIGHT` |
+| `OT_NIGHT` | Night work premium / Phụ cấp làm việc ban đêm | `night` | `ot` | | | `exempt` (step 5, D14) | | | | `ot` | `NIGHT` |
 | `OT_NWD` | Night overtime, workday / Làm thêm giờ ban đêm ngày thường | `overtime` | `ot` | | | `ot` | | | | `ot` | `NWD` |
 | `OT_NWD_AFTER` | Night overtime, workday after daytime overtime / Làm thêm giờ ban đêm ngày thường sau làm thêm ban ngày | `overtime` | `ot` | | | `ot` | | | | `ot` | `NWD_AFTER` |
 | `OT_NRD` | Night overtime, weekly rest day / Làm thêm giờ ban đêm ngày nghỉ hằng tuần | `overtime` | `ot` | | | `ot` | | | | `ot` | `NRD` |
@@ -268,8 +270,8 @@ The engine fixture's company (Vietnam, VND) is loaded in each test that needs it
 
 | Test | Asserts |
 |---|---|
-| `test_load_creates` | after one load: the 9 parameters read through `_strict_get` on 2026-10-31 give `IV`, 26, 3,700,000, 0.85, 1, 0.8, 6, 0.30, `note`; scale `PROD` has 5 cells and `GRADE` 15, `G2-2` = 8,000,000 with grade `G2`, step 2; 35 components, the inactive ones exactly `ATT`, `DUTY`, `PHONE`; the structure `VN_GARMENT` has `l10n_vn_payroll` and 35 rules, each with the code and component of one component and the category of its kind; `created` lists every record, `kept` is empty |
-| `test_component_settings` | `BASE`: source `parameter` `vn.policy.base_salary`, in SI and OT base, `sets_wage`; `PROD`: scale `PROD`, variable, `supervisor`, OT base only; `PERF`: `scale_remainder` on `GRADE`, `manager`; `LEAVE`: `exempt`; `ATT`: inactive, `parameter` `vn.policy.attendance_bonus`, condition `attendance`; `OT_NWD_AFTER`: category `NWD_AFTER`, PIT `ot` |
+| `test_load_creates` | after one load: the 9 parameters read through `_strict_get` on 2026-10-31 give `IV`, 26, 3,700,000, 0.85, 1, 6, 0.30, `note`, `note` (`vn.check.long_days`, step 5); scale `PROD` has 5 cells and `GRADE` 15, `G2-2` = 8,000,000 with grade `G2`, step 2; 35 components, the inactive ones exactly `ATT`, `DUTY`, `PHONE`; the structure `VN_GARMENT` has `l10n_vn_payroll` and 35 rules, each with the code and component of one component and the category of its kind; `created` lists every record, `kept` is empty |
+| `test_component_settings` | `BASE`: source `parameter` `vn.policy.base_salary`, in SI and OT base, `sets_wage`; `PROD`: scale `PROD`, variable, `supervisor`, OT base only; `PERF`: `scale_remainder` on `GRADE`, `manager`; `LEAVE`: `exempt`; `ATT`: inactive, `parameter` `vn.policy.attendance_bonus`, condition `attendance`; `OT_NWD_AFTER`: category `NWD_AFTER`, PIT `ot`; `OT_NIGHT`: category `NIGHT`, PIT `exempt`, and no `vn.policy.ot_min_hours_day` (step 5) |
 | `test_vietnamese_names` | with `vi_VN` activated before the load: `BASE` reads *Lương cơ bản* in `vi_VN` and *Base salary* in `en_US`; the structure's rule `BASE` the same |
 | `test_load_again` | a second load creates nothing, `kept` lists all 9 + 2 + 4 + 35 + 1 + 35 records, counts unchanged |
 | `test_existing_kept` | before the load: a component `BASE` named *Trial base* in section `other`, a parameter `vn.policy.std_days` with one version 2026-05-01 = 24, a scale `PROD` with one version holding `Entry` only. After: all three unchanged (name, section, versions, cells), each listed in `kept`; the structure's rule `BASE` points to the existing `BASE` |

@@ -13,7 +13,6 @@ PARAMETERS = [
     ("vn.policy.base_salary", "Base salary", "float", "3700000"),
     ("vn.policy.probation_rate", "Probation pay rate", "float", "0.85"),
     ("vn.policy.attainment_cap", "Attainment and score cap", "float", "1"),
-    ("vn.policy.ot_min_hours_day", "Minimum OT hours counted per day", "float", "0.8"),
     (
         "vn.policy.constant_months",
         "Months of unchanged variable pay before a check",
@@ -29,6 +28,12 @@ PARAMETERS = [
     (
         "vn.check.variable_constant.PERF",
         "Check level: performance pay unchanged",
+        "string",
+        "note",
+    ),
+    (
+        "vn.check.long_days",
+        "Check level: days with more than 12 hours of work",
         "string",
         "note",
     ),
@@ -197,7 +202,8 @@ COMPONENTS = [
     (
         "OT_NIGHT",
         ("Night work premium", "Phụ cấp làm việc ban đêm"),
-        _ot("NIGHT", nature="night"),
+        # a premium on normal hours: fully exempt, outside the OT hour limits
+        dict(_ot("NIGHT", nature="night"), pit_treatment="exempt"),
     ),
     (
         "OT_NWD",
