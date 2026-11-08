@@ -27,6 +27,19 @@ class PayslipCase(PayrollCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.company._l10n_vn_payroll_ensure_parameters()
+        cls._l10n_vn_configure()
+        cls.contract.struct_id = cls.structure
+        cls.period = cls.env["l10n_vn.payroll.period"].create(
+            {"date_from": OCT_FROM, "company_id": cls.company.id}
+        )
+
+    @classmethod
+    def _l10n_vn_configure(cls):
+        """Parameters, scales, components, categories, structure and rules.
+
+        Sets the attributes the tests read; a module that ships its own configuration
+        overrides it to run the same cases on that configuration.
+        """
         for code, value in (
             ("vn.policy.std_days", "26"),
             ("vn.policy.probation_rate", "0.85"),
@@ -138,10 +151,6 @@ class PayslipCase(PayrollCase):
         )
         for sequence, component in enumerate(components, start=1):
             cls._rule(component, sequence * 10)
-        cls.contract.struct_id = cls.structure
-        cls.period = cls.env["l10n_vn.payroll.period"].create(
-            {"date_from": OCT_FROM, "company_id": cls.company.id}
-        )
 
     @classmethod
     def _rule(cls, component, sequence=500):

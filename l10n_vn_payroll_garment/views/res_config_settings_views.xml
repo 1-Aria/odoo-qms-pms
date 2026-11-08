@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.l10n_vn_payroll_garment</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="payroll.res_config_settings_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='payroll']" position="inside">
+                <block title="Vietnamese Payroll" id="l10n_vn_payroll_garment">
+                    <setting
+                        id="l10n_vn_payroll_garment_load"
+                        string="Garment pay scheme"
+                        help="Creates the current scheme's parameters, scales, components, structure and rules in this company. Records whose code already exists are kept as they are."
+                    >
+                        <button
+                            name="action_l10n_vn_garment_load"
+                            type="object"
+                            string="Load Garment Pay Scheme"
+                            class="btn-link"
+                            icon="oi-arrow-right"
+                        />
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
