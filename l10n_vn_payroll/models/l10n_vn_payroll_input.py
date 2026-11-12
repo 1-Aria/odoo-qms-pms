@@ -30,6 +30,8 @@ FIGURES = frozenset(
         "ot_over_daily_hours",
         "long_days",
         "incomplete_days",
+        "corrected_days",
+        "corrections_json",
         "leave_days_json",
         "ot_hours_json",
         "ot_hours_ytd",
@@ -59,6 +61,8 @@ NO_DAY = {
     "late": False,
     "absent": False,
     "incomplete": False,
+    "corrected": False,
+    "correction_reasons": [],
 }
 
 
@@ -100,6 +104,8 @@ class L10nVnPayrollInput(models.Model):
     ot_over_daily_hours = fields.Float(string="OT over the daily limit", digits=DIGITS)
     long_days = fields.Integer(string="Days over 12 hours")
     incomplete_days = fields.Integer(string="Days without check-out")
+    corrected_days = fields.Integer(string="Days corrected by hand")
+    corrections_json = fields.Json()
     attainment = fields.Float(digits=DIGITS)
     attainment_source = fields.Selection(
         [
@@ -336,6 +342,7 @@ class L10nVnPayrollInput(models.Model):
         nursing_until = employee._l10n_vn_nursing_until()
         per_day = {}
         absences = late = long_days = incomplete = 0
+        corrections = {}
         over_daily = 0.0
         leave_days = defaultdict(float)
         for day in sorted(days):
@@ -403,6 +410,8 @@ class L10nVnPayrollInput(models.Model):
                 over_daily += max(0.0, overtime - day_total)
             long_days += info["worked_hours"] > day_total
             incomplete += info["incomplete"]
+            if info["corrected"]:
+                corrections[day.isoformat()] = list(info["correction_reasons"])
             per_day[day] = row
         pool = (self.menstruation_days or 0) * 0.5
         for day in sorted(per_day):
@@ -456,6 +465,9 @@ class L10nVnPayrollInput(models.Model):
             "ot_over_daily_hours": round(over_daily, 4),
             "long_days": long_days,
             "incomplete_days": incomplete,
+            # attendance corrected by hand, for review (D108)
+            "corrected_days": len(corrections),
+            "corrections_json": corrections,
             "leave_days_json": {k: round(v, 4) for k, v in leave_days.items()},
             "ot_hours_json": ot_sum(rows),
             "ot_hours_ytd": sum(earlier.mapped("ot_hours")) + sum(

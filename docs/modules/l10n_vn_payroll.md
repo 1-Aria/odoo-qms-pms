@@ -24,6 +24,7 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | 9 | Statements and opening data: `l10n_vn.payroll.statement` with its lines, generated from approved payslips — SI contributions, SI changes, PIT for a month or quarter, the annual PIT finalisation, the OT schedule (Decree 253), the union fee and dues — as plain lists exported through Odoo's export; `l10n_vn.payroll.opening`, the year-to-date figures of months paid before go-live, imported with Odoo's import and read by the annual PIT and by `ot_hours_ytd` | done | 2026-11-07, one run: `-u`, `exit=0`, 224 tests, 0 failures. UI checked by Peter: an SI contributions statement for May 2026 listed run 34's employees (SI base 3,700,000, employee SI 296,000), exported to Excel; opening data entered |
 | 10 | Time from `hr_attendance_day`: the monthly summary reads each day's figures from `hr.employee._attendance_days()` instead of `hr.attendance`; Odoo's tolerances replace the 0.8 h rule; days worked per paid day (combined shifts); the night categories; late arrivals, absences and days without check-out from the day figures; the exception-driven mode's first reader; the daily OT limit reported by the `ot_limit` check; the check `long_days`; night hours in the OT schedule | done | 2026-11-08, one run: `-u`, `exit=0`, 236 tests, 0 failures. Corrected against the code: days worked per date are computed in payroll as normal hours ÷ hours of a paid day, the day figures' rule without their per-day rounding (D91); `long_days` takes sequence 135 and the other checks keep theirs |
 | 10.1 | Hours over the daily limit are at most the day's overtime (D95), so long normal days (quilting's double shifts) count only in `long_days`; `test_paid_day_hours` asserts it | done | 2026-11-08, one run: `-u`, `exit=0`, 236 tests, 0 failures; May 2026 compared again: 0 h over the daily limit. Found by comparing May 2026 on the test copy, where all 106.6 h over the daily limit came from quilting, which has no overtime |
+| 11 | Contracts, identification and corrections (Technical Design v0.6 PTD-19 to PTD-23): participant types `TRAINING` and `CASUAL`, the flags `paid_by_transfer` and `posted`, `PROBATION` progressive; a participant type on each contract type, given to new contracts; the PIT method with the commitment form first; `missing_ids` asking for the CCCD and, where paid by transfer, the bank account; checks `contract_term` and `attendance_corrections`; corrected days on the summary; version 18.0.1.1.0 with a migration | done | 2026-11-12, two runs. First: `-u`, 243 tests, 1 failure: `test_probation_and_short` still expected `PROBATION` flat; the test now expects `progressive` (D102). The migration ran on the test copy (`PROBATION` progressive; `TRAINING` and `CASUAL` created, `CASUAL` neither paid by transfer nor posted). Second: `-u`, `exit=0`, 243 tests, 0 failures. UI checked by Peter: the participant type on contract types, the correction reason on attendance |
 
 ## Divergences from the design
 
@@ -177,6 +178,14 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | D99 | **Days without check-out:** `incomplete_days` = dates with `incomplete`; the check `period_open` (integrity) also finds them, since such a day pays no time until it is corrected |
 | D100 | **Retired:** the `hr.attendance` search, the public-holiday search and D22's minimum in `_l10n_vn_days`; `vn.policy.ot_min_hours_day` is no longer read |
 | D101 | **The OT schedule** (D85) adds `night_hours` and `ot_night_hours` per employee and month |
+| D102 | **Participant types** (step 11, PTD-19): `TRAINING` (training contract) and `CASUAL` (no written contract): no fund, no dues, base `components`, floor `none`, PIT `flat_short`. Two Booleans on every type: `paid_by_transfer` (default True; False for `CASUAL`) and `posted` (default True; False for `CASUAL`), read by `missing_ids` and by `l10n_vn_payroll_account`. `PROBATION`'s PIT method becomes `progressive`: under 3 months the contract rule gives the flat rate (D105) |
+| D103 | **Contract type → participant type:** `hr.contract.type.l10n_vn_participant_type_id`. A contract created with a contract type and no participant type takes the type's; changing the contract type in the form proposes it (onchange). An existing contract is not changed. Without a type's participant type, D13's default `LABOUR` stays |
+| D104 | **Existing databases** (step 11): `participant_types.xml` is `noupdate`, so the new records are created at upgrade (their XML ids are new) but `PROBATION` keeps its stored method. The migration `migrations/18.0.1.1.0/post-migrate.py` sets the method of the record with XML id `participant_probation` to `progressive`, once, when the module is upgraded from an earlier version. The data file holds the new value for fresh installs |
+| D105 | **The PIT method** (amends D19, PTD-20): not resident → `flat_nonresident`; else the employee filed the commitment form for the year (`l10n_vn_pit_commitment_year == date.year`) → `progressive`; else the participant type's method when not `progressive`; else `flat_short` for a contract with an end date running under 3 months; else `progressive` |
+| D106 | **`missing_ids`** (amends D66, PTD-21): when to pay > 0, a finding names what is missing of: the personal ID number (`l10n_vn_personal_id`), always; the bank account (`bank_account_id`), when the main contract's participant type is `paid_by_transfer`. `ssnid` is not read |
+| D107 | **`contract_term`** (legal, warning, PTD-23), on the main contract: when its participant type is `LABOUR` and it has an end date, the employee's `LABOUR` contracts in the company (states `open`, `close`) up to it, newest first, are counted while each has an end date; three or more give *%(n)s fixed-term labour contracts in a row: the law allows one renewal, the next contract must be indefinite.* When its participant type is `TRAINING` and it has no end date, or `date_start` + 3 months is before `date_end` + 1 day: *Training contract longer than 3 months.* |
+| D108 | **Corrected days** (PTD-22): the summary's `corrected_days` counts the dates of its contracts' spans with `corrected` (`hr_attendance_day` D13), and `corrections_json` maps each such date (ISO) to its reasons; both are figures (`FIGURES`), frozen at close |
+| D109 | **`attendance_corrections`** (policy, warning): when the summary's `corrected_days` > 0, one finding: *%(days)s days with attendance corrected by hand: %(list)s*, the list as `dd/mm reason; …`, at most ten dates then `…`. The reviewer's note is the approval (Pay Policy v0.6 §7) |
 
 ## Folder structure
 
@@ -1262,6 +1271,59 @@ SQL: `employee_year_unique`: `unique(company_id, employee_id, year)`.
 | `vn.ot.limit.day_share` | OT limit per day, share of the day's normal hours | float | 2026-01-01 `0.5` |
 | `vn.ot.limit.day_total` | Hours of work per day, normal and OT together | float | 2026-01-01 `12` |
 
+### Step 11: contracts, identification and corrections
+
+#### `l10n_vn.payroll.participant.type` additions
+
+| Field | Type | Attributes |
+|---|---|---|
+| `paid_by_transfer` | Boolean | string *Paid by Bank Transfer*, default True |
+| `posted` | Boolean | string *Posted in Accounting*, default True |
+
+#### `hr.contract.type` — `models/hr_contract_type.py`
+
+`_inherit = "hr.contract.type"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_participant_type_id` | Many2one `l10n_vn.payroll.participant.type` | string *Payroll Participant Type*, `ondelete="restrict"`, `groups="payroll.group_payroll_user"` |
+
+#### `hr.contract` changes — `models/hr_contract.py`
+
+| Method | Behaviour |
+|---|---|
+| `create` | `@api.model_create_multi`: for each vals with `contract_type_id` and without `l10n_vn_participant_type_id`, the type's participant type when it has one (read as superuser) (D103) |
+| `_onchange_l10n_vn_contract_type` | `@api.onchange("contract_type_id")`: sets `l10n_vn_participant_type_id` to the type's when it has one |
+| `_l10n_vn_pit_method(date)` | D105 |
+
+#### `l10n_vn.payroll.input` additions
+
+| Field | Type | Attributes |
+|---|---|---|
+| `corrected_days` | Integer | string *Days corrected by hand*; figure (D108) |
+| `corrections_json` | Json | figure (D108) |
+
+`FIGURES` gains both. `_l10n_vn_days()` keeps each date's `corrected` and `correction_reasons` (with `NO_DAY` False and `[]`); `_l10n_vn_compute_figures()` sums them.
+
+#### Checks — `models/l10n_vn_payroll_check.py`
+
+| Finder | Behaviour |
+|---|---|
+| `_l10n_vn_find_missing_ids` | D106 |
+| `_l10n_vn_find_contract_term` | D107 |
+| `_l10n_vn_find_attendance_corrections` | D109 |
+
+#### Migration — `migrations/18.0.1.1.0/post-migrate.py`
+
+`migrate(cr, version)`: when `version` is set, with `env = api.Environment(cr, SUPERUSER_ID, {})`, the record `env.ref("l10n_vn_payroll.participant_probation", raise_if_not_found=False)` gets `pit_method = "progressive"` (D104).
+
+#### Manifest and data
+
+- `version` `18.0.1.1.0`; `data` gains `views/hr_contract_type_views.xml`.
+- `data/l10n_vn_payroll_participant_types.xml`: `participant_probation` with `pit_method` `progressive`; new `participant_training` (`TRAINING`, *Training contract*) and `participant_casual` (`CASUAL`, *Casual work without a written contract*, `paid_by_transfer` and `posted` False), each with no fund, `floor` `none`, `pit_method` `flat_short`.
+- `data/l10n_vn_payroll_checks.xml`: `check_contract_term` (`contract_term`, *Contract term beyond the legal limit*, legal, warning, sequence 136) and `check_attendance_corrections` (`attendance_corrections`, *Attendance corrected by hand*, policy, warning, sequence 205).
+- `models/__init__.py` gains `from . import hr_contract_type`.
+
 ### `res.company` — `models/res_company.py`
 
 `_inherit = "res.company"`.
@@ -1482,6 +1544,14 @@ In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, 
 ### `views/l10n_vn_payroll_input_views.xml` addition (step 10)
 
 In the form: group *Overtime and breaks* gains `night_hours`, `ot_night_hours` and `ot_over_daily_hours` (the last read-only unless `figures_locked`); group *Other* gains `long_days` and `incomplete_days`, read-only unless `figures_locked`, and `late_arrivals` becomes read-only unless `figures_locked`.
+
+### Views (step 11)
+
+| File | Change |
+|---|---|
+| `views/l10n_vn_payroll_participant_type_views.xml` | list and form gain `paid_by_transfer` and `posted` |
+| `views/hr_contract_type_views.xml` (new) | `hr_contract_type_view_form` inheriting `hr.hr_contract_type_view_form`: `l10n_vn_participant_type_id` after `name`; `hr_contract_type_view_tree` inheriting `hr.hr_contract_type_view_tree`: the same column |
+| `views/l10n_vn_payroll_input_views.xml` | group *Other* gains `corrected_days`, read-only unless `figures_locked` |
 
 ### `views/l10n_vn_payroll_check_views.xml` (step 6)
 
@@ -2002,6 +2072,22 @@ A September 2026 period and run beside October's where a test needs two months.
 | `test_incomplete_day` | full days, the last one (Saturday 31 October, created last: Odoo refuses an attendance after an open one) a check-in without check-out: `incomplete_days` 1, that day not worked, not absent |
 
 **Expected count after step 10:** 224 + 8 (`test_input_time`) + 1 (`test_pit`) + 3 (`test_checks`) = 236.
+
+### Step 11 tests
+
+| File | Test | Asserts |
+|---|---|---|
+| `tests/test_participant_type.py` | `test_training_casual` | `TRAINING` and `CASUAL` exist with no fund, `flat_short`; `CASUAL` neither `paid_by_transfer` nor `posted`; `PROBATION` `progressive` |
+| | `test_flags_default` | a new participant type is `paid_by_transfer` and `posted` |
+| `tests/test_pit_method.py` | `test_commitment_before_flat_type` | a `CASUAL` contract: `flat_short`; with `l10n_vn_pit_commitment_year` the year: `progressive` |
+| | `test_probation_contract_months` | a `PROBATION` contract of 2 months: `flat_short`; of 4 months: `progressive` |
+| `tests/test_contract_profile.py` | `test_contract_type_gives_participant` | a contract type with participant type `TRAINING`: a contract created with that type has `TRAINING`; one created with an explicit `LABOUR` keeps it; the onchange proposes `TRAINING` |
+| `tests/test_checks.py` | `test_missing_ids` (rewritten) | without personal ID or bank account: one finding naming both; with a personal ID, a `CASUAL` main contract and no bank account: no finding; `ssnid` never named |
+| | `test_contract_term` | three fixed-term `LABOUR` contracts back to back: a `contract_term` warning on the third's payslip; a `TRAINING` contract of 4 months: a warning; of 2 months: none |
+| | `test_attendance_corrections` | a summary with `corrected_days` 2 and two dates with reasons: one `attendance_corrections` warning naming both |
+| `tests/test_input_time.py` | `test_corrections_counted` | one attendance with a correction reason: `corrected_days` 1 and `corrections_json` holding its date and reason |
+
+**Expected count after step 11:** 236 + 7 = 243: `test_probation_type` became `test_probation_contract_months` (a rewrite, not a new test).
 
 ## Readme
 

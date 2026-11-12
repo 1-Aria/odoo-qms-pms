@@ -45,6 +45,8 @@ class L10nVnPayrollParticipantType(models.Model):
         required=True,
         default="progressive",
     )
+    paid_by_transfer = fields.Boolean(string="Paid by Bank Transfer", default=True)
+    posted = fields.Boolean(string="Posted in Accounting", default=True)
     note = fields.Text()
 
     _sql_constraints = [

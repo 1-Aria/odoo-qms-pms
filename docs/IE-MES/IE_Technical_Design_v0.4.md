@@ -29,6 +29,14 @@ Where this design departs from the business documents, §17 lists the change as 
 - Status labels as in the fit-gap: **Agreed** (confirmed by Peter, with date), **Proposed** (designed here, not yet confirmed), **Superseded** or **Withdrawn** (kept for traceability), **Open** (§16).
 - Source references are `path:line` relative to `Odoo-Build/`.
 
+> **Pending from payroll (2026-11-08), for the next revision of this design.** Left by the payroll session at Peter's request; fold in or answer through the IE workflow, then remove this note.
+>
+> 1. **Attendance Specification proposal P-01 is obsolete** (Attendance Specification v0.5 §10). Early check-ins no longer reach the figures: an Odoo automation rule runs *Normalize Attendance* on every new attendance and moves a check-in earlier than its shift start to that start.
+> 2. **Attended minutes can come from the attendance module.** `hr_attendance_day` (built, `docs/modules/hr_attendance_day.md`) gives `hr.employee._attendance_days(date_from, date_to)`: per employee and date, `normal_hours`, `overtime_hours` (approved), `normal_night_hours`, `overtime_night_hours`, `worked_hours`, `expected_hours`, `day_type`, `late`, `absent`, `incomplete`. Payroll pays normal + overtime hours from it (Payroll Technical Design v0.5 §10.4, §14). §7.2 steps 1–2 compute A from raw `hr.attendance` minus lunch; reading A = normal + overtime hours instead would make pay and efficiency use one clock (Attendance Specification §1). The remaining difference from raw A is extra time Odoo does not count as overtime: stays within its 48-minute company tolerance, and unapproved time when validation is on. Decide whether to change §7.2.
+> 3. **Calendars to know about:** quilting's calendar holds both shifts (06:00–14:00, 14:00–22:00, 16 hours) with *Hours per Paid Day* 8, so `_get_expected_attendances` (§7.2 step 5, `planned_minutes`) gives 16 hours on a day the operator works one shift. Calendars whose shifts cross midnight and flexible calendars are not supported by `hr_attendance_day`. Public holidays are entered as whole days. Odoo's tolerances are 5 minutes (grace, in favour of employee) and 48 minutes (OT minimum, in favour of company).
+>
+> Sources: *Attendance Daily Time — Design Note v0.2* and *Attendance Specification v0.5* in `docs/HR-Contract-Payroll/`.
+
 ---
 
 ## 0. Decisions
@@ -608,6 +616,8 @@ A `mail.thread`, so changes are tracked.
 The child model `ie.operator.day.offstandard` holds `day_id`, `code_id` and `minutes`. It gives OS by code for M5, the payroll feed (spec §12) and the audit. §11.2 adds the day's earned minutes, defect deductions and figures per family, and §13.1 the threshold.
 
 ### 7.2 One operator-day, computed
+> *Pending from payroll (2026-11-08): A and `planned_minutes` could read `hr.employee._attendance_days()`; see the note at the top of this document.*
+
 The window is the local day [d 00:00, d+1 00:00) in the company calendar's timezone, converted to UTC.
 1. **Attendance intervals:** each `hr.attendance` of the worker that overlaps the window, cut to the window, minus the lunch intervals of the worker's calendar (`employee._employee_attendance_intervals(start, stop, lunch=True)`, `odoo/addons/hr/models/hr_employee.py:644-650`).
 2. **A** = the total length of those intervals. This is the same as core's `_get_worked_hours_in_range` (`odoo/addons/hr_attendance/models/hr_attendance.py:220-242`), and it counts night shifts in the day they fall in.

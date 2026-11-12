@@ -112,6 +112,14 @@
         <field name="default_level">warning</field>
         <field name="per_component" eval="False" />
     </record>
+    <record id="check_contract_term" model="l10n_vn.payroll.check">
+        <field name="code">contract_term</field>
+        <field name="name">Contract term beyond the legal limit</field>
+        <field name="sequence">136</field>
+        <field name="kind">legal</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
     <record id="check_variable_constant" model="l10n_vn.payroll.check">
         <field name="code">variable_constant</field>
         <field name="name">Variable pay unchanged at 100% for months</field>
@@ -164,6 +172,14 @@
         <field name="code">advance_carried</field>
         <field name="name">Advance larger than net pay, carried forward</field>
         <field name="sequence">200</field>
+        <field name="kind">policy</field>
+        <field name="default_level">warning</field>
+        <field name="per_component" eval="False" />
+    </record>
+    <record id="check_attendance_corrections" model="l10n_vn.payroll.check">
+        <field name="code">attendance_corrections</field>
+        <field name="name">Attendance corrected by hand</field>
+        <field name="sequence">205</field>
         <field name="kind">policy</field>
         <field name="default_level">warning</field>
         <field name="per_component" eval="False" />

@@ -10,6 +10,9 @@
     "license": "AGPL-3",
     "category": "Human Resources/Attendances",
     "depends": ["hr_attendance", "hr_contract"],
-    "data": ["views/resource_calendar_views.xml"],
+    "data": [
+        "views/resource_calendar_views.xml",
+        "views/hr_attendance_views.xml",
+    ],
     "installable": True,
 }

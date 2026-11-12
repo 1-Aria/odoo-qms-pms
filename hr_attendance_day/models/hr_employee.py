@@ -227,6 +227,10 @@ class HrEmployee(models.Model):
                 reference = min(ends, key=lambda moment: abs(moment - last_out))
                 early_leave_minutes = max(0, round((reference - last_out).total_seconds() / 60))
 
+        reasons = []
+        for attendance in attendances:
+            if attendance.correction_reason and attendance.correction_reason not in reasons:
+                reasons.append(attendance.correction_reason)
         if is_holiday(day, calendar):
             day_type = "holiday"
         elif not scheduled_hours:
@@ -251,6 +255,9 @@ class HrEmployee(models.Model):
             "early_leave": early_leave_minutes > grace,
             "absent": expected_hours > 0 and not attendances,
             "incomplete": incomplete,
+            # attendances added or changed by hand (D12, D13)
+            "corrected": bool(reasons),
+            "correction_reasons": reasons,
         }
 
     def _attendance_night_window(self, tz, day, calendar):

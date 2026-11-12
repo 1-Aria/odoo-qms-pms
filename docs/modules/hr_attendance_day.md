@@ -9,6 +9,7 @@ Design: `docs/HR-Contract-Payroll/Attendance Daily Time — Design Note v0.2.md`
 |---|---|---|---|
 | 1 | The whole module: the calendar fields and their form, `hr.employee._attendance_days()`, tests, readme | done | 2026-11-08, two runs. First: `-i`, 17 tests, 3 failures (`test_overtime`, `test_unapproved`, `test_batch`): the tests expected 1 h of overtime from a 07:30–18:30 scan, which is 1 h 30 after the 17:00 end, as Odoo and the module computed; the scans changed to 07:30–18:00, the code unchanged. Second: `-u`, `exit=0`, 17 tests, 0 failures. UI checked by Peter: the three fields on the calendar form |
 | 2 | Normal hours: time present beyond the overtime makes up lateness, also when Odoo's company tolerance ignores the stay (D6); `test_late_made_up_by_short_stay` | done | 2026-11-08, one run: `-u`, `exit=0`, 18 tests, 0 failures; May 2026 compared again on the test copy: no worker's days worked below the old summaries. Found by comparing May 2026 on the test copy, where 138 workers lost 1.3 days in total: a worker 7 minutes late who stayed 32 minutes lost the 7 minutes, against AD-04 |
+| 3 | Attendance corrections (Technical Design v0.6 PTD-22): a *Correction Reason* on `hr.attendance`, shown on Odoo's attendance form and list; the day figures flag a date with a corrected attendance and carry its reasons; two tests | done | 2026-11-12, one run: `-u`, `exit=0`, 20 tests, 0 failures; UI checked by Peter: *Correction Reason* on the attendance form and list |
 
 ## Divergences from the design
 
@@ -18,6 +19,7 @@ Design: `docs/HR-Contract-Payroll/Attendance Daily Time — Design Note v0.2.md`
 | 2 | Note §3: expected hours from `hr.employee._get_expected_attendances()`, lunch from `_employee_attendance_intervals(lunch=True)` | scheduled, expected and lunch intervals from the calendar methods of each calendar period (D3) | One source of periods for all three. `hr_contract` builds expected hours the same way, per contract (`hr_contract/models/hr_employee.py:247-264`), so the result matches Odoo's overtime |
 | 3 | Note §4: the method returns `{date: figures}` | `{employee id: {date: figures}}` | It is batched over employees |
 | 4 | Note §4: a calendar line starting at 00:00 that continues one ending at 24:00 belongs to the day before | calendars whose shifts cross midnight are not supported (D4) | Odoo's overtime reads the expected intervals only up to midnight after the last attendance date (`hr_attendance/models/hr_attendance.py:394-395`), so a 22:00–06:00 shift is planned as 2 hours and its overtime is wrong. Route A takes Odoo's overtime as it is; no calendar on the instance crosses midnight. A shift ending at 24:00 and presence running past midnight are handled |
+| 5 | Note v0.2 §9: overrides no method, inherits no Odoo view, writes no Odoo record | adds a field to `hr.attendance` and inherits its form and list views (step 3) | A reason must sit on the attendance it explains, entered where attendance is entered; additive, and the method still writes nothing |
 
 ## Decisions
 
@@ -34,6 +36,8 @@ Design: `docs/HR-Contract-Payroll/Attendance Daily Time — Design Note v0.2.md`
 | D9 | **Absent and incomplete:** `absent` when `expected_hours` > 0 and the date has no attendance at all; `incomplete` when one of the date's attendances has no check-out. Open attendances count for neither presence nor overtime (Odoo computes no overtime for that day) |
 | D10 | **Day type:** `holiday` when a public holiday covers the date: a `resource.calendar.leaves` with no resource, calendar the date's or none, company the employee's or none, whose local dates span it. Else `rest` when `scheduled_hours` is 0, else `workday` |
 | D11 | **Which dates:** every date in the range with scheduled hours or an attendance. Hours are rounded to 4 decimals |
+| D12 | **The correction reason** (step 3): `hr.attendance.correction_reason`, a Char, empty for a scanned attendance. An attendance added or changed by hand carries it: a forgotten check-in or check-out, off-site work, a probation day without scans. Entering it is the user's responsibility; nothing sets it automatically |
+| D13 | **Corrected dates** (step 3): a date is `corrected` when one of its attendances (open ones included) has a correction reason; `correction_reasons` lists their distinct reasons in check-in order |
 
 ## Folder structure
 
@@ -128,11 +132,37 @@ Per employee, in order:
 | `late`, `early_leave` | bool | D8 |
 | `absent`, `incomplete` | bool | D9 |
 
+### `hr.attendance` — `models/hr_attendance.py` (step 3)
+
+`_inherit = "hr.attendance"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `correction_reason` | Char | string *Correction Reason*, help *Why this attendance was added or changed by hand. Payroll lists corrected days for review.* |
+
+### `hr.employee` figures added (step 3)
+
+| Key | Type | Rule |
+|---|---|---|
+| `corrected` | bool | D13 |
+| `correction_reasons` | list of str | D13 |
+
+`models/__init__.py` gains `from . import hr_attendance`.
+
 ## Views — `views/resource_calendar_views.xml`
 
 | XML id | Inherits | Change |
 |---|---|---|
 | `resource_calendar_form` | `resource.resource_calendar_form` | after `//field[@name='hours_per_day']`: `paid_day_hours`, `night_start`, `night_end`, each `widget="float_time"` |
+
+## Views — `views/hr_attendance_views.xml` (step 3)
+
+| XML id | Inherits | Change |
+|---|---|---|
+| `hr_attendance_view_form` | `hr_attendance.hr_attendance_view_form` | `correction_reason` after `check_out` |
+| `view_attendance_tree` | `hr_attendance.view_attendance_tree` | `correction_reason` after `check_out`, `optional="show"` |
+
+The manifest's `data` gains `views/hr_attendance_views.xml`.
 
 ## Readme
 
@@ -185,5 +215,7 @@ The base week is 2026-10-05 (Monday) to 2026-10-11 (Sunday).
 | `test_night_shift` | employee on `night_calendar`: Mon 16:00–24:00; Tue 16:00–Wed 01:30 | Mon: scheduled 8, normal 8, normal night 2 (22:00–24:00), overtime 0. Tue: normal 8, normal night 2, overtime 1.5, all at night; the attendance counts on Tuesday only |
 | `test_two_contracts` | employee on `day_calendar` until 2026-10-07, then `shift_calendar` | scheduled 8 on Mon–Wed, 16 on Thu–Sat; `day_hours` 8 throughout |
 | `test_batch` | two employees, one scan each | both employees in the result, each with its own figures |
+| `test_correction_flagged` (step 3) | Mon 07:30–17:00 with reason *Forgot check-out*: `corrected` True, `correction_reasons` `['Forgot check-out']`; Tue scanned: `corrected` False, `correction_reasons` `[]` |
+| `test_correction_on_open_attendance` (step 3) | Sat 07:30 without check-out, reason *Forgot check-out*: `corrected` True and `incomplete` True |
 
-**Expected count:** 18 tests (17 in step 1).
+**Expected count:** 20 tests (17 in step 1, 18 after step 2).

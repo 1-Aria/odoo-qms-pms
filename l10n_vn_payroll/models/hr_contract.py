@@ -115,6 +115,23 @@ class HrContract(models.Model):
                     )
                 )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        # a new contract takes its contract type's participant type (D103)
+        types = self.env["hr.contract.type"].sudo()
+        for vals in vals_list:
+            if vals.get("contract_type_id") and "l10n_vn_participant_type_id" not in vals:
+                participant = types.browse(vals["contract_type_id"]).l10n_vn_participant_type_id
+                if participant:
+                    vals["l10n_vn_participant_type_id"] = participant.id
+        return super().create(vals_list)
+
+    @api.onchange("contract_type_id")
+    def _onchange_l10n_vn_contract_type(self):
+        participant = self.contract_type_id.sudo().l10n_vn_participant_type_id
+        if participant:
+            self.l10n_vn_participant_type_id = participant
+
     def _l10n_vn_pit_method(self, date):
         """PIT method of this contract for a payment on ``date`` (design §8.2)."""
         self.ensure_one()
@@ -122,14 +139,14 @@ class HrContract(models.Model):
         employee = contract.employee_id
         if not employee.l10n_vn_resident:
             return "flat_nonresident"
+        # the commitment form comes before any flat rate (D105)
+        if employee.l10n_vn_pit_commitment_year == date.year:
+            return "progressive"
         method = contract.l10n_vn_participant_type_id.pit_method or "progressive"
         if method != "progressive":
             return method
-        if (
-            contract.date_end
-            and contract.date_start + relativedelta(months=3)
-            > contract.date_end + datetime.timedelta(days=1)
-            and employee.l10n_vn_pit_commitment_year != date.year
-        ):
+        if contract.date_end and contract.date_start + relativedelta(
+            months=3
+        ) > contract.date_end + datetime.timedelta(days=1):
             return "flat_short"
         return "progressive"

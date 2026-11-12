@@ -146,12 +146,12 @@ class L10nVnPayrollCheck(models.Model):
             return []
         employee = payslip.employee_id.sudo()
         missing = []
-        if not employee.bank_account_id:
-            missing.append(self.env._("bank account"))
+        # the CCCD is also the SI number and tax code; the bank only where pay is by transfer (D106)
         if not employee.l10n_vn_personal_id:
             missing.append(self.env._("personal ID number"))
-        if not employee.ssnid:
-            missing.append(self.env._("SI number"))
+        participant = payslip.contract_id.sudo().l10n_vn_participant_type_id
+        if participant.paid_by_transfer and not employee.bank_account_id:
+            missing.append(self.env._("bank account"))
         if not missing:
             return []
         return [
@@ -440,6 +440,67 @@ class L10nVnPayrollCheck(models.Model):
                     "%(days)s days with more than %(limit)s hours of work.",
                     days=days,
                     limit=f"{limit:g}",
+                ),
+            )
+        ]
+
+    def _l10n_vn_find_contract_term(self, payslip, context):
+        contract = payslip.contract_id.sudo()
+        code = contract.l10n_vn_participant_type_id.code
+        if code == "LABOUR" and contract.date_end:
+            # fixed-term labour contracts in a row, up to this one (D107)
+            labour = self.env["hr.contract"].sudo().search(
+                [
+                    ("employee_id", "=", contract.employee_id.id),
+                    ("company_id", "=", contract.company_id.id),
+                    ("state", "in", ("open", "close")),
+                    ("l10n_vn_participant_type_id.code", "=", "LABOUR"),
+                    ("date_start", "<=", contract.date_start),
+                ],
+                order="date_start desc",
+            )
+            in_a_row = 0
+            for each in labour:
+                if not each.date_end:
+                    break
+                in_a_row += 1
+            if in_a_row >= 3:
+                return [
+                    (
+                        False,
+                        self.env._(
+                            "%(count)s fixed-term labour contracts in a row: the law allows one "
+                            "renewal, the next contract must be indefinite.",
+                            count=in_a_row,
+                        ),
+                    )
+                ]
+        if code == "TRAINING" and (
+            not contract.date_end
+            or contract.date_start + relativedelta(months=3)
+            < contract.date_end + datetime.timedelta(days=1)
+        ):
+            return [(False, self.env._("Training contract longer than 3 months."))]
+        return []
+
+    def _l10n_vn_find_attendance_corrections(self, payslip, context):
+        inp = payslip.l10n_vn_input_id.sudo()
+        if not inp.corrected_days:
+            return []
+        items = sorted((inp.corrections_json or {}).items())
+        shown = [
+            "%s %s" % (fields.Date.to_date(day).strftime("%d/%m"), ", ".join(reasons))
+            for day, reasons in items[:10]
+        ]
+        if len(items) > 10:
+            shown.append("…")
+        return [
+            (
+                False,
+                self.env._(
+                    "%(days)s days with attendance corrected by hand: %(list)s",
+                    days=inp.corrected_days,
+                    list="; ".join(shown),
                 ),
             )
         ]

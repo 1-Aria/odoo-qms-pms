@@ -221,3 +221,14 @@ class TestAttendanceDays(AttendanceDayCase):
         self.assertEqual(set(result), {self.employee.id, other.id})
         self.assertEqual(result[self.employee.id][MON]["overtime_hours"], 0)
         self.assertEqual(result[other.id][MON]["overtime_hours"], 1)
+
+    def test_correction_flagged(self):
+        self._scan(self.employee, MON, 7.5, 17).correction_reason = "Forgot check-out"
+        self._scan(self.employee, TUE, 7.5, 17)
+        days = self._days(self.employee, MON, TUE)
+        self._check(days[MON], corrected=True, correction_reasons=["Forgot check-out"])
+        self._check(days[TUE], corrected=False, correction_reasons=[])
+
+    def test_correction_on_open_attendance(self):
+        self._scan(self.employee, SAT, 7.5).correction_reason = "Forgot check-out"
+        self._check(self._day(self.employee, SAT), corrected=True, incomplete=True)

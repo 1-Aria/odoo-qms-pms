@@ -27,6 +27,34 @@ class TestContractProfile(PayrollCase):
             self.env.ref("l10n_vn_payroll.participant_labour"),
         )
 
+    def test_contract_type_gives_participant(self):
+        training = self.env.ref("l10n_vn_payroll.participant_training")
+        labour = self.env.ref("l10n_vn_payroll.participant_labour")
+        contract_type = self.env["hr.contract.type"].create(
+            {"name": "Payroll Test Training", "l10n_vn_participant_type_id": training.id}
+        )
+        employee = self.env["hr.employee"].create(
+            {"name": "Payroll Test Trainee", "company_id": self.company.id}
+        )
+        values = {
+            "name": "Payroll Test Training Contract",
+            "employee_id": employee.id,
+            "company_id": self.company.id,
+            "date_start": D(2026, 1, 1),
+            "wage": 1,
+            "resource_calendar_id": self.calendar.id,
+            "contract_type_id": contract_type.id,
+        }
+        contract = self.env["hr.contract"].create(values)
+        self.assertEqual(contract.l10n_vn_participant_type_id, training)
+        explicit = self.env["hr.contract"].create(
+            dict(values, name="Payroll Test Explicit", l10n_vn_participant_type_id=labour.id)
+        )
+        self.assertEqual(explicit.l10n_vn_participant_type_id, labour)
+        draft = self.env["hr.contract"].new({"contract_type_id": contract_type.id})
+        draft._onchange_l10n_vn_contract_type()
+        self.assertEqual(draft.l10n_vn_participant_type_id, training)
+
     def test_manager_needs_declared_base(self):
         manager = self.env.ref("l10n_vn_payroll.participant_manager")
         with self.assertRaises(ValidationError):

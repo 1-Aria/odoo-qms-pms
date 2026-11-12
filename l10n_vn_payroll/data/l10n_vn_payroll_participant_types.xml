@@ -19,7 +19,7 @@
         <field name="name">Probation contract</field>
         <field name="base_source">components</field>
         <field name="floor">none</field>
-        <field name="pit_method">flat_short</field>
+        <field name="pit_method">progressive</field>
     </record>
     <record id="participant_manager" model="l10n_vn.payroll.participant.type">
         <field name="code">MANAGER</field>
@@ -43,5 +43,21 @@
         <field name="base_source">components</field>
         <field name="floor">none</field>
         <field name="pit_method">flat_short</field>
+    </record>
+    <record id="participant_training" model="l10n_vn.payroll.participant.type">
+        <field name="code">TRAINING</field>
+        <field name="name">Training contract</field>
+        <field name="base_source">components</field>
+        <field name="floor">none</field>
+        <field name="pit_method">flat_short</field>
+    </record>
+    <record id="participant_casual" model="l10n_vn.payroll.participant.type">
+        <field name="code">CASUAL</field>
+        <field name="name">Casual work without a written contract</field>
+        <field name="base_source">components</field>
+        <field name="floor">none</field>
+        <field name="pit_method">flat_short</field>
+        <field name="paid_by_transfer" eval="False" />
+        <field name="posted" eval="False" />
     </record>
 </odoo>

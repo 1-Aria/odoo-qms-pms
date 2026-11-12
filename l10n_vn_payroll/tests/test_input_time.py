@@ -93,6 +93,14 @@ class TestInputTime(InputCase):
         self.assertAlmostEqual(inp.ot_over_daily_hours, 2)
         self.assertEqual(inp.long_days, 2)
 
+    def test_corrections_counted(self):
+        day = D(2026, 10, 5)
+        self._attend_month(skip=(day,))
+        self._attend(day, "07:00", "16:00").correction_reason = "Forgot check-out"
+        inp = self._build()
+        self.assertEqual(inp.corrected_days, 1)
+        self.assertEqual(inp.corrections_json, {"2026-10-05": ["Forgot check-out"]})
+
     def test_incomplete_day(self):
         last = D(2026, 10, 31)
         self._attend_month(skip=(last,))

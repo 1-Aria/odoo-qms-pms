@@ -137,15 +137,52 @@ class TestChecks(PayslipCase):
         self.assertEqual(result.component_id, self.one)
 
     def test_missing_ids(self):
-        employee, _c = self._hire(lines=[(self.sal, {"amount": 4500000})])
+        employee, contract = self._hire(lines=[(self.sal, {"amount": 4500000})])
         self._input(employee)
         payslip = self._payslip(employee)
         message = self._results(payslip, "missing_ids").message
-        for missing in ("bank account", "personal ID number", "SI number"):
+        for missing in ("bank account", "personal ID number"):
             self.assertIn(missing, message)
+        self.assertNotIn("SI number", message)
+        # a casual worker paid in cash needs the CCCD only (D106)
+        employee.l10n_vn_personal_id = f"0790{employee.id:08d}"
+        contract.l10n_vn_participant_type_id = self.env.ref("l10n_vn_payroll.participant_casual")
+        payslip.compute_sheet()
+        self.assertFalse(self._results(payslip, "missing_ids"))
+        contract.l10n_vn_participant_type_id = self.env.ref("l10n_vn_payroll.participant_labour")
         self._identify(employee)
         payslip.compute_sheet()
         self.assertFalse(self._results(payslip, "missing_ids"))
+
+    def test_contract_term(self):
+        employee, _c = self._salaried(date_start=D(2026, 1, 1), date_end=D(2026, 4, 30),
+                                      state="close")
+        self._hire(employee=employee, date_start=D(2026, 5, 1), date_end=D(2026, 9, 30),
+                   state="close", lines=[(self.sal, {"amount": 4500000})])
+        self._hire(employee=employee, date_start=D(2026, 10, 1), date_end=D(2026, 12, 31),
+                   lines=[(self.sal, {"amount": 4500000})])
+        self._input(employee)
+        result = self._results(self._payslip(employee), "contract_term")
+        self.assertEqual(result.level, "warning")
+        self.assertIn("3 fixed-term", result.message)
+        training = self.env.ref("l10n_vn_payroll.participant_training")
+        trainee, contract = self._salaried(date_start=D(2026, 10, 1), date_end=D(2027, 1, 31),
+                                           l10n_vn_participant_type_id=training.id)
+        self._input(trainee)
+        payslip = self._payslip(trainee)
+        self.assertIn("Training", self._results(payslip, "contract_term").message)
+        contract.date_end = D(2026, 11, 30)
+        payslip.compute_sheet()
+        self.assertFalse(self._results(payslip, "contract_term"))
+
+    def test_attendance_corrections(self):
+        employee, _c = self._salaried()
+        self._input(employee, corrected_days=2, corrections_json={
+            "2026-10-05": ["Forgot check-out"], "2026-10-06": ["Off-site work"]})
+        result = self._results(self._payslip(employee), "attendance_corrections")
+        self.assertEqual(result.level, "warning")
+        self.assertIn("05/10 Forgot check-out", result.message)
+        self.assertIn("06/10 Off-site work", result.message)
 
     # ------------------------------------------------------------------ legal
     def test_min_wage(self):

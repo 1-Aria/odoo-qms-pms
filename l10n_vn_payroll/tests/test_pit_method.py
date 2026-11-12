@@ -31,8 +31,20 @@ class TestPitMethod(PayrollCase):
         self.contract.date_end = D(2026, 3, 31)
         self.assertEqual(self._method(), "progressive")
 
-    def test_probation_type(self):
+    def test_probation_contract_months(self):
+        # a separate probation contract: flat only under 3 months (D105)
         self.contract.l10n_vn_participant_type_id = self.env.ref(
             "l10n_vn_payroll.participant_probation"
         )
+        self.contract.date_end = D(2026, 2, 28)
         self.assertEqual(self._method(), "flat_short")
+        self.contract.date_end = D(2026, 4, 30)
+        self.assertEqual(self._method(), "progressive")
+
+    def test_commitment_before_flat_type(self):
+        self.contract.l10n_vn_participant_type_id = self.env.ref(
+            "l10n_vn_payroll.participant_casual"
+        )
+        self.assertEqual(self._method(), "flat_short")
+        self.employee.l10n_vn_pit_commitment_year = 2026
+        self.assertEqual(self._method(), "progressive")

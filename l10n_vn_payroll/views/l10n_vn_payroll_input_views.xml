@@ -84,6 +84,7 @@
                             <field name="late_arrivals" readonly="not figures_locked" />
                             <field name="long_days" readonly="not figures_locked" />
                             <field name="incomplete_days" readonly="not figures_locked" />
+                            <field name="corrected_days" readonly="not figures_locked" />
                         </group>
                     </group>
                     <notebook>

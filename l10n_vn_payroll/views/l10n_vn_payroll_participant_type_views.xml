@@ -17,6 +17,8 @@
                 <field name="base_source" />
                 <field name="floor" />
                 <field name="pit_method" />
+                <field name="paid_by_transfer" />
+                <field name="posted" />
                 <field name="active" column_invisible="True" />
             </list>
         </field>
@@ -60,6 +62,8 @@
                             <field name="base_source" />
                             <field name="floor" />
                             <field name="pit_method" />
+                            <field name="paid_by_transfer" />
+                            <field name="posted" />
                         </group>
                     </group>
                     <field name="note" placeholder="Notes" />
