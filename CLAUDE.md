@@ -253,12 +253,15 @@ The company's current pay scheme and its target policy are both configurations (
 | Module | Role |
 |---|---|
 | `base_time_parameter_strict` | Reads OCA time parameters strictly: 0 and False are values, a missing value raises (done) |
-| `l10n_vn_payroll` | Components, scales, pay lines, people data, monthly inputs, the pay context, checks, runs and lock, payslip, statements; nine steps, see its module doc |
-| `l10n_vn_payroll_account` | Posting per run, the bank file, salary advances |
-| `l10n_vn_payroll_garment` | The current scheme as configuration data |
+| `l10n_vn_payroll` | Components, scales, pay lines, people data, monthly inputs, the pay context, checks, runs and lock, payslip, statements, opening data; time from `hr_attendance_day` (step 10); contract types, participant types `TRAINING`/`CASUAL`, ID and contract-term checks (step 11). Done: steps 1–11, 243 tests |
+| `hr_attendance_day` | Each day's figures from Odoo's attendance (normal and night hours, OT and its night part, days worked, late, absent, correction reason); hours per paid day and night window on calendars. Done: steps 1–3, 20 tests |
+| `l10n_vn_payroll_garment` | The current scheme as configuration, loaded per company from Settings: components, scales (`BASE` by group, `PROD` totals, `GRADE`), structure, policy parameters, check levels, contract types. Done: steps 1, 5, 6 (28 tests); steps 2 (`auditlog`), 3 (pay-line proposal), 4 (account mapping) to do |
+| `l10n_vn_payroll_payment` | Salary advances and each run's payment list (bank file, cash list), without accounting (PTD-24). Next to build |
+| `l10n_vn_payroll_account` | Posting per run of payslips whose participant type is *posted*; 3341 reconciliation; payment entries. Built after `l10n_vn_payroll_payment`, before the go-live rehearsal |
 
 - Statutory parameters (`vn.*`) are created per Vietnamese company by `l10n_vn_payroll` at every install
   and upgrade, never overwriting edited values: OCA's company rule hides parameters without a company.
+- **Go-live plan (Peter, 2026-11-11 and 2026-11-12):** November 2026 is the first cycle, run on the new policy, not modelled on the old payroll's figures. Build order: `l10n_vn_payroll_payment` → `l10n_vn_payroll_account` → garment step 4 (account mapping) → go-live scripts (outside `addons/`) → October rehearsal on `prod_copy` (calculate, review, approve, pay, post; compared with the old run 11) → November on production (payday 10 December). Technical Design v0.6 §29 holds the checklist.
 - The old payroll rules on the instance (`MINW`, `PALV` …) are archived at go-live (Technical Design §29).
 
 ---
