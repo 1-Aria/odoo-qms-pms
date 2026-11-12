@@ -10,7 +10,6 @@ DATE_FROM = "2026-01-01"
 PARAMETERS = [
     ("vn.policy.region", "Minimum wage region", "string", "IV"),
     ("vn.policy.std_days", "Standard days per month", "integer", "26"),
-    ("vn.policy.base_salary", "Base salary", "float", "3700000"),
     ("vn.policy.probation_rate", "Probation pay rate", "float", "0.85"),
     ("vn.policy.attainment_cap", "Attainment and score cap", "float", "1"),
     (
@@ -40,17 +39,21 @@ PARAMETERS = [
 ]
 
 # (code, name, kind, {key: amount})
+# (code, name, kind, {date_from: {key: amount}})
 SCALES = [
     (
         "PROD",
         ("Productivity levels", "Bậc năng suất"),
         "level",
+        # level totals: PROD is the rest after BASE (D18)
         {
-            "Entry": 800000,
-            "S1": 1300000,
-            "S2": 1800000,
-            "S3": 2300000,
-            "S4": 2800000,
+            DATE_FROM: {
+                "Entry": 4500000,
+                "S1": 5000000,
+                "S2": 5500000,
+                "S3": 6000000,
+                "S4": 6500000,
+            },
         },
     ),
     (
@@ -58,26 +61,37 @@ SCALES = [
         ("Grades and steps", "Ngạch, bậc lương"),
         "grade_step",
         {
-            "G1-1": 5500000,
-            "G1-2": 6000000,
-            "G1-3": 6500000,
-            "G2-1": 7500000,
-            "G2-2": 8000000,
-            "G2-3": 8500000,
-            "G3-1": 9000000,
-            "G3-2": 10000000,
-            "G3-3": 11000000,
-            "G4-1": 13000000,
-            "G4-2": 14000000,
-            "G4-3": 15000000,
-            "G5-1": 16000000,
-            "G5-2": 17000000,
-            "G5-3": 18000000,
+            DATE_FROM: {
+                "G1-1": 5500000,
+                "G1-2": 6000000,
+                "G1-3": 6500000,
+                "G2-1": 7500000,
+                "G2-2": 8000000,
+                "G2-3": 8500000,
+                "G3-1": 9000000,
+                "G3-2": 10000000,
+                "G3-3": 11000000,
+                "G4-1": 13000000,
+                "G4-2": 14000000,
+                "G4-3": 15000000,
+                "G5-1": 16000000,
+                "G5-2": 17000000,
+                "G5-3": 18000000,
+            },
+        },
+    ),
+    (
+        "BASE",
+        ("Base salary by group", "Lương cơ bản theo nhóm"),
+        "level",
+        # grade keys of the other roles are added by HR (D16, D17)
+        {
+            DATE_FROM: {"WORKER": 3700000},
+            "2026-11-01": {"WORKER": 4500000},
         },
     ),
 ]
 
-# (code, name, component kinds)
 CATEGORIES = [
     ("EARN", ("Earnings", "Thu nhập"), ("earning",)),
     ("DED", ("Deductions", "Khấu trừ"), ("deduction",)),
@@ -126,8 +140,8 @@ COMPONENTS = [
         ("Base salary", "Lương cơ bản"),
         _earning(
             legal_nature="job_salary",
-            amount_source="parameter",
-            amount_parameter="vn.policy.base_salary",
+            amount_source="scale",
+            scale="BASE",
             in_si_base=True,
             in_ot_base=True,
             proration="paid_days",
@@ -140,7 +154,7 @@ COMPONENTS = [
         ("Productivity pay", "Lương năng suất"),
         _earning(
             legal_nature="variable_salary",
-            amount_source="scale",
+            amount_source="scale_remainder",
             scale="PROD",
             in_ot_base=True,
             proration="paid_days",
@@ -173,6 +187,18 @@ COMPONENTS = [
             in_ot_base=True,
             proration="per_day",
             **_SALARY,
+        ),
+    ),
+    (
+        "TRAIN",
+        ("Training allowance", "Phụ cấp đào tạo"),
+        _earning(
+            legal_nature="job_salary",
+            amount_source="line",
+            in_ot_base=True,
+            proration="paid_days",
+            pit_treatment="taxable",
+            section="salary",
         ),
     ),
     (
@@ -349,6 +375,22 @@ ENGINE_CODES = {
     "ER_UI",
     "UNION_FEE",
 }
+
+# (code, name, participant type XML id): the contract types and their participant types (D20)
+CONTRACT_TYPES = [
+    ("VN_LABOUR", ("Labour contract", "Hợp đồng lao động"), "l10n_vn_payroll.participant_labour"),
+    (
+        "VN_PROBATION",
+        ("Probation contract", "Hợp đồng thử việc"),
+        "l10n_vn_payroll.participant_probation",
+    ),
+    (
+        "VN_TRAINING",
+        ("Training contract", "Hợp đồng đào tạo"),
+        "l10n_vn_payroll.participant_training",
+    ),
+    ("VN_CASUAL", ("Casual work", "Làm việc thời vụ"), "l10n_vn_payroll.participant_casual"),
+]
 
 STRUCTURE = (
     "VN_GARMENT",

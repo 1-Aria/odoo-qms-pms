@@ -6,6 +6,7 @@ from odoo.exceptions import AccessError, UserError
 from .garment_scheme import (
     CATEGORIES,
     COMPONENTS,
+    CONTRACT_TYPES,
     DATE_FROM,
     ENGINE_CODES,
     PARAMETERS,
@@ -66,7 +67,7 @@ class ResCompany(models.Model):
         # scales
         Scale = env["l10n_vn.payroll.scale"]
         scales = {}
-        for code, (en, vi), kind, cells in SCALES:
+        for code, (en, vi), kind, versions in SCALES:
             scale = Scale.search([("code", "=", code), ("company_id", "=", company.id)], limit=1)
             if scale:
                 done(f"scale {code}", False)
@@ -80,7 +81,7 @@ class ResCompany(models.Model):
                         "version_ids": [
                             Command.create(
                                 {
-                                    "date_from": DATE_FROM,
+                                    "date_from": date_from,
                                     "cell_ids": [
                                         Command.create(
                                             dict(
@@ -92,6 +93,7 @@ class ResCompany(models.Model):
                                     ],
                                 }
                             )
+                            for date_from, cells in versions.items()
                         ],
                     }
                 )
@@ -138,6 +140,23 @@ class ResCompany(models.Model):
                 names.append((component, vi))
                 done(f"component {code}", True)
             components.append((component, code, sequence * 10, en, vi))
+
+        # contract types, shared by all companies (D20)
+        ContractType = env["hr.contract.type"]
+        for code, (en, vi), participant_xmlid in CONTRACT_TYPES:
+            if ContractType.search([("code", "=", code)], limit=1):
+                done(f"contract type {code}", False)
+                continue
+            participant = env.ref(participant_xmlid, raise_if_not_found=False)
+            contract_type = ContractType.create(
+                {
+                    "name": en,
+                    "code": code,
+                    "l10n_vn_participant_type_id": participant.id if participant else False,
+                }
+            )
+            names.append((contract_type, vi))
+            done(f"contract type {code}", True)
 
         # structure
         Structure = env["hr.payroll.structure"]

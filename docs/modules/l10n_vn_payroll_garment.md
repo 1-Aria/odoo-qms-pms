@@ -16,6 +16,7 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | 3 | Pay lines proposed on the contract from the pay group and the level or grade and step (design §7); the go-live helper, outside `addons/` (design §29 step 4) | planned | |
 | 4 | Account mapping, after `l10n_vn_payroll_account` (design §28.2) | planned | |
 | 5 | Following `l10n_vn_payroll` step 10: `vn.check.long_days` = *note* (quilting's double shifts); `OT_NIGHT` PIT treatment `exempt` (a premium on normal hours, outside the OT hour limits); `vn.policy.ot_min_hours_day` no longer created; version 18.0.1.1.0 | done | 2026-11-08, one run: `-u`, `exit=0`, 25 tests, 0 failures. On the test copy, which kept its step 1 records, `OT_NIGHT`'s PIT treatment is set by hand and a second load adds `vn.check.long_days` |
+| 6 | November 2026 go-live (Technical Design v0.6 PTD-19, PTD-25): `BASE` from a dated scale `BASE` by group and `PROD` as the rest of a level total; the training allowance `TRAIN`; the contract types Labour, Probation, Training and Casual with their participant types; `vn.policy.base_salary` no longer created; version 18.0.1.2.0 | done | 2026-11-12, one run: `-u`, `exit=0`, 28 tests, 0 failures. The test copy, loaded before step 6, keeps its `BASE` and `PROD` (D21); the full setup is exercised by the first load on `prod_copy` |
 
 ## Divergences from the design
 
@@ -48,6 +49,12 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | D13 | **Probation** applies to every component paid as salary for the job: `BASE`, `PROD`, `PERF`, `DAILY` and `DUTY` (Labor Code Art. 26 on the salary of Art. 90, which includes allowances) |
 | D14 | **`OT_NIGHT` is fully PIT-exempt** (step 5): it is the 30% premium on normal hours worked at night, not overtime, so the OT exemption's hour limits (prorated by OT hours, `l10n_vn_payroll` D54, D94) do not apply to it. Night OT components stay `ot` |
 | D15 | **`long_days` at *note*** (step 5): quilting's double shifts are the agreed arrangement (attendance design note v0.2 §8), so they are reported without needing a reviewer's note on every payslip. `vn.policy.ot_min_hours_day` is no longer created: payroll reads Odoo's tolerance instead (`l10n_vn_payroll` D100); an existing one stays, unused |
+| D16 | **`BASE` from a scale by group** (step 6, PTD-25): source `scale`, scale `BASE` (kind `level`), the pay line's key the group: `WORKER` for workers; one key per grade of the other roles, which HR adds as cells (none shipped, OPEN-24). Until a grade's key exists, a staff `BASE` line carries its amount on the line (an amount overrides the cell, engine D2). `in_cell` and `sets_wage` as before |
+| D17 | **`BASE` versions:** 2026-01-01 `WORKER` 3,700,000 (today's base, so months before November recalculate as paid) and 2026-11-01 `WORKER` 4,500,000 (Pay Policy v0.6 OPEN-23). A later raise is a new dated version |
+| D18 | **`PROD` is the rest of a level total** (step 6): source `scale_remainder` on scale `PROD`, whose cells become totals — Entry 4,500,000, S1 5,000,000, S2 5,500,000, S3 6,000,000, S4 6,500,000 — less the contract's `in_cell` lines (`BASE`), as `PERF` is on `GRADE`. A raise of `BASE` lowers `PROD` and keeps the total. A worker whose agreed total is not a level carries the total as the `PROD` line's amount |
+| D19 | **`TRAIN`, the training allowance** (step 6, Pay Policy v0.6 §14.2): an earning, nature `job_salary`, source `line`, prorated by paid days, in the OT base, outside the SI base, PIT `taxable` (the participant type `TRAINING` gives the flat rate), section `salary` |
+| D20 | **Contract types** (step 6, PTD-19): the loader matches `hr.contract.type` by `code` and creates the missing ones with their participant type: `VN_LABOUR` *Labour contract* / *Hợp đồng lao động* → `LABOUR`; `VN_PROBATION` *Probation contract* / *Hợp đồng thử việc* → `PROBATION`; `VN_TRAINING` *Training contract* / *Hợp đồng đào tạo* → `TRAINING`; `VN_CASUAL` *Casual work* / *Làm việc thời vụ* → `CASUAL`. Contract types have no company, so a second company's load keeps them. Moving existing contracts onto them is go-live work, not the loader's |
+| D21 | **Existing companies** keep their records (D2): a company loaded before step 6 keeps its `BASE` (parameter) and `PROD` (scale of variable amounts); changing them is a hand step or a fresh load in a new company. Production has not loaded the scheme, so it gets step 6 on its first load |
 
 ## Folder structure
 
@@ -110,7 +117,7 @@ In the company, `country_id` the company's country, one version from 2026-01-01 
 |---|---|---|---|
 | `vn.policy.region` | Minimum wage region | string | `IV` |
 | `vn.policy.std_days` | Standard days per month | integer | `26` |
-| `vn.policy.base_salary` | Base salary | float | `3700000` |
+| ~~`vn.policy.base_salary`~~ | not created from step 6: `BASE` reads the scale `BASE` (D16) | | |
 | `vn.policy.probation_rate` | Probation pay rate | float | `0.85` |
 | `vn.policy.attainment_cap` | Attainment and score cap | float | `1` |
 | `vn.policy.constant_months` | Months of unchanged variable pay before a check | integer | `6` |
@@ -124,7 +131,8 @@ One version from 2026-01-01.
 
 | Code | Name (en / vi) | Kind | Cells: key (grade, step) amount |
 |---|---|---|---|
-| `PROD` | Productivity levels / Bậc năng suất | `level` | `Entry` 800,000; `S1` 1,300,000; `S2` 1,800,000; `S3` 2,300,000; `S4` 2,800,000 |
+| `PROD` | Productivity levels / Bậc năng suất | `level` | totals from step 6 (D18): `Entry` 4,500,000; `S1` 5,000,000; `S2` 5,500,000; `S3` 6,000,000; `S4` 6,500,000 |
+| `BASE` | Base salary by group / Lương cơ bản theo nhóm | `level` | two versions (D17): 2026-01-01 `WORKER` 3,700,000; 2026-11-01 `WORKER` 4,500,000; grade keys added by HR |
 | `GRADE` | Grades and steps / Ngạch, bậc lương | `grade_step` | `G1-1` (G1, 1) 5,500,000; `G1-2` 6,000,000; `G1-3` 6,500,000; `G2-1` 7,500,000; `G2-2` 8,000,000; `G2-3` 8,500,000; `G3-1` 9,000,000; `G3-2` 10,000,000; `G3-3` 11,000,000; `G4-1` 13,000,000; `G4-2` 14,000,000; `G4-3` 15,000,000; `G5-1` 16,000,000; `G5-2` 17,000,000; `G5-3` 18,000,000 (D11) |
 
 Each `GRADE` cell's `grade` is the key's part before the dash and `step` the number after it.
@@ -148,10 +156,11 @@ Each `GRADE` cell's `grade` is the key's part before the dash and `step` the num
 
 | Code | Name (en / vi) | Nature | Source | SI | OT | PIT | Proration | Prob. | Var. | Section | Other |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `BASE` | Base salary / Lương cơ bản | `job_salary` | `parameter` `vn.policy.base_salary` | ✓ | ✓ | `taxable` | `paid_days` | ✓ | | `salary` | `sets_wage` |
-| `PROD` | Productivity pay / Lương năng suất | `variable_salary` | `scale` `PROD` | | ✓ | `taxable` | `paid_days` | ✓ | `supervisor` | `salary` | |
+| `BASE` | Base salary / Lương cơ bản | `job_salary` | `scale` `BASE` (D16) | ✓ | ✓ | `taxable` | `paid_days` | ✓ | | `salary` | `sets_wage` |
+| `PROD` | Productivity pay / Lương năng suất | `variable_salary` | `scale_remainder` `PROD` (D18) | | ✓ | `taxable` | `paid_days` | ✓ | `supervisor` | `salary` | |
 | `PERF` | Performance pay / Lương hiệu quả công việc | `variable_salary` | `scale_remainder` `GRADE` | | ✓ | `taxable` | `paid_days` | ✓ | `manager` | `salary` | |
 | `DAILY` | Daily wage / Lương ngày | `job_salary` | `line` | ✓ | ✓ | `taxable` | `per_day` | ✓ | | `salary` | |
+| `TRAIN` | Training allowance / Phụ cấp đào tạo | `job_salary` | `line` | | ✓ | `taxable` | `paid_days` | | | `salary` | step 6 (D19) |
 | `DUTY` | Responsibility allowance / Phụ cấp trách nhiệm | `fixed_allowance` | `line` | ✓ | ✓ | `taxable` | `paid_days` | ✓ | | `salary` | inactive |
 | `OT_WD` | Overtime, workday / Làm thêm giờ ngày thường | `overtime` | `ot` | | | `ot` | | | | `ot` | `ot_category` `WD` |
 | `OT_RD` | Overtime, weekly rest day / Làm thêm giờ ngày nghỉ hằng tuần | `overtime` | `ot` | | | `ot` | | | | `ot` | `RD` |
@@ -191,7 +200,11 @@ All earnings have `kind` `earning` and `condition` `none` unless stated.
 | `ER_UI` | Unemployment insurance (employer) / BHTN (công ty) | `employer` | `statutory` | `employer` |
 | `UNION_FEE` | Union fee / Kinh phí công đoàn | `employer` | `statutory` | `employer` |
 
-35 components: 32 active, 3 inactive.
+36 components from step 6 (35 before): 33 active, 3 inactive.
+
+### `CONTRACT_TYPES` (step 6)
+
+D20's four types: `(code, (en, vi), participant XML id)`. The loader runs it after `COMPONENTS`; labels `contract type VN_LABOUR` … in its result.
 
 ### `STRUCTURE`
 
@@ -279,6 +292,7 @@ The engine fixture's company (Vietnam, VND) is loaded in each test that needs it
 | `test_not_vietnamese` | a company with country France: `UserError`, and no component exists in it |
 | `test_access` | a payroll officer (`payroll.group_payroll_user`) gets `AccessError`; a payroll manager in the same company loads it (positive control). Both through `_as(user)` |
 | `test_settings_button` | `res.config.settings` of the company: `action_l10n_vn_garment_load()` returns a `display_notification` whose message names the company and *created 86* (9 parameters, 2 scales, 4 categories, 35 components, 1 structure, 35 rules) |
+| `test_contract_types` (step 6) | after a load: the four `VN_*` contract types with their participant types; a second company's load creates none and lists them as kept |
 
 ### `tests/test_acceptance.py` — `TestGarmentAcceptance(GroupGCases, PayslipCase)`
 
@@ -293,5 +307,7 @@ expected figures come from the engine's `tests/data/acceptance_cases.json`.
 | `test_g01` … `test_g15` (14, from `GroupGCases`) | group G of the acceptance cases on the loaded configuration: every earning line, gross, insurance, PIT, damage, net, employer funds and to pay, as in the engine |
 | `test_night_components` | an Entry worker at attainment 1, input `ot_hours_json` `{"NIGHT": 8, "NWD": 2}`: `OT_NIGHT` = round(4,500,000 ÷ 208 × 0.3 × 8) = 51,923, `OT_NWD` = round(4,500,000 ÷ 208 × 2.0 × 2) = 86,538 |
 | `test_option_switched_on` | `DUTY` unarchived, a worker's contract with a `DUTY` line of 500,000 for the whole month: a `DUTY` line of 500,000, and the SI base in the snapshot is 4,200,000 |
+| `test_base_scale` (step 6) | a worker at level S4 with `BASE` key `WORKER`: in October `BASE` 3,700,000 and `PROD` 2,800,000; in November `BASE` 4,500,000 and `PROD` 2,000,000 (the same total) |
+| `test_training_allowance` (step 6) | a `TRAINING` contract with `TRAIN` 4,500,000 for a full month: a `TRAIN` line of 4,500,000, no insurance lines, `PIT` 0 (under the threshold) |
 
-**Expected count:** 9 + 16 = 25 tests.
+**Expected count:** 28 tests from step 6 (25 before). The load totals become 8 parameters, 3 scales, 4 categories, 36 components, 4 contract types, 1 structure, 36 rules = 92. `TestGarmentAcceptance` overrides `_worker` and `_staff` so `BASE` lines carry the key `WORKER` (staff: the amount 3,700,000), and its own tests do the same. `TestLoad` renames contract types with the `VN_*` codes in its fixture, so a database that already loaded the scheme still sees them created (rolled back after the tests).

@@ -7,7 +7,10 @@ from odoo.tests import tagged
 
 from odoo.addons.l10n_vn_payroll.tests.common import D, PayrollCase
 
-TOTAL = 9 + 2 + 4 + 35 + 1 + 35  # parameters, scales, categories, components, structure, rules
+from ..models.garment_scheme import CONTRACT_TYPES
+
+# parameters, scales, categories, components, contract types, structure, rules
+TOTAL = 8 + 3 + 4 + 36 + 4 + 1 + 36
 CATEGORY_OF_KIND = {
     "earning": "EARN",
     "deduction": "DED",
@@ -19,6 +22,15 @@ CATEGORY_OF_KIND = {
 
 @tagged("post_install", "-at_install")
 class TestLoad(PayrollCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # contract types are shared by all companies: an instance that loaded the scheme
+        # already has them, so the tests start without them (rolled back afterwards)
+        codes = [code for code, _names, _participant in CONTRACT_TYPES]
+        for contract_type in cls.env["hr.contract.type"].search([("code", "in", codes)]):
+            contract_type.code = f"{contract_type.code}_PRE_TEST"
+
     # ------------------------------------------------------------------ helpers
     def _components(self, company=None):
         return (
@@ -55,7 +67,6 @@ class TestLoad(PayrollCase):
         for code, value in (
             ("vn.policy.region", "IV"),
             ("vn.policy.std_days", 26),
-            ("vn.policy.base_salary", 3700000),
             ("vn.policy.probation_rate", 0.85),
             ("vn.policy.attainment_cap", 1),
             ("vn.policy.constant_months", 6),
@@ -67,12 +78,15 @@ class TestLoad(PayrollCase):
                 Param._strict_get(code, D(2026, 10, 31), company=self.company), value, code
             )
         self.assertEqual(len(self._scale("PROD").version_ids.cell_ids), 5)
+        base_scale = self._scale("BASE")
+        self.assertEqual(base_scale._cell_amount("WORKER", D(2026, 10, 31)), 3700000)
+        self.assertEqual(base_scale._cell_amount("WORKER", D(2026, 11, 30)), 4500000)
         grade_cells = self._scale("GRADE").version_ids.cell_ids
         self.assertEqual(len(grade_cells), 15)
         g22 = grade_cells.filtered(lambda c: c.key == "G2-2")
         self.assertEqual((g22.amount, g22.grade, g22.step), (8000000, "G2", 2))
         components = self._components()
-        self.assertEqual(len(components), 35)
+        self.assertEqual(len(components), 36)
         self.assertEqual(
             set(components.filtered(lambda c: not c.active).mapped("code")),
             {"ATT", "DUTY", "PHONE"},
@@ -80,7 +94,7 @@ class TestLoad(PayrollCase):
         structure = self._structure()
         self.assertTrue(structure.l10n_vn_payroll)
         rules = self._rules()
-        self.assertEqual(len(rules), 35)
+        self.assertEqual(len(rules), 36)
         self.assertEqual(set(rules.mapped("code")), set(components.mapped("code")))
         for rule in rules:
             self.assertEqual(rule.l10n_vn_component_id.code, rule.code)
@@ -95,11 +109,13 @@ class TestLoad(PayrollCase):
         self.company._l10n_vn_garment_load()
         base = self._component("BASE")
         self.assertEqual(
-            (base.amount_source, base.amount_parameter), ("parameter", "vn.policy.base_salary")
+            (base.amount_source, base.scale_id), ("scale", self._scale("BASE"))
         )
         self.assertTrue(base.in_si_base and base.in_ot_base and base.sets_wage)
         prod = self._component("PROD")
-        self.assertEqual(prod.scale_id, self._scale("PROD"))
+        self.assertEqual(
+            (prod.amount_source, prod.scale_id), ("scale_remainder", self._scale("PROD"))
+        )
         self.assertTrue(prod.variable and prod.in_ot_base)
         self.assertFalse(prod.in_si_base)
         self.assertEqual(prod.attainment_source, "supervisor")
@@ -136,8 +152,8 @@ class TestLoad(PayrollCase):
         result = self.company._l10n_vn_garment_load()
         self.assertEqual(result["created"], [])
         self.assertEqual(len(result["kept"]), TOTAL)
-        self.assertEqual(len(self._components()), 35)
-        self.assertEqual(len(self._rules()), 35)
+        self.assertEqual(len(self._components()), 36)
+        self.assertEqual(len(self._rules()), 36)
 
     def test_existing_kept(self):
         base = self.env["l10n_vn.payroll.component"].create(
@@ -210,6 +226,28 @@ class TestLoad(PayrollCase):
                 [("code", "=", "DED"), ("company_id", "=", self.company.id)]
             )
         )
+
+    def test_contract_types(self):
+        self.company._l10n_vn_garment_load()
+        ContractType = self.env["hr.contract.type"]
+        for code, participant in (
+            ("VN_LABOUR", "labour"),
+            ("VN_PROBATION", "probation"),
+            ("VN_TRAINING", "training"),
+            ("VN_CASUAL", "casual"),
+        ):
+            contract_type = ContractType.search([("code", "=", code)])
+            self.assertEqual(len(contract_type), 1, code)
+            self.assertEqual(
+                contract_type.l10n_vn_participant_type_id,
+                self.env.ref(f"l10n_vn_payroll.participant_{participant}"),
+            )
+        other = self.env["res.company"].create(
+            {"name": "Payroll Test Company VN 2", "country_id": self.env.ref("base.vn").id}
+        )
+        result = other._l10n_vn_garment_load()
+        self.assertIn("contract type VN_LABOUR", result["kept"])
+        self.assertEqual(ContractType.search_count([("code", "=", "VN_LABOUR")]), 1)
 
     def test_not_vietnamese(self):
         company = self.env["res.company"].create(
