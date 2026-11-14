@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+    <record id="seq_sale_material_batch" model="ir.sequence">
+        <field name="name">Material Transfer Batch</field>
+        <field name="code">sale.material.batch</field>
+        <field name="prefix">MTB/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False" />
+    </record>
+</odoo>

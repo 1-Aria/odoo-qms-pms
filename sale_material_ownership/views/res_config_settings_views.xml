@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="res_config_settings_view_form_material" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.material</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="sale.res_config_settings_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='quotation_order_setting_container']" position="after">
+                <block title="Material Ownership" name="material_ownership_setting_container">
+                    <setting
+                        id="material_ownership_start"
+                        company_dependent="1"
+                        help="Sales orders confirmed from this date on need their materials transferred."
+                    >
+                        <field name="material_ownership_start" />
+                    </setting>
+                    <setting
+                        id="material_owner_partner"
+                        company_dependent="1"
+                        help="The company that invoices the materials of each transfer batch."
+                    >
+                        <field name="material_owner_partner_id" />
+                    </setting>
+                    <setting
+                        id="material_fiscal_position"
+                        company_dependent="1"
+                        help="Maps the stock input account to the clearing account on its bills."
+                    >
+                        <field name="material_fiscal_position_id" />
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

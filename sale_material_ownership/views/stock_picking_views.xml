@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="view_picking_form_material" model="ir.ui.view">
+        <field name="name">stock.picking.form.material</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <field name="material_coverage" invisible="1" />
+                <div
+                    class="alert alert-warning mb-0"
+                    role="alert"
+                    invisible="picking_type_code != 'outgoing' or material_coverage not in ('not_batched', 'partly', 'draft', 'requested')"
+                >
+                    The materials of this order are not yet transferred from the trading
+                    company. Deliver once its transfer batch is covered.
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

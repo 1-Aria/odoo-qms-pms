@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Building blocks of the Vietnamese vouchers. Each reads the variables its
+         caller sets; none is a report on its own. A t-call's body is rendered
+         once, before the call, with the caller's variables, so a form loops over
+         its copies itself and calls voucher_page once per copy. -->
+
+    <template id="voucher_article">
+        <div class="article l10n_vn_voucher"
+             t-att-data-oe-model="o._name"
+             t-att-data-oe-id="o.id"
+             t-att-data-oe-lang="o.env.context.get('lang')">
+            <t t-out="0"/>
+        </div>
+    </template>
+
+    <template id="voucher_page">
+        <div class="page l10n_vn_voucher_page"
+             t-att-style="'page-break-before: always;' if copy_label_first is False else None">
+            <t t-out="0"/>
+        </div>
+    </template>
+
+    <template id="voucher_header">
+        <table class="l10n_vn_voucher_header">
+            <tr>
+                <td class="o_left">
+                    <div>Đơn vị: <strong t-out="company.name"/></div>
+                    <div>Địa chỉ: <span t-out="env['l10n_vn.voucher']._address(company.partner_id)"/></div>
+                    <div>Bộ phận:
+                        <span t-if="department" t-out="department"/>
+                        <span t-else="" class="o_dots"/>
+                    </div>
+                </td>
+                <td class="o_right">
+                    <strong>Mẫu số <t t-out="form_code"/></strong>
+                </td>
+            </tr>
+        </table>
+    </template>
+
+    <template id="voucher_title">
+        <table class="l10n_vn_voucher_title">
+            <tr>
+                <td class="o_side"/>
+                <td class="o_middle">
+                    <h2 t-out="title"/>
+                    <div class="o_italic" t-out="env['l10n_vn.voucher']._date_text(voucher_date)"/>
+                    <div t-if="copy_label" class="o_italic" t-out="copy_label"/>
+                </td>
+                <td class="o_side">
+                    <div>Số: <t t-out="number"/></div>
+                    <t t-if="show_accounts is not False">
+                        <div>Nợ:
+                            <span t-if="debit_accounts" t-out="', '.join(debit_accounts)"/>
+                            <span t-else="" class="o_dots"/>
+                        </div>
+                        <div>Có:
+                            <span t-if="credit_accounts" t-out="', '.join(credit_accounts)"/>
+                            <span t-else="" class="o_dots"/>
+                        </div>
+                    </t>
+                </td>
+            </tr>
+        </table>
+    </template>
+
+    <!-- One line of label: value pairs; `pairs`, or a single `label` and `value`.
+         An empty value is a dotted space to fill in by hand. -->
+    <template id="voucher_field">
+        <t t-set="field_pairs" t-value="pairs or [(label, value)]"/>
+        <table class="l10n_vn_voucher_field">
+            <tr>
+                <t t-foreach="field_pairs" t-as="pair">
+                    <td class="o_label"><t t-out="pair[0]"/>:</td>
+                    <td t-if="pair[1]" class="o_value" t-out="pair[1]"/>
+                    <td t-else="" class="o_value o_dots"/>
+                </t>
+            </tr>
+        </table>
+    </template>
+
+    <template id="voucher_amount_words">
+        <t t-call="l10n_vn_voucher.voucher_field">
+            <t t-set="pairs" t-value="False"/>
+            <t t-set="label" t-value="label or 'Tổng số tiền (viết bằng chữ)'"/>
+            <t t-set="value"
+               t-value="currency.l10n_vn_amount_to_words(amount) if currency and amount is not False and amount is not None else ''"/>
+        </t>
+    </template>
+
+    <!-- `signers`: dicts with role, hint (default "(Ký, họ tên)"; "\n" breaks the
+         line) and name. `sign_date`: printed above the row unless None. -->
+    <template id="voucher_signatures">
+        <div class="l10n_vn_voucher_signatures">
+            <div t-if="sign_date is not None" class="o_sign_date o_italic"
+                 t-out="env['l10n_vn.voucher']._date_text(sign_date)"/>
+            <table>
+                <tr>
+                    <t t-foreach="signers" t-as="signer">
+                        <td>
+                            <div class="o_role" t-out="signer['role']"/>
+                            <t t-foreach="(signer.get('hint') or '(Ký, họ tên)').split('\n')" t-as="hint_line">
+                                <div class="o_italic" t-out="hint_line"/>
+                            </t>
+                            <div class="o_sign_space"/>
+                            <div class="o_name" t-out="signer.get('name') or ''"/>
+                        </td>
+                    </t>
+                </tr>
+            </table>
+        </div>
+    </template>
+</odoo>

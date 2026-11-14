@@ -1,0 +1,129 @@
+.l10n_vn_voucher {
+    font-family: "DejaVu Serif", serif;
+    font-size: 11pt;
+    color: #000;
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .o_italic {
+        font-style: italic;
+    }
+
+    .o_dots {
+        border-bottom: 1px dotted #000;
+    }
+
+    span.o_dots {
+        display: inline-block;
+        min-width: 40mm;
+    }
+
+    .l10n_vn_voucher_header td {
+        vertical-align: top;
+
+        &.o_right {
+            width: 35%;
+            text-align: center;
+        }
+    }
+
+    .l10n_vn_voucher_title {
+        margin: 4mm 0;
+
+        td {
+            vertical-align: top;
+        }
+
+        td.o_side {
+            width: 25%;
+        }
+
+        td.o_middle {
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 15pt;
+            font-weight: bold;
+            margin: 0;
+            text-align: center;
+        }
+    }
+
+    .l10n_vn_voucher_field {
+        margin-bottom: 1mm;
+
+        td.o_label {
+            white-space: nowrap;
+            width: 1%;
+            padding-right: 2mm;
+        }
+
+        td.o_value {
+            padding-right: 3mm;
+        }
+    }
+
+    .l10n_vn_voucher_lines {
+        margin: 3mm 0;
+        border: 1px solid #000;
+
+        th,
+        td {
+            border: 1px solid #000;
+            padding: 1mm 1.5mm;
+        }
+
+        th {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        td.o_number {
+            text-align: right;
+        }
+
+        td.o_center {
+            text-align: center;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+    }
+
+    .l10n_vn_voucher_signatures {
+        margin-top: 6mm;
+        page-break-inside: avoid;
+
+        .o_sign_date {
+            text-align: right;
+            margin-bottom: 2mm;
+        }
+
+        // Equal columns, one per signer.
+        table {
+            table-layout: fixed;
+        }
+
+        td {
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .o_role {
+            font-weight: bold;
+        }
+
+        .o_sign_space {
+            height: 22mm;
+        }
+    }
+}

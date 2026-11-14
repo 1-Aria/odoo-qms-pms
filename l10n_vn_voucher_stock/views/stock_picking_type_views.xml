@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_type_form" model="ir.ui.view">
+        <field name="name">stock.picking.type.form.l10n_vn_voucher_stock</field>
+        <field name="model">stock.picking.type</field>
+        <field name="inherit_id" ref="stock.view_picking_type_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='hardware']" position="after">
+                <page name="l10n_vn_voucher" string="Vietnamese Voucher">
+                    <group>
+                        <group>
+                            <field name="l10n_vn_voucher_kind"/>
+                            <field name="l10n_vn_voucher_reason"
+                                   invisible="not l10n_vn_voucher_kind"/>
+                        </group>
+                        <group>
+                            <field name="l10n_vn_voucher_copies"
+                                   invisible="not l10n_vn_voucher_kind"
+                                   placeholder="Liên 1: Kế toán lưu"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

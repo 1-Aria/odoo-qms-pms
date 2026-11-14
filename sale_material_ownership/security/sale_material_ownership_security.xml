@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="sale_material_batch_company_rule" model="ir.rule">
+        <field name="name">Material transfer batch: multi-company</field>
+        <field name="model_id" ref="model_sale_material_batch" />
+        <field name="global" eval="True" />
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="sale_material_batch_need_company_rule" model="ir.rule">
+        <field name="name">Material transfer batch need: multi-company</field>
+        <field name="model_id" ref="model_sale_material_batch_need" />
+        <field name="global" eval="True" />
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="sale_material_batch_request_company_rule" model="ir.rule">
+        <field name="name">Material transfer batch request: multi-company</field>
+        <field name="model_id" ref="model_sale_material_batch_request" />
+        <field name="global" eval="True" />
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="sale_material_ownership_balance_company_rule" model="ir.rule">
+        <field name="name">Material ownership balance: multi-company</field>
+        <field name="model_id" ref="model_sale_material_ownership_balance" />
+        <field name="global" eval="True" />
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="action_report_material_batch" model="ir.actions.report">
+        <field name="name">Bảng kê nguyên phụ liệu</field>
+        <field name="model">sale.material.batch</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">sale_material_ownership.report_material_batch</field>
+        <field name="report_file">sale_material_ownership.report_material_batch</field>
+        <field name="print_report_name">'Bang ke NPL - %s' % object.name</field>
+        <field name="domain">[("state", "in", ["requested", "covered"])]</field>
+        <field name="binding_model_id" ref="model_sale_material_batch" />
+        <field name="binding_type">report</field>
+    </record>
+</odoo>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="view_order_form_material" model="ir.ui.view">
+        <field name="name">sale.order.form.material</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <field name="material_coverage" invisible="1" />
+                <div
+                    class="alert alert-warning mb-0"
+                    role="alert"
+                    invisible="state != 'sale' or material_coverage not in ('not_batched', 'partly', 'draft', 'requested')"
+                >
+                    The materials of this order are not yet transferred from the trading
+                    company. Coverage:
+                    <field name="material_coverage" readonly="1" class="fw-bold" />
+                </div>
+            </xpath>
+            <xpath expr="//page[@name='other_information']" position="inside">
+                <group name="material_ownership" string="Material Ownership">
+                    <field name="material_coverage" />
+                    <field name="material_batch_ids" widget="many2many_tags" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_order_tree_material" model="ir.ui.view">
+        <field name="name">sale.order.list.material</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_tree" />
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field
+                    name="material_coverage"
+                    optional="show"
+                    widget="badge"
+                    decoration-success="material_coverage == 'covered'"
+                    decoration-warning="material_coverage in ('not_batched', 'partly')"
+                />
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_sales_order_filter_material" model="ir.ui.view">
+        <field name="name">sale.order.search.material</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sales_order_filter" />
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='my_sale_orders_filter']" position="after">
+                <separator />
+                <filter
+                    name="material_needs_batch"
+                    string="Needs a Transfer Batch"
+                    domain="[('material_coverage', 'in', ['not_batched', 'partly'])]"
+                />
+                <filter
+                    name="material_not_covered"
+                    string="Materials Not Covered"
+                    domain="[('material_coverage', 'in', ['not_batched', 'partly', 'draft', 'requested'])]"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>

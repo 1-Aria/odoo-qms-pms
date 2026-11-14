@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <template id="report_material_batch">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t
+                    t-call="sale_material_ownership.report_material_batch_document"
+                    t-lang="'vi_VN'"
+                />
+            </t>
+        </t>
+    </template>
+
+    <template id="material_table">
+        <!-- rows: list of dicts with code, name, uom, qty; d: the document data -->
+        <table class="table table-sm table-bordered o_material_table">
+            <thead>
+                <tr>
+                    <th class="text-center">STT</th>
+                    <th>Mã</th>
+                    <th>Tên nguyên phụ liệu</th>
+                    <th class="text-center">ĐVT</th>
+                    <th class="text-end">Số lượng</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr t-foreach="rows" t-as="row">
+                    <td class="text-center" t-out="row_index + 1" />
+                    <td t-out="row['code']" />
+                    <td t-out="row['name']" />
+                    <td class="text-center" t-out="row['uom']" />
+                    <td
+                        class="text-end"
+                        t-out="row['qty']"
+                        t-options="{'widget': 'float', 'precision': d['qty_digits']}"
+                    />
+                </tr>
+            </tbody>
+        </table>
+    </template>
+
+    <template id="report_material_batch_document">
+        <t t-set="o" t-value="o.with_context(lang='vi_VN')" />
+        <t t-set="d" t-value="o._material_document_data()" />
+        <t t-call="web.external_layout">
+            <div class="page">
+                <h4 class="text-center mt-2">BẢNG KÊ NGUYÊN PHỤ LIỆU ĐỀ NGHỊ XUẤT HÓA ĐƠN</h4>
+                <p class="text-center">
+                    Số: <span t-out="d['number']" />
+                    <t t-if="d['date']">
+                        · Ngày <span t-out="d['date']" t-options="{'widget': 'date'}" />
+                    </t>
+                </p>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <strong>Bên bán:</strong> <span t-out="d['seller']['name']" /><br />
+                        Mã số thuế: <span t-out="d['seller']['vat']" /><br />
+                        Địa chỉ: <span t-out="d['seller']['address']" />
+                    </div>
+                    <div class="col-6">
+                        <strong>Bên mua:</strong> <span t-out="d['buyer']['name']" /><br />
+                        Mã số thuế: <span t-out="d['buyer']['vat']" /><br />
+                        Địa chỉ: <span t-out="d['buyer']['address']" />
+                    </div>
+                </div>
+
+                <h5>I. Chi tiết theo đơn bán hàng</h5>
+                <t t-foreach="d['orders']" t-as="order">
+                    <p class="mb-1 mt-2">
+                        <strong>Đơn hàng <span t-out="order['name']" /></strong>,
+                        ngày <span t-out="order['date']" t-options="{'widget': 'date'}" />,
+                        khách hàng <span t-out="order['partner']" />
+                    </p>
+                    <p class="mb-1">
+                        Sản phẩm:
+                        <t t-foreach="order['goods']" t-as="good">
+                            <span t-out="good['name']" />
+                            (<span
+                                t-out="good['qty']"
+                                t-options="{'widget': 'float', 'precision': d['qty_digits']}"
+                            /> <span t-out="good['uom']" />)<t t-if="not good_last">; </t>
+                        </t>
+                    </p>
+                    <t t-call="sale_material_ownership.material_table">
+                        <t t-set="rows" t-value="order['materials']" />
+                    </t>
+                </t>
+
+                <t t-if="d['shortfall']">
+                    <h5>II. Thiếu hụt từ các đợt trước</h5>
+                    <t t-call="sale_material_ownership.material_table">
+                        <t t-set="rows" t-value="d['shortfall']" />
+                    </t>
+                </t>
+
+                <h5 t-out="'III. Tổng hợp' if d['shortfall'] else 'II. Tổng hợp'" />
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th class="text-center">STT</th>
+                            <th>Mã</th>
+                            <th>Tên nguyên phụ liệu</th>
+                            <th class="text-center">ĐVT</th>
+                            <th class="text-end">Số lượng</th>
+                            <th class="text-end">Đơn giá</th>
+                            <th class="text-end">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="d['totals']" t-as="row">
+                            <td class="text-center" t-out="row_index + 1" />
+                            <td t-out="row['code']" />
+                            <td t-out="row['name']" />
+                            <td class="text-center" t-out="row['uom']" />
+                            <td
+                                class="text-end"
+                                t-out="row['qty']"
+                                t-options="{'widget': 'float', 'precision': d['qty_digits']}"
+                            />
+                            <td
+                                class="text-end"
+                                t-out="row['unit_cost']"
+                                t-options="{'widget': 'float', 'precision': d['price_digits']}"
+                            />
+                            <td
+                                class="text-end"
+                                t-out="row['amount']"
+                                t-options="{'widget': 'float', 'precision': d['currency'].decimal_places}"
+                            />
+                        </tr>
+                        <tr>
+                            <td colspan="6" class="text-end">
+                                <strong>Cộng tiền hàng (chưa có thuế GTGT)</strong>
+                            </td>
+                            <td class="text-end">
+                                <strong
+                                    t-out="d['total']"
+                                    t-options="{'widget': 'float', 'precision': d['currency'].decimal_places}"
+                                />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="row mt-4 text-center">
+                    <div class="col-6">
+                        <strong>Người lập biểu</strong><br />
+                        <em>(Ký, họ tên)</em>
+                    </div>
+                    <div class="col-6">
+                        <strong>Kế toán trưởng</strong><br />
+                        <em>(Ký, họ tên)</em>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

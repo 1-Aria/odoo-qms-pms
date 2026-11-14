@@ -228,6 +228,23 @@ Outside the QMS-PMS and IE-MES suites.
 
 ---
 
+## The VN voucher modules
+
+Printed Vietnamese vouchers and purchase forms, signed by hand. Design:
+`docs/Accounting/VN Vouchers — Design.md`. Not built yet.
+
+| Module | Role |
+|---|---|
+| `l10n_vn_voucher` | Shared A4 layout (header, Số/Nợ/Có box, signatures, copies, amount in words); *Phiếu thu* and *Phiếu chi* from cash journal entries, with their own PT/PC series |
+| `l10n_vn_voucher_stock` | *Phiếu nhập kho* and *Phiếu xuất kho* from transfers, configured per operation type; *Biên bản giao nhận hàng hóa* |
+| `l10n_vn_purchase_report` | Purchase order (titled *đơn đặt hàng gia công* for subcontracting), compact purchase order (one row per style), blanket order (*hợp đồng nguyên tắc*, or *hợp đồng gia công* with material norms) |
+
+- Cash vouchers belong to posted entries in cash journals, never to `account.payment`: the Pay button is
+  not used (Peter, 2026-11-13).
+- Vouchers print accounts, prices and amounts as posted, never typed into the form.
+
+---
+
 ## The VN payroll modules
 
 Vietnamese payroll for the garment company on OCA `payroll` and `payroll_account`, which stay the engine

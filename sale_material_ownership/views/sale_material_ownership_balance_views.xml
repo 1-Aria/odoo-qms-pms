@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="sale_material_ownership_balance_view_list" model="ir.ui.view">
+        <field name="name">sale.material.ownership.balance.list</field>
+        <field name="model">sale.material.ownership.balance</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="product_id" />
+                <field name="categ_id" optional="hide" />
+                <field name="uom_id" />
+                <field name="qty_in" />
+                <field name="qty_used" />
+                <field name="qty_balance" decoration-danger="qty_balance &lt; 0" />
+                <field name="qty_pending" optional="show" />
+                <field name="qty_awaiting" optional="show" />
+                <field name="qty_not_received" optional="hide" />
+                <field name="qty_no_receipt" optional="hide" />
+                <field name="qty_on_hand" />
+                <field name="qty_not_owned" />
+                <field name="unit_cost" optional="hide" />
+                <field name="value_not_owned" sum="Total" />
+                <field name="currency_id" column_invisible="1" />
+            </list>
+        </field>
+    </record>
+
+    <record id="sale_material_ownership_balance_view_pivot" model="ir.ui.view">
+        <field name="name">sale.material.ownership.balance.pivot</field>
+        <field name="model">sale.material.ownership.balance</field>
+        <field name="arch" type="xml">
+            <pivot string="Material Ownership" disable_linking="1">
+                <field name="categ_id" type="row" />
+                <field name="qty_balance" type="measure" />
+                <field name="value_on_hand" type="measure" />
+                <field name="value_not_owned" type="measure" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="sale_material_ownership_balance_view_search" model="ir.ui.view">
+        <field name="name">sale.material.ownership.balance.search</field>
+        <field name="model">sale.material.ownership.balance</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="product_id" />
+                <field name="categ_id" />
+                <filter name="negative" string="Short" domain="[('qty_balance', '&lt;', 0)]" />
+                <filter
+                    name="awaiting"
+                    string="Awaiting E-Invoice"
+                    domain="[('qty_awaiting', '&gt;', 0)]"
+                />
+                <filter
+                    name="not_owned"
+                    string="Not Owned on Hand"
+                    domain="[('qty_not_owned', '&gt;', 0)]"
+                />
+                <group expand="0" string="Group By">
+                    <filter
+                        name="group_categ"
+                        string="Category"
+                        context="{'group_by': 'categ_id'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_sale_material_ownership_balance" model="ir.actions.server">
+        <field name="name">Material Ownership</field>
+        <field name="model_id" ref="model_sale_material_ownership_balance" />
+        <field name="state">code</field>
+        <field name="code">action = model.action_open()</field>
+    </record>
+
+    <menuitem
+        id="menu_sale_material_ownership_balance"
+        parent="sale.menu_sale_report"
+        action="action_sale_material_ownership_balance"
+        sequence="50"
+    />
+</odoo>
