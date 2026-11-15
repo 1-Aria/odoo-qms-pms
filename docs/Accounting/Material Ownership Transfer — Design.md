@@ -410,6 +410,8 @@ position and every journal entry stay. Nothing needs undoing.
 
 ### O1 — Orders changed after batching
 
+**Decided (Peter, 2026-11-15): as recommended.**
+
 The explosion is frozen when the order joins (D4). Nothing is refused (D10):
 
 - **Cancelled order, smaller quantity, removed line, larger quantity:** the effective quantity (§5.4)
@@ -422,12 +424,16 @@ Recommendation: as above. The order then appears on two documents, which is the 
 
 ### O2 — Partial deliveries
 
+**Decided (Peter, 2026-11-15): as recommended.**
+
 A partial delivery needs nothing while the rest will still ship. A remainder that will never ship is
 released when the line's ordered quantity is lowered to what was delivered, through the effective
 quantity (§5.4). Recommendation: lower the quantity whenever a remainder is dropped (cancelling the
 backorder alone releases nothing).
 
 ### O3 — Credit notes and returns
+
+**Decided (Peter, 2026-11-15): as recommended.**
 
 - A credit note for price only (discount, claim) moves no goods: nothing changes.
 - A return marked *to refund* lowers `qty_delivered` (§2.2). The line is then open again (delivered <
@@ -438,6 +444,8 @@ backorder alone releases nothing).
 Recommendation: no mechanism beyond §5.4.
 
 ### O4 — The trading company's records in company 2
+
+**Decided (Peter, 2026-11-15): as recommended.**
 
 Company 2 keeps no records in Odoo (§2.1). Options:
 
@@ -452,11 +460,23 @@ also create counterpart invoices for every ordinary sale to the trading company.
 
 ### O5 — Is the portal list part of "correct"?
 
+**Decided (Peter, 2026-11-15): as recommended.**
+
 D11 requires an attached, unreplaced e-invoice whose amounts match the bill. `l10n_vn_einvoice_reconcile`
 can also match it against the tax portal's list. Recommendation: show the portal match on the batch and
 the balance as information, not as a condition, so a batch never waits on a portal list being imported.
 
 ### O6 — What batches do not transfer
+
+**Decided (Peter, 2026-11-15):** 33889 is the single measure of what the garment company owes the
+trading company, and is cleared only when it returns to 0. No end date is set; the module runs until
+then. Norms against actual use are not tracked: the operation was never separated that finely.
+
+Fact to keep in view: 33889 holds the old stock at its full book value, finished goods and cut panels
+included, and the 6 Nov revaluation credited it 3,095,210,050 more, partly standard conversion cost on
+finished goods made before the split. Batches debit 33889 with material values only, so they cannot
+bring it to 0 alone. The remainder needs a separate settlement between the companies, its form and
+timing decided with the accountant when the old stock is mostly sold.
 
 Finished goods (6.55 bn) and cut panels (1.07 bn) on hand on 12 Nov hold the trading company's materials
 and the conversion done before 24 Oct. The batches transfer the materials as the goods are sold; the
@@ -466,6 +486,8 @@ when. That date is also when the module ends (§10).
 
 ### O7 — Naming
 
+**Decided (Peter, 2026-11-15): as recommended.**
+
 `sale_material_ownership` is a working name, and so are the model and field names. The module is
 temporary and not meant for OCA. Peter decides the final name.
 
@@ -473,9 +495,16 @@ temporary and not meant for OCA. Peter decides the final name.
 
 ## 12. Next
 
-1. Peter reviews O1–O7.
-2. Module spec `docs/modules/sale_material_ownership.md`, in three steps: (1) configuration, explosion,
-   draft batches, the quantities and the balance report; (2) *Request*, netting, the bill and coverage;
-   (3) the document.
-3. Before go-live: attach the five bills' XMLs (§4.4); re-run `ownership_balance.py` on a fresh
-   production backup with D11's rule (§9).
+The module is built: `sale_material_ownership` steps 1–3 are done on the test instance (40 tests;
+`docs/modules/sale_material_ownership.md`). Before its first use on production:
+
+1. O1–O7 settled (Peter, 2026-11-15; §11).
+2. Attach the e-invoice XMLs of the five material bills (§4.4).
+3. Clear or accept the zero-cost materials the batch warning names: production holds 233 active
+   materials with a cost of 0 (none on hand on 12 Nov), and any of them in a BoM is requested at 0.
+4. Install the module; mark Raw Materials, Raw Materials / Fabric and Consumables / Packaging *Counts as
+   Material*; create the fiscal position 3399 → 33889 (*Detect Automatically* off, no tax mapping); in
+   Sales settings set the ownership start (24 Oct 2026), the material owner (the trading company) and
+   that fiscal position.
+5. Re-run `ownership_balance.py` on a fresh production backup with D11's rule (§9), and compare it with
+   the module's *Material Ownership* report and the first batch's request.
