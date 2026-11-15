@@ -32,6 +32,75 @@ class TestOwnership(MaterialOwnershipCase):
         self.assertAlmostEqual(need.material_qty, 20)
         self.assertFalse(need.bom_id)
 
+    def test_template_component_lines(self):
+        """A BoM line naming a component template (mrp_bom_attribute_match) gives each
+        variant its matching component, and the explosion leaves the line unchanged."""
+        if "component_template_id" not in self.env["mrp.bom.line"]._fields:
+            self.skipTest("mrp_bom_attribute_match is not installed")
+        attribute = self.env["product.attribute"].create(
+            {
+                "name": "MO Color",
+                "create_variant": "always",
+                "value_ids": [Command.create({"name": "MO Red"}), Command.create({"name": "MO Blue"})],
+            }
+        )
+        red, blue = attribute.value_ids
+        attribute_lines = [
+            Command.create(
+                {"attribute_id": attribute.id, "value_ids": [Command.set(attribute.value_ids.ids)]}
+            )
+        ]
+        Template = self.env["product.template"].with_company(self.company)
+        meter = self.env.ref("uom.product_uom_meter")
+        cloth = Template.create(
+            {
+                "name": "MO Cloth",
+                "is_storable": True,
+                "categ_id": self.categ_material.id,
+                "uom_id": meter.id,
+                "uom_po_id": meter.id,
+                "attribute_line_ids": attribute_lines,
+            }
+        )
+        dress = Template.create(
+            {
+                "name": "MO Dress",
+                "is_storable": True,
+                "categ_id": self.categ_goods.id,
+                "attribute_line_ids": attribute_lines,
+            }
+        )
+        bom = self.env["mrp.bom"].create(
+            {
+                "product_tmpl_id": dress.id,
+                "product_qty": 1.0,
+                "type": "normal",
+                "company_id": self.company.id,
+                "active": True,
+                "bom_line_ids": [
+                    Command.create({"component_template_id": cloth.id, "product_qty": 2.0})
+                ],
+            }
+        )
+        line = bom.bom_line_ids
+        self.assertFalse(line.product_id)
+
+        def variant(template, value):
+            return template.product_variant_ids.filtered(
+                lambda p: value in p.product_template_attribute_value_ids.product_attribute_value_id
+            )
+
+        batch = self._batch(
+            self._order([(variant(dress, red), 3), (variant(dress, blue), 1)])
+        )
+        needs = {need.product_id: need.material_qty for need in batch.need_line_ids}
+        self.assertEqual(set(needs), {variant(cloth, red), variant(cloth, blue)})
+        self.assertAlmostEqual(needs[variant(cloth, red)], 6)
+        self.assertAlmostEqual(needs[variant(cloth, blue)], 2)
+        self.env.flush_all()
+        self.env.cr.execute("SELECT product_id FROM mrp_bom_line WHERE id = %s", [line.id])
+        self.assertIsNone(self.env.cr.fetchone()[0])
+
     def test_not_exploded(self):
         batch = self._batch(self._order([(self.towel, 3), (self.shirt, 1)]))
         towel_need = batch.need_line_ids.filtered(lambda n: n.product_id == self.towel)

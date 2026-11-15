@@ -18,6 +18,7 @@ Design: `docs/Accounting/Material Ownership Transfer — Design.md`.
 | 1 | Configuration; explosion; batches in draft with their need lines; the owned quantities (`_ownership_quantities`) and the balance report; coverage on sales orders (design §2–§5.2, §7.2, §8) | done | 2026-11-14, first run: `-i` with tests: `exit=0`, 18 tests, 0 failures. UI check on the test database: *Add Uncovered Orders* took all 65 confirmed orders, 18 May–18 Aug, every one from before the separation; production would have taken 273 orders, 259 of them older. Fixed by the ownership start (D16) and the capped warning lists. Saving that code broke every page of the running server until `-u` (new stored field on `res.company`). Second run: `-u` with tests: `exit=0`, 21 tests, 0 failures. UI checked by Peter: start date required, older orders *Not needed*, batch filled from a temporary start date |
 | 2 | *Request*: netting, request lines, the draft bill; coverage from the bill; *Cancel*; the effective quantity; the bill's link and the delivery banner (design §5.1, §5.3–§5.4, §6, §7.1) | done | 2026-11-14: `-u` with tests: `exit=0`, 35 tests, 0 failures. UI check by Peter on the test database (start 1 Aug 2026; account 33889 and the fiscal position 3399 → 33889 created by hand, the copy predating the cutover): MTB/2026/0076, 9 orders, 4 lines exploded into 32 materials, 5 cut-panel lines not exploded (no BoM on that copy); 32 materials requested, 82,306 + VAT 8,232; the draft bill: 30 lines on 33889, 1331, 3311, no valuation layer; two packaging lines on 6320 at 0 (that copy's packaging category is periodic with no cost; production's is real-time with input 3399). *Cancel* cancelled the bill |
 | 3 | The document for the trading company (design §5.5); two more warning lines (zero cost, not real-time) | done | 2026-11-15: `-u` with tests: `exit=0`, 40 tests, 0 failures. UI check by Peter: the *Bảng kê* printed from a requested batch and is offered only on requested or covered batches. Batch MTB/2026/0121 (1 order, 17 materials): the warning's new lines named the 10 zero-cost raw materials and the 2 packaging items of a category not valued in real time; once requested, those 12 lines carry 0 and the 2 packaging lines sit on 6320, as the warning said |
+| 3.1 | The explosion reads the BoM lines itself instead of calling `mrp.bom.explode`, which writes into template lines with `mrp_bom_attribute_match` (D3) | delivered | 2026-11-15: code delivered, 1 more test (41 in all); awaiting the `-u` run |
 
 ## Divergences from the design
 
@@ -32,7 +33,7 @@ accounting users (§6.1). The design note was corrected on 2026-11-14 to match.
 |---|---|
 | D1 | **A material** is a product whose category has `material_ownership` set. The flag is set per category and not inherited. The instance's categories are set by hand, never seeded |
 | D2 | **An order line to explode** has a product of type `consu` (not a service or combo), no `display_type`, is not a down payment and has `product_uom_qty > 0`. A line belongs to at most one batch that is not cancelled. An order joins a batch through its lines, so an order with lines added later can appear in a second batch (design O1) |
-| D3 | **Explosion** (design §5.2): a material counts itself. Otherwise the first BoM from `_bom_find(product, company_id=company.id)`, any type, is exploded with `explode`, and every component that is not a material is exploded again in the same way, to a depth of 10. A product with no BoM, or beyond the depth, gets a need line with `exploded = False` (design §5.2). BoMs and products are read with `sudo()`. With `mrp_bom_version` installed (it is on the instance), `_bom_find` only finds BoMs in state *active* (`oca/manufacture/mrp_bom_version/models/mrp_bom.py:139-155`); production holds 86 such BoMs |
+| D3 | **Explosion** (design §5.2): a material counts itself. Otherwise the first BoM from `_bom_find(product, company_id=company.id)`, any type, is read line by line, and every component that is not a material is exploded again in the same way, to a depth of 10. Each line is skipped when `_skip_bom_line(product)` says so (variant-specific lines); a line naming a component template (OCA `mrp_bom_attribute_match`, installed) takes the variant `bom._get_component_template_product(line, product, line.product_id)` returns, and is skipped when there is none. Quantities are not rounded. `mrp.bom.explode` is not used (step 3.1): with `mrp_bom_attribute_match` it writes the chosen variant into a template line's `product_id` (`oca/manufacture/mrp_bom_attribute_match/models/mrp_bom.py:249-254`), and the UI checks of steps 1–3 wrote variants into 116 template lines of the test database's BoMs this way. A product with no BoM, or beyond the depth, gets a need line with `exploded = False` (design §5.2). BoMs and products are read with `sudo()`. With `mrp_bom_version` installed (it is on the instance), `_bom_find` only finds BoMs in state *active* (`oca/manufacture/mrp_bom_version/models/mrp_bom.py:139-155`); production holds 86 such BoMs |
 | D4 | **Need lines are written when an order joins a draft batch** and deleted when it leaves. *Refresh* rewrites all of them. From *Request* on they never change |
 | D5 | **A bill counts** (design D11) when it is a posted `in_invoice` and one of its e-invoices has `direction = "received"`, `correction_state != "replaced"` and `amounts_differ = False`: `account.move._material_einvoice_ok()` |
 | D6 | **Owned quantities** (design §4.1), per material, in the product's UoM, from the material bill lines of posted `in_invoice` and `in_refund` moves of the company, read with `sudo()`. A refund line counts negative at once, without an e-invoice. Then:<br>• **Lines from a PO line**, grouped per PO line: `counted` = Σ invoice lines of counting bills − Σ refund lines; `received` = the PO line's `qty_received`; *in* += `min(counted, received)`; *not received* += `max(counted − received, 0)`; *awaiting* += Σ invoice lines of bills that do not count.<br>• **Other lines of a batch bill** (`material_batch_id` set): *in* += quantity if the bill counts, else *awaiting* += quantity; refunds count in *in*.<br>• **Any other line**: a refund counts in *in*; an invoice line goes to *no receipt* if its bill counts, else to *awaiting* |
@@ -94,7 +95,7 @@ sale_material_ownership/
 |---|---|
 | `name` | `Sale Material Ownership` |
 | `summary` | `Materials owned per vendor bill and e-invoice; transfer batches of sales orders invoiced by the former owner` |
-| `version` | `18.0.1.0.0` (step 2: `18.0.1.1.0`; step 3: `18.0.1.2.0`) |
+| `version` | `18.0.1.0.0` (step 2: `18.0.1.1.0`; step 3: `18.0.1.2.0`; step 3.1: `18.0.1.3.0`) |
 | `author` | `1-Aria` |
 | `website` | `https://github.com/1-Aria/odoo-qms-pms` |
 | `license` | `AGPL-3` |
@@ -279,11 +280,18 @@ def _explode(self, product, qty):
         if not bom:
             unexploded[prod] += quantity
             return None
-        factor = prod.uom_id._compute_quantity(quantity, bom.product_uom_id) / (bom.product_qty or 1.0)
-        _boms, lines = bom.explode(prod, factor)
-        for bom_line, data in lines:
-            comp = bom_line.product_id
-            walk(comp, bom_line.product_uom_id._compute_quantity(data["qty"], comp.uom_id), depth + 1)
+        factor = prod.uom_id._compute_quantity(quantity, bom.product_uom_id, round=False) / (bom.product_qty or 1.0)
+        for bom_line in bom.bom_line_ids:
+            if bom_line._skip_bom_line(prod):
+                continue
+            comp = (
+                bom._get_component_template_product(bom_line, prod, bom_line.product_id)
+                if hasattr(bom, "_get_component_template_product")
+                else bom_line.product_id
+            )
+            if not comp:
+                continue
+            walk(comp, bom_line.product_uom_id._compute_quantity(factor * bom_line.product_qty, comp.uom_id, round=False), depth + 1)
         return bom
 
     top_bom = walk(product.sudo(), qty, 0)
@@ -619,6 +627,7 @@ and orders. Not built on `AccountTestInvoicingCommon` (CLAUDE.md, *Lessons*).
 |---|---|
 | `test_explode_two_levels` | `_batch(_order([(shirt, 10)]))`: two need lines, `fabric` 15 and `button` 50, both `line_qty` 10, `bom_id` the shirt's BoM, `exploded` True |
 | `test_material_sold_as_such` | an order of 20 m `fabric`: one need line, `fabric` 20, no `bom_id` |
+| `test_template_component_lines` | skipped without `mrp_bom_attribute_match`. An attribute *MO Color* (Red, Blue, variants always); a material template *MO Cloth* (meters) and a goods template *MO Dress*, both with it; a BoM for *MO Dress* with one line naming *MO Cloth* as `component_template_id`, 2 per unit, `product_id` empty. A batch of an order of 3 red and 1 blue dresses: need lines red cloth 6 and blue cloth 2 only; after `flush_all`, the line's `product_id` in SQL is still NULL |
 | `test_not_exploded` | an order of `towel` and `shirt`: a need line for `towel` with `exploded` False; `warning` names *towel*; `_q(towel)` is empty |
 | `test_bill_needs_einvoice` | `_bill(_purchase(fabric, 100))`: `in` 0, `awaiting` 100. After `_einvoice(bill)`: `in` 100, `awaiting` 0 |
 | `test_einvoice_amounts_differ` | `_einvoice(bill, amount_total=bill.amount_total + 1000)`: `in` 0, `awaiting` 100 |

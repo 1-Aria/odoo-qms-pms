@@ -340,13 +340,25 @@ class SaleMaterialBatch(models.Model):
             factor = prod.uom_id._compute_quantity(
                 quantity, bom.product_uom_id, round=False
             ) / (bom.product_qty or 1.0)
-            _boms, lines = bom.explode(prod, factor)
-            for bom_line, data in lines:
-                component = bom_line.product_id
+            # Read the lines ourselves rather than through mrp.bom.explode():
+            # mrp_bom_attribute_match's explode writes the chosen variant into a
+            # template line's product_id (oca/manufacture/mrp_bom_attribute_match/
+            # models/mrp_bom.py:249-254), which would change the BoMs.
+            for bom_line in bom.bom_line_ids:
+                if bom_line._skip_bom_line(prod):
+                    continue
+                component = (
+                    bom._get_component_template_product(bom_line, prod, bom_line.product_id)
+                    if hasattr(bom, "_get_component_template_product")
+                    else bom_line.product_id
+                )
+                if not component:
+                    # A template line with no variant matching prod: OCA skips it too.
+                    continue
                 walk(
                     component,
                     bom_line.product_uom_id._compute_quantity(
-                        data["qty"], component.uom_id, round=False
+                        factor * bom_line.product_qty, component.uom_id, round=False
                     ),
                     depth + 1,
                 )

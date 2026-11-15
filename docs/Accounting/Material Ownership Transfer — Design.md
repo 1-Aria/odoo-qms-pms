@@ -80,6 +80,7 @@ Checked on `prod_copy` (production as of 12 Nov 2026 20:48) and in `../odoo`, `.
 | `explode` recurses only through **kit** sub-BoMs (`bom_type='phantom'`). A component with a `normal` BoM, such as a cut panel, is returned as a leaf, so the module recurses itself (as `ownership_balance.py` does) | `mrp_bom.py:405-408` |
 | `explode` skips lines whose attribute values do not match the variant (`_skip_bom_line`), which the garment BoMs rely on | `mrp_bom.py:427`, `715-727` |
 | `explode` rounds each leaf quantity **up** to the UoM rounding (0.01 here) | `mrp_bom.py:446-448` |
+| With OCA `mrp_bom_attribute_match` (installed), a BoM line may name a component template instead of a product. That module's `explode` replaces core's and **writes** the chosen variant into the line's `product_id` ("set product_id temporary", never reset). `_get_component_template_product(line, product, line.product_id)` gives the variant without writing | `oca/manufacture/mrp_bom_attribute_match/models/mrp_bom.py:169-322`, `249-254`, `324-364` |
 | On a vendor bill, a storable real-time product's line takes the product's **stock input** account, mapped through the bill's fiscal position | `odoo/addons/stock_account/models/account_move.py:266-277`; `odoo/addons/account/models/product.py:90-94` |
 | A fiscal position maps account to account by its `account_ids` (`account_src_id` → `account_dest_id`) | `odoo/addons/account/models/partner.py:106-108`, `158-159`, `322-336` |
 | A bill line without a purchase-order line makes no valuation layer and reconciles nothing: price differences are read from the PO line's done moves, and the anglo-saxon reconciliation stops when the bill has no stock moves | `odoo/addons/purchase_stock/models/account_move_line.py:12-16`, `32-47`; `stock_account/models/account_move.py:185-203`; `purchase_stock/models/account_invoice.py:160-168` |
@@ -204,9 +205,12 @@ bills are attached first**, PRP/2026/10/0001 above all, with *Attach e-invoice*.
 For each product line of each order, in the product's UoM:
 
 1. If the product is a material, it counts itself.
-2. Otherwise `_bom_find` gives its first BoM for company 1, any type; `explode` gives the BoM's leaf
-   lines, and each component that is not a material and has a BoM of its own (a cut panel) is exploded
-   again, to a depth limit. This is the recursion of `ownership_balance.py`.
+2. Otherwise `_bom_find` gives its first BoM for company 1, any type. The module reads its lines itself:
+   it skips variant-specific lines that do not apply (`_skip_bom_line`), takes the matching variant for a
+   line naming a component template (OCA `mrp_bom_attribute_match`), and explodes again each component
+   that is not a material and has a BoM of its own (a cut panel, a kit), to a depth limit.
+   `mrp.bom.explode` is not used: with `mrp_bom_attribute_match` it writes the chosen variant into the
+   template line (§2.2), which would change the BoMs.
 3. A non-material product without a BoM is not exploded. It gets a need line marked **not exploded**,
    which counts for nothing and is listed in the batch's warning until it is fixed (a BoM added and the
    batch refreshed, or the category marked as material for goods bought for resale).
@@ -216,8 +220,7 @@ A BoM changed afterwards does not change the batch. *Refresh* re-explodes the or
 
 Notes:
 
-- `explode` rounds each leaf up to 0.01 of its UoM (§2.2). Over a batch this adds at most 0.01 per
-  material per order line.
+- Quantities are not rounded.
 - A product with both a `normal` and a `subcontract` BoM is exploded through the first by sequence.
   The norms should agree; the BoM used is shown on the need line.
 
