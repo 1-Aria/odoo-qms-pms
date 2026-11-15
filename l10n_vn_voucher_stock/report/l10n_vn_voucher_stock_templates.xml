@@ -114,4 +114,83 @@
             </t>
         </t>
     </template>
+    <template id="report_stock_handover">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="l10n_vn_voucher_stock.report_stock_handover_document" t-lang="'vi_VN'"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_stock_handover_document">
+        <t t-set="o" t-value="o.with_context(lang='vi_VN')"/>
+        <t t-set="v" t-value="o._l10n_vn_handover_data()"/>
+        <t t-set="qty_options" t-value="{'widget': 'float', 'decimal_precision': 'Product Unit of Measure'}"/>
+        <t t-call="l10n_vn_voucher.voucher_article">
+            <t t-call="l10n_vn_voucher.voucher_page">
+                <t t-call="l10n_vn_voucher.voucher_header">
+                    <t t-set="company" t-value="v['company']"/>
+                    <t t-set="department" t-value="None"/>
+                    <t t-set="form_code" t-value="False"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_title">
+                    <t t-set="title" t-value="v['title']"/>
+                    <t t-set="voucher_date" t-value="v['date']"/>
+                    <t t-set="number" t-value="v['number']"/>
+                    <t t-set="show_accounts" t-value="False"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Căn cứ'"/>
+                    <t t-set="value" t-value="v['basis']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_party">
+                    <t t-set="party_title" t-value="'Bên giao'"/>
+                    <t t-set="partner" t-value="v['giver']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="pairs" t-value="[('Đại diện', ''), ('Chức vụ', '')]"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_party">
+                    <t t-set="party_title" t-value="'Bên nhận'"/>
+                    <t t-set="partner" t-value="v['receiver']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="pairs" t-value="[('Đại diện', ''), ('Chức vụ', '')]"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Địa điểm giao nhận'"/>
+                    <t t-set="value" t-value="v['place']"/>
+                </t>
+
+                <table class="l10n_vn_voucher_lines">
+                    <thead>
+                        <tr>
+                            <th style="width: 6%;">STT</th>
+                            <th>Tên hàng hóa</th>
+                            <th style="width: 13%;">Mã số</th>
+                            <th style="width: 8%;">ĐVT</th>
+                            <th style="width: 12%;">Số lượng</th>
+                            <th style="width: 24%;">Ghi chú (tình trạng hàng hóa)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="v['lines']" t-as="line">
+                            <td class="o_center" t-out="line_index + 1"/>
+                            <td t-out="line['name']"/>
+                            <td t-out="line['code']"/>
+                            <td class="o_center" t-out="line['uom']"/>
+                            <td class="o_number"><t t-out="line['qty']" t-options="qty_options"/></td>
+                            <td/>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>Biên bản được lập thành 02 bản, mỗi bên giữ 01 bản, có giá trị như nhau.</p>
+                <t t-call="l10n_vn_voucher.voucher_signatures">
+                    <t t-set="sign_date" t-value="v['date']"/>
+                    <t t-set="signers" t-value="v['signers']"/>
+                </t>
+            </t>
+        </t>
+    </template>
 </odoo>

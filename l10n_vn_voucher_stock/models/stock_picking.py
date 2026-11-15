@@ -41,6 +41,25 @@ class StockPicking(models.Model):
         "type's, or for a return the transfer it returns.",
     )
 
+    def _l10n_vn_sale_order(self):
+        """The sales order behind the transfer's procurement group, as superuser
+        (storekeepers need not read sales orders); False without sale_stock,
+        which adds the link."""
+        self.ensure_one()
+        group = self.group_id
+        if "sale_id" not in group._fields:
+            return False
+        return group.sudo().sale_id
+
+    def _l10n_vn_partner(self):
+        """The transfer's partner, else its sales order's customer: a receipt
+        created by a manufacturing order carries no partner."""
+        self.ensure_one()
+        if self.partner_id:
+            return self.partner_id
+        sale = self._l10n_vn_sale_order()
+        return self.env["res.partner"].browse(sale.partner_id.id if sale else [])
+
     def _l10n_vn_voucher_reason_text(self):
         self.ensure_one()
         if self.l10n_vn_voucher_reason:
@@ -119,7 +138,7 @@ class StockPicking(models.Model):
         lines = picking._l10n_vn_voucher_lines()
         amounts = [line["amount"] for line in lines if line["amount"] is not None]
         debit_accounts, credit_accounts = picking._l10n_vn_voucher_accounts()
-        partner = picking.partner_id
+        partner = picking._l10n_vn_partner()
         warehouse = picking.picking_type_id.warehouse_id
         location = (
             picking.location_dest_id if kind == "in" else picking.location_id
@@ -164,4 +183,45 @@ class StockPicking(models.Model):
             "currency": picking.company_id.currency_id,
             "copies": picking.picking_type_id.l10n_vn_voucher_copies,
             "signers": signers,
+        }
+
+    def _l10n_vn_handover_data(self):
+        """Everything the Biên bản giao nhận hàng hóa prints."""
+        self.ensure_one()
+        picking = self.with_context(lang="vi_VN")
+        helpers = self.env["l10n_vn.voucher"]
+        partner = picking._l10n_vn_partner()
+        company_partner = picking.company_id.partner_id
+        incoming = picking.picking_type_id.code == "incoming"
+        sale = picking._l10n_vn_sale_order()
+        done = picking.state == "done"
+        if incoming:
+            giver, receiver = partner, company_partner
+            place = helpers._address(picking.picking_type_id.warehouse_id.partner_id)
+        else:
+            giver, receiver = company_partner, partner
+            place = helpers._address(partner)
+        lines = [
+            {
+                "name": line["name"],
+                "code": line["code"],
+                "uom": line["uom"],
+                "qty": line["done"] if done else line["demand"],
+            }
+            for line in picking._l10n_vn_voucher_lines()
+        ]
+        return {
+            "title": "BIÊN BẢN GIAO NHẬN HÀNG HÓA",
+            "company": picking.company_id,
+            "number": picking.name,
+            "date": helpers._local_date(picking, picking.date_done) if done else False,
+            "basis": sale.name if sale else (picking.origin or ""),
+            "giver": giver,
+            "receiver": receiver,
+            "place": place,
+            "lines": lines,
+            "signers": [
+                {"role": "Đại diện bên giao", "hint": "(Ký, ghi rõ họ tên)", "name": ""},
+                {"role": "Đại diện bên nhận", "hint": "(Ký, ghi rõ họ tên)", "name": ""},
+            ],
         }

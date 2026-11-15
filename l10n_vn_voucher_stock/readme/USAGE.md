@@ -11,3 +11,7 @@ that voucher. Before validation the voucher has no date, no actual quantities an
 the storekeeper to fill in by hand; after validation it is the voucher of record. Anything Odoo
 does not know prints as a dotted line. Signed copies are scanned and attached to the transfer's
 chatter.
+
+**Handover record.** Tick *Handover Record* on the operation type's *Vietnamese Voucher* tab, then
+*Print → Biên bản giao nhận hàng hóa* on its transfers. It is printed in two originals, one for each
+party.

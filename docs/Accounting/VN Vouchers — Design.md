@@ -10,6 +10,7 @@ Three modules outside the QMS-PMS, IE-MES and payroll suites:
 | `l10n_vn_voucher` | `account` | The shared layout; *Phiếu thu* and *Phiếu chi* from cash journal entries |
 | `l10n_vn_voucher_stock` | `l10n_vn_voucher`, `stock_account` | *Phiếu nhập kho* and *Phiếu xuất kho* from transfers; the *Biên bản giao nhận hàng hóa* |
 | `l10n_vn_purchase_report` | `l10n_vn_voucher`, `purchase_requisition`, `purchase_product_matrix`, `mrp_subcontracting` | The purchase order (and subcontracting order), its compact version, the blanket order |
+| `l10n_vn_sale_report` | `l10n_vn_voucher`, `sale_product_matrix` | The sales order and its compact version |
 
 The forms are the company's own (D1), modelled on 01-VT, 02-VT, 01-TT and 02-TT, which the company
 has used until now as store-bought pads printed to Circular 200's layout. They will be refined after
@@ -37,7 +38,7 @@ use. Changing a form means editing its template and upgrading the module.
 | Blanket order, processing contract | In | V3 |
 | *Biên bản giao nhận hàng hóa* | In | Goods sent to subcontractors (§5.5) |
 | *Purchase Template* agreements | Out | Internal, never sent for signature (§2) |
-| Sales order form | Out | Not required by law, not asked for (§3) |
+| Sales order and compact sales order | In | Sales orders are mostly variants (§2, §6.4; Peter, 2026-11-15) |
 | Bank vouchers | Out | The bank's own documents (*ủy nhiệm chi*, *giấy báo Nợ/Có*) are the vouchers |
 | Foreign-currency cash (*tỷ giá*, *số tiền quy đổi*) | Out | All cash is VND |
 | Digital signatures | Out | Paper and hand signatures in v1 (D2, §9) |
@@ -64,6 +65,7 @@ Checked against the running code and database on 2026-11-12 and 13.
 | A journal's `payment_sequence` separates payments from other entries but not money in from money out (`account/models/account_move.py:3721-3729`) | **Separate PT and PC numbers are a field of our own** (§4.4, D4) |
 | `purchase.requisition.requisition_type` is *Blanket Order* or *Purchase Template* (`purchase_requisition/models/purchase_requisition.py:21-22`). Core prints both with one report (`purchase_requisition/report/purchase_requisition_report.xml`). No agreements exist yet | The blanket order form shows only on blanket orders (§6.3) |
 | `purchase_product_matrix` is installed. *Print Variant Grids* (`report_grids`, on by default) adds a size × colour grid per style **after** the order's details, and the full line list still prints (`purchase_product_matrix/models/purchase.py:142-160`, `report/purchase_order_templates.xml`). 204 product templates have several variants | The compact order replaces the lines of a style with one row and keeps core's grid under it (§6.2) |
+| Sales orders on this database (garment company): 65 confirmed, 4 draft, 2 cancelled; **669 of 675 lines are variants**, up to 78 lines on one order. *Print Variant Grids* is on for all of them, and `sale_product_matrix` adds the grid above the full lines table, which still prints (`sale_product_matrix/report/sale_report_templates.xml`). Customers are Vietnamese or have no country. A multi-variant product's template has no internal reference (`PANT00634` … are the variants') | The compact sales order groups variants like the compact purchase order (§6.4), with the style's *Mã số* left blank |
 | Purchase orders on this database: 58 done, 2 draft, 3 cancelled. The confirmation date is `date_approve`, the vendor's reference `partner_ref` | Request for quotation and purchase order share one form with two titles (§6.1) |
 
 ## 3. The law
@@ -197,6 +199,12 @@ Nothing is set at install (D6). For WH Chi Lăng the expected setting is: *in* f
 Finished Product; *out* for Delivery Orders, Pick Components, Consumption and Resupply Subcontractor
 (Peter, 2026-11-13).
 
+Material customers send for processing arrives on *Resupply From Customer* (Customers → WH/Stock, created by the
+manufacturing order of a sales order whose components carry the route *Resupply From Customer on Order*): *in*, with a
+*Biên bản giao nhận* where the customer is *Bên giao*. Those receipts carry no partner; the forms take the sales order's
+customer (`l10n_vn_voucher_stock` D9). Setting the receipt's *Owner* to the customer keeps the material out of the
+company's stock valuation (`stock_account/models/stock_move_line.py:121-128`), so its voucher prints quantities only.
+
 Material sent to a subcontractor travels with this *Phiếu xuất kho*, the processing contract or the
 subcontracting order (§6.1), and a *Biên bản giao nhận hàng hóa* (§5.5). It is not one of the cases the
 law requires a *phiếu xuất kho kiêm vận chuyển nội bộ* for (Peter, 2026-11-13).
@@ -267,7 +275,7 @@ an accounting voucher: no prices, no accounts, no *liên*.
 One report action on `stock.picking`, *Biên bản giao nhận hàng hóa*, with domain
 `[('picking_type_id.l10n_vn_handover_report', '=', True), ('state', '!=', 'cancel')]`.
 
-## 6. Purchase forms (`l10n_vn_purchase_report`)
+## 6. Purchase and sales forms (`l10n_vn_purchase_report`, `l10n_vn_sale_report`)
 
 Printed in Vietnamese beside core's English prints, which stay. Amounts in words only for VND orders.
 
@@ -291,11 +299,14 @@ titled *ĐƠN ĐẶT HÀNG GIA CÔNG* (D18).
 
 ### 6.2 Compact purchase order
 
-A second report action, *Đơn đặt hàng gọn (VN)*: the same form, but the lines of each product with several
-variants are grouped into **one row per style, unit, price and taxes**: the style's name and code,
-the total quantity, the price and the summed amount. Core's quantity grid for that style
-(`product_matrix.matrix`, from `get_report_matrixes`) prints beneath the lines table. Products without
-variants print as single rows, as on the full form.
+A second report action, *Đơn đặt hàng gọn (VN)*: the same form, but the lines of each configurable product
+that appears on more than one line, the products core's grid shows (`purchase_product_matrix/models/purchase.py:142-160`),
+are grouped into **one row per style, unit, price, discount and taxes**: the style's name (its *Mã số* blank,
+§2), the total quantity, the price and the summed amount. Core's quantity grids (`product_matrix.matrix`,
+from `get_report_matrixes`) print beneath the lines table; for sales, a grid of every grouped style, since core
+leaves out styles not entered by grid (`l10n_vn_sale_report`, divergence 1). Other products print as single rows, as on the
+full form; section and note lines are left out. The grouping is one helper in `l10n_vn_voucher`, shared with
+the compact sales order (§6.4).
 
 ### 6.3 Blanket order
 
@@ -327,6 +338,22 @@ One report action on `purchase.requisition`, *Hợp đồng nguyên tắc (VN)*,
 | Signatures | **ĐẠI DIỆN BÊN MUA** and **ĐẠI DIỆN BÊN BÁN**, each *(Ký, ghi rõ họ tên, đóng dấu)* |
 | Appendix | Processing contracts only: *Định mức nguyên phụ liệu*, one table per subcontracted product (*STT*, component, *Mã số*, *ĐVT*, quantity per unit of the product) |
 
+### 6.4 Sales order (`l10n_vn_sale_report`)
+
+The purchase order's layout with the parties the other way round, in two report actions: *Đơn bán hàng (VN)*
+and its compact version *Đơn bán hàng gọn (VN)*, grouped as §6.2. Titled *BÁO GIÁ* before confirmation and
+*XÁC NHẬN ĐƠN HÀNG* after (state *sale*) (D20).
+
+| Part | Content |
+|---|---|
+| Header | Our company; *Số* (order reference); *Ngày* (`date_order`) |
+| Parties | *Bên bán*: our company; *Bên mua*: the customer (name, address, tax code, contact); *Số tham chiếu của khách hàng* (`client_order_ref`) |
+| Terms | Quotation validity (`validity_date`, before confirmation), delivery date (`commitment_date`), delivery address (`partner_shipping_id`), payment terms |
+| Lines | As the purchase order: the order's reportable lines (`_get_order_lines_to_report`, which handles down payments) |
+| Totals | *Cộng tiền hàng*, *Thuế GTGT*, *Tổng cộng*, amount in words |
+| Notes | The order's terms (`note`) |
+| Signatures | **Bên bán:** Người lập phiếu, Phụ trách kinh doanh, Giám đốc. **Xác nhận của khách hàng** *(Ký, ghi rõ họ tên, đóng dấu)* (Peter, 2026-11-15) |
+
 ## 7. Links to other modules
 
 - **Payroll.** `l10n_vn_payroll_account` should post cash wages and advances in a cash journal against the
@@ -348,7 +375,10 @@ One report action on `purchase.requisition`, *Hợp đồng nguyên tắc (VN)*,
 ## 9. Later
 
 - **Values on production vouchers,** read from the manufacturing order once it is done
-  (`stock.picking.production_ids`, `mrp/models/stock_picking.py:139`).
+  (`stock.picking.production_ids`, `mrp/models/stock_picking.py:139`). The same holds for **receipts of
+  subcontracted products**: their receipt moves carry no layer, the value being posted on the
+  subcontracting order (WH/IN/00069, *Võng Mùng*, 0 layers), so their *Phiếu nhập kho* prints
+  quantities only (seen in the step 1 UI check, 2026-11-15).
 - **Digital signatures.** Vietnamese law accepts electronic vouchers signed with digital signatures (USB
   token or remote signing such as VNPT SmartCA or Viettel MySign). It needs a signing service for each
   signer and a PDF-signing module, which OCA does not offer for 18.0. A project of its own.
@@ -379,17 +409,22 @@ One report action on `purchase.requisition`, *Hợp đồng nguyên tắc (VN)*,
 | D17 | **A *Biên bản giao nhận hàng hóa* prints from transfers of the types that ask for it** (§5.5) |
 | D18 | **A purchase order for subcontracted products is titled *Đơn đặt hàng gia công*** (§6.1) |
 | D19 | **A blanket order for subcontracted products is the processing contract,** titled *Hợp đồng gia công*, with the material norms from the subcontracting bill of materials as its appendix (§6.3; Peter, 2026-11-13) |
+| D20 | **Sales order and compact sales order forms,** titled *Báo giá* / *Xác nhận đơn hàng*, signed by Người lập phiếu, Phụ trách kinh doanh, Giám đốc and the customer (§6.4; Peter, 2026-11-15) |
+| D21 | **Build order: the order forms first, cash vouchers last** (§11; Peter, 2026-11-15) |
 
 ## 11. Steps (provisional)
 
-| # | Module | Scope |
-|---|---|---|
-| 1 | `l10n_vn_voucher` | Paper format, layout blocks, amount in words (§4.1–4.3, §4.5). Installed together with step 2, which is the first form that uses them |
-| 2 | `l10n_vn_voucher_stock` | Operation-type settings, the transfer's reason; *Phiếu nhập kho* and *Phiếu xuất kho* (§5.1–5.4) |
-| 2b | `l10n_vn_voucher_stock` | *Biên bản giao nhận hàng hóa* (§5.5) |
-| 3 | `l10n_vn_voucher` | Cash-entry fields, series, *Phiếu thu* and *Phiếu chi* (§4.4) |
-| 4 | `l10n_vn_purchase_report` | Purchase order and compact purchase order (§6.1, §6.2) |
-| 5 | `l10n_vn_purchase_report` | Blanket order and processing contract (§6.3) |
+In build order (D21).
+
+| # | Module (its step) | Scope | Status |
+|---|---|---|---|
+| 1 | `l10n_vn_voucher` (1) | Paper format, layout blocks, amount in words (§4.1–4.3, §4.5) | done |
+| 2 | `l10n_vn_voucher_stock` (1) | Operation-type settings, the transfer's reason; *Phiếu nhập kho* and *Phiếu xuất kho* (§5.1–5.4) | done |
+| 3 | `l10n_vn_voucher` (2), `l10n_vn_purchase_report` (1) | The order forms' shared blocks (parties, order lines, totals, the compact grouping); purchase order and compact purchase order (§6.1, §6.2) | done |
+| 4 | `l10n_vn_sale_report` (1) | Sales order and compact sales order (§6.4) | done |
+| 5 | `l10n_vn_purchase_report` (2) | Blanket order and processing contract (§6.3) | done |
+| 6 | `l10n_vn_voucher_stock` (2) | *Biên bản giao nhận hàng hóa* (§5.5) | done |
+| 7 | `l10n_vn_voucher` (3) | Cash-entry fields, series, *Phiếu thu* and *Phiếu chi* (§4.4); before payroll's first cash payday, 10 December | |
 
 Tests render each report to HTML (`ir.actions.report._render_qweb_html`) in a `TransactionCase` and check
 its content: the number, accounts, amounts, words and copy labels. Tests that create products, partners or

@@ -16,6 +16,10 @@ class StockPickingType(models.Model):
         translate=True,
         help="Lý do nhập / xuất kho printed on the voucher, unless the transfer has its own.",
     )
+    l10n_vn_handover_report = fields.Boolean(
+        string="Handover Record",
+        help="This type's transfers also print the Biên bản giao nhận hàng hóa.",
+    )
     l10n_vn_voucher_copies = fields.Text(
         string="Voucher Copies",
         help="One line per copy, with the label it prints, such as: Liên 1: Kế toán lưu. "

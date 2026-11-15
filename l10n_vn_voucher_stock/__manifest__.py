@@ -4,7 +4,7 @@
     "name": "Vietnam - Stock Vouchers",
     "summary": "Phiếu nhập kho and phiếu xuất kho printed from transfers, with values and "
     "accounts as posted",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "author": "1-Aria",
     "website": "https://github.com/1-Aria/odoo-qms-pms",
     "license": "AGPL-3",

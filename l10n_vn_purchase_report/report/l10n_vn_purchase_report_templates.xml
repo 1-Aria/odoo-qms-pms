@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_purchase_order_vn">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="l10n_vn_purchase_report.report_purchase_order_vn_document" t-lang="'vi_VN'">
+                    <t t-set="compact" t-value="False"/>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_purchase_order_vn_compact">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="l10n_vn_purchase_report.report_purchase_order_vn_document" t-lang="'vi_VN'">
+                    <t t-set="compact" t-value="True"/>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_purchase_order_vn_document">
+        <t t-set="o" t-value="o.with_context(lang='vi_VN')"/>
+        <t t-set="v" t-value="o._l10n_vn_order_data(compact)"/>
+        <t t-call="l10n_vn_voucher.voucher_article">
+            <t t-call="l10n_vn_voucher.voucher_page">
+                <t t-call="l10n_vn_voucher.voucher_header">
+                    <t t-set="company" t-value="v['company']"/>
+                    <t t-set="department" t-value="None"/>
+                    <t t-set="form_code" t-value="False"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_title">
+                    <t t-set="title" t-value="v['title']"/>
+                    <t t-set="voucher_date" t-value="v['date']"/>
+                    <t t-set="number" t-value="v['number']"/>
+                    <t t-set="show_accounts" t-value="False"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_party">
+                    <t t-set="party_title" t-value="'Bên mua'"/>
+                    <t t-set="partner" t-value="v['buyer']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_party">
+                    <t t-set="party_title" t-value="'Bên bán'"/>
+                    <t t-set="partner" t-value="v['seller']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Số tham chiếu của nhà cung cấp'"/>
+                    <t t-set="value" t-value="v['vendor_ref']"/>
+                </t>
+                <t t-if="v['agreement']" t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Theo hợp đồng nguyên tắc số'"/>
+                    <t t-set="value" t-value="v['agreement']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Ngày giao hàng dự kiến'"/>
+                    <t t-set="value" t-value="v['delivery_date']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Địa chỉ giao hàng'"/>
+                    <t t-set="value" t-value="v['delivery_address']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Điều khoản thanh toán'"/>
+                    <t t-set="value" t-value="v['payment_term']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_order_lines">
+                    <t t-set="rows" t-value="v['rows']"/>
+                    <t t-set="currency" t-value="v['currency']"/>
+                    <t t-set="show_discount" t-value="v['show_discount']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_variant_grids">
+                    <t t-set="grids" t-value="v['grids']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_totals">
+                    <t t-set="currency" t-value="v['currency']"/>
+                    <t t-set="untaxed" t-value="v['untaxed']"/>
+                    <t t-set="tax" t-value="v['tax']"/>
+                    <t t-set="total" t-value="v['total']"/>
+                </t>
+                <div t-if="v['notes']" class="l10n_vn_voucher_notes">
+                    <strong>Ghi chú:</strong>
+                    <div t-out="v['notes']"/>
+                </div>
+                <t t-call="l10n_vn_voucher.voucher_signatures">
+                    <t t-set="sign_date" t-value="None"/>
+                    <t t-set="signers" t-value="v['signers']"/>
+                </t>
+            </t>
+        </t>
+    </template>
+    <template id="report_purchase_agreement_vn">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="l10n_vn_purchase_report.report_purchase_agreement_vn_document" t-lang="'vi_VN'"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_purchase_agreement_vn_document">
+        <t t-set="o" t-value="o.with_context(lang='vi_VN')"/>
+        <t t-set="v" t-value="o._l10n_vn_agreement_data()"/>
+        <t t-set="qty_options" t-value="{'widget': 'float', 'decimal_precision': 'Product Unit of Measure'}"/>
+        <t t-set="price_options" t-value="{'widget': 'float', 'decimal_precision': 'Product Price'}"/>
+        <t t-call="l10n_vn_voucher.voucher_article">
+            <t t-call="l10n_vn_voucher.voucher_page">
+                <t t-call="l10n_vn_voucher.voucher_header">
+                    <t t-set="company" t-value="v['company']"/>
+                    <t t-set="department" t-value="None"/>
+                    <t t-set="form_code" t-value="False"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_title">
+                    <t t-set="title" t-value="v['title']"/>
+                    <t t-set="voucher_date" t-value="v['date']"/>
+                    <t t-set="number" t-value="v['number']"/>
+                    <t t-set="show_accounts" t-value="False"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_party">
+                    <t t-set="party_title" t-value="v['buyer_title']"/>
+                    <t t-set="partner" t-value="v['buyer']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_party">
+                    <t t-set="party_title" t-value="v['seller_title']"/>
+                    <t t-set="partner" t-value="v['seller']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Số tham chiếu'"/>
+                    <t t-set="value" t-value="v['vendor_ref']"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="pairs" t-value="[('Hiệu lực từ ngày', v['date_start']), ('đến ngày', v['date_end'])]"/>
+                </t>
+                <t t-call="l10n_vn_voucher.voucher_field">
+                    <t t-set="label" t-value="'Loại tiền'"/>
+                    <t t-set="value" t-value="v['currency'].name"/>
+                </t>
+
+                <table class="l10n_vn_voucher_lines">
+                    <thead>
+                        <tr>
+                            <th style="width: 6%;">STT</th>
+                            <th>Tên hàng hóa, dịch vụ</th>
+                            <th style="width: 13%;">Mã số</th>
+                            <th style="width: 8%;">ĐVT</th>
+                            <th style="width: 12%;">Số lượng</th>
+                            <th style="width: 14%;">Đơn giá</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="v['rows']" t-as="row">
+                            <td class="o_center" t-out="row_index + 1"/>
+                            <td t-out="row['name']"/>
+                            <td t-out="row['code']"/>
+                            <td class="o_center" t-out="row['uom']"/>
+                            <td class="o_number">
+                                <t t-if="row['qty']" t-out="row['qty']" t-options="qty_options"/>
+                            </td>
+                            <td class="o_number">
+                                <t t-out="row['price']" t-options="price_options"/>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div t-if="v['terms']" class="l10n_vn_voucher_notes">
+                    <strong>Điều khoản:</strong>
+                    <div t-out="v['terms']"/>
+                </div>
+                <t t-call="l10n_vn_voucher.voucher_signatures">
+                    <t t-set="sign_date" t-value="None"/>
+                    <t t-set="signers" t-value="v['signers']"/>
+                </t>
+
+                <div t-if="v['norms']" class="l10n_vn_voucher_appendix" style="page-break-before: always;">
+                    <h3 class="text-center">PHỤ LỤC: ĐỊNH MỨC NGUYÊN PHỤ LIỆU</h3>
+                    <t t-foreach="v['norms']" t-as="group">
+                        <p><strong t-out="', '.join(group['products'])"/></p>
+                        <table class="l10n_vn_voucher_lines">
+                            <thead>
+                                <tr>
+                                    <th style="width: 6%;">STT</th>
+                                    <th>Tên nguyên phụ liệu</th>
+                                    <th style="width: 15%;">Mã số</th>
+                                    <th style="width: 10%;">ĐVT</th>
+                                    <th style="width: 18%;">Định mức / 1 sản phẩm</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="group['rows']" t-as="norm">
+                                    <td class="o_center" t-out="norm_index + 1"/>
+                                    <td t-out="norm['name']"/>
+                                    <td t-out="norm['code']"/>
+                                    <td class="o_center" t-out="norm['uom']"/>
+                                    <td class="o_number" t-out="env['l10n_vn.voucher']._qty_text(norm['qty'])"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </t>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

@@ -14,6 +14,7 @@
                                    invisible="not l10n_vn_voucher_kind"/>
                         </group>
                         <group>
+                            <field name="l10n_vn_handover_report"/>
                             <field name="l10n_vn_voucher_copies"
                                    invisible="not l10n_vn_voucher_kind"
                                    placeholder="Liên 1: Kế toán lưu"/>

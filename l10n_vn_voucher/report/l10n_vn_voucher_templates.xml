@@ -27,13 +27,13 @@
                 <td class="o_left">
                     <div>Đơn vị: <strong t-out="company.name"/></div>
                     <div>Địa chỉ: <span t-out="env['l10n_vn.voucher']._address(company.partner_id)"/></div>
-                    <div>Bộ phận:
+                    <div t-if="department is not None">Bộ phận:
                         <span t-if="department" t-out="department"/>
                         <span t-else="" class="o_dots"/>
                     </div>
                 </td>
                 <td class="o_right">
-                    <strong>Mẫu số <t t-out="form_code"/></strong>
+                    <strong t-if="form_code">Mẫu số <t t-out="form_code"/></strong>
                 </td>
             </tr>
         </table>
@@ -86,6 +86,125 @@
             <t t-set="label" t-value="label or 'Tổng số tiền (viết bằng chữ)'"/>
             <t t-set="value"
                t-value="currency.l10n_vn_amount_to_words(amount) if currency and amount is not False and amount is not None else ''"/>
+        </t>
+    </template>
+
+    <!-- A party of an order form: `party_title` (Bên mua, Bên bán) and `partner`,
+         printed with its commercial partner; the contact person when they differ. -->
+    <template id="voucher_party">
+        <t t-set="party_company" t-value="partner.commercial_partner_id"/>
+        <div class="l10n_vn_voucher_party">
+            <div><t t-out="party_title"/>: <strong t-out="party_company.name"/></div>
+            <t t-call="l10n_vn_voucher.voucher_field">
+                <t t-set="pairs" t-value="False"/>
+                <t t-set="label" t-value="'Địa chỉ'"/>
+                <t t-set="value" t-value="env['l10n_vn.voucher']._address(party_company)"/>
+            </t>
+            <t t-call="l10n_vn_voucher.voucher_field">
+                <t t-set="pairs"
+                   t-value="[('Mã số thuế', party_company.vat or ''), ('Điện thoại', partner.phone or partner.mobile or party_company.phone or '')]"/>
+            </t>
+            <t t-if="partner != party_company" t-call="l10n_vn_voucher.voucher_field">
+                <t t-set="pairs" t-value="False"/>
+                <t t-set="label" t-value="'Người liên hệ'"/>
+                <t t-set="value" t-value="partner.name"/>
+            </t>
+        </div>
+    </template>
+
+    <!-- The lines of an order form. `rows`: dicts with display_type, name, code,
+         uom, qty, price, discount, taxes and amount. -->
+    <template id="voucher_order_lines">
+        <t t-set="col_count" t-value="9 if show_discount else 8"/>
+        <t t-set="qty_options" t-value="{'widget': 'float', 'decimal_precision': 'Product Unit of Measure'}"/>
+        <t t-set="price_options" t-value="{'widget': 'float', 'decimal_precision': 'Product Price'}"/>
+        <t t-set="discount_options" t-value="{'widget': 'float', 'precision': 2}"/>
+        <t t-set="amount_options" t-value="{'widget': 'float', 'precision': currency.decimal_places}"/>
+        <table class="l10n_vn_voucher_lines">
+            <thead>
+                <tr>
+                    <th style="width: 6%;">STT</th>
+                    <th>Tên hàng hóa, dịch vụ</th>
+                    <th style="width: 11%;">Mã số</th>
+                    <th style="width: 7%;">ĐVT</th>
+                    <th style="width: 9%;">Số lượng</th>
+                    <th style="width: 11%;">Đơn giá</th>
+                    <th t-if="show_discount" style="width: 7%;">CK (%)</th>
+                    <th style="width: 8%;">Thuế</th>
+                    <th style="width: 13%;">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                <t t-foreach="env['l10n_vn.voucher']._numbered_rows(rows)" t-as="row">
+                    <tr t-if="row.get('display_type') == 'line_section'" class="o_section">
+                        <td t-att-colspan="col_count" t-out="row['name']"/>
+                    </tr>
+                    <tr t-elif="row.get('display_type') == 'line_note'" class="o_note">
+                        <td t-att-colspan="col_count" t-out="row['name']"/>
+                    </tr>
+                    <tr t-else="">
+                        <td class="o_center" t-out="row['number']"/>
+                        <td t-out="row['name']"/>
+                        <td t-out="row['code']"/>
+                        <td class="o_center" t-out="row['uom']"/>
+                        <td class="o_number"><t t-out="row['qty']" t-options="qty_options"/></td>
+                        <td class="o_number"><t t-out="row['price']" t-options="price_options"/></td>
+                        <td t-if="show_discount" class="o_number">
+                            <t t-out="row['discount']" t-options="discount_options"/>
+                        </td>
+                        <td class="o_center" t-out="row['taxes']"/>
+                        <td class="o_number"><t t-out="row['amount']" t-options="amount_options"/></td>
+                    </tr>
+                </t>
+            </tbody>
+        </table>
+    </template>
+
+    <!-- Variant grids under a compact order form. `grids`: matrices as core's
+         product_matrix builds them (header cells with a name; rows whose first
+         cell has a name and the others a qty). -->
+    <template id="voucher_variant_grids">
+        <t t-foreach="grids or []" t-as="grid">
+            <table class="o_product_variant_grid l10n_vn_voucher_grid">
+                <thead>
+                    <tr>
+                        <th t-foreach="grid['header']" t-as="column" t-out="column.get('name', '')"/>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="grid['matrix']" t-as="grid_row">
+                        <t t-foreach="grid_row" t-as="cell">
+                            <td t-if="cell.get('name')"><strong t-out="cell['name']"/></td>
+                            <td t-else="" class="o_number"
+                                t-out="env['l10n_vn.voucher']._qty_text(cell.get('qty', 0))"/>
+                        </t>
+                    </tr>
+                </tbody>
+            </table>
+        </t>
+    </template>
+
+    <!-- The totals of an order form, and the amount in words for VND. -->
+    <template id="voucher_totals">
+        <t t-set="totals_options" t-value="{'widget': 'float', 'precision': currency.decimal_places}"/>
+        <table class="l10n_vn_voucher_totals">
+            <tr>
+                <td>Cộng tiền hàng:</td>
+                <td class="o_number"><t t-out="untaxed" t-options="totals_options"/></td>
+            </tr>
+            <tr>
+                <td>Thuế GTGT:</td>
+                <td class="o_number"><t t-out="tax" t-options="totals_options"/></td>
+            </tr>
+            <tr class="o_total">
+                <td>Tổng cộng:</td>
+                <td class="o_number"><t t-out="total" t-options="totals_options"/></td>
+            </tr>
+        </table>
+        <div t-if="currency.name != 'VND'">Loại tiền: <t t-out="currency.name"/></div>
+        <t t-if="currency.name == 'VND'" t-call="l10n_vn_voucher.voucher_amount_words">
+            <t t-set="label" t-value="'Số tiền viết bằng chữ'"/>
+            <t t-set="amount" t-value="total"/>
         </t>
     </template>
 

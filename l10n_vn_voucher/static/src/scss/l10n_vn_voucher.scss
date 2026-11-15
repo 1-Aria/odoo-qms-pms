@@ -99,6 +99,59 @@
         }
     }
 
+    .l10n_vn_voucher_party {
+        margin-bottom: 2mm;
+    }
+
+    .l10n_vn_voucher_lines {
+        tr.o_section td {
+            font-weight: bold;
+        }
+
+        tr.o_note td {
+            font-style: italic;
+        }
+    }
+
+    .l10n_vn_voucher_totals {
+        width: 50%;
+        margin-left: auto;
+
+        td {
+            padding: 0.5mm 1.5mm;
+        }
+
+        td.o_number {
+            text-align: right;
+        }
+
+        tr.o_total {
+            font-weight: bold;
+        }
+    }
+
+    // Variant grids under a compact order form.
+    .l10n_vn_voucher_grid {
+        font-size: 9pt;
+        margin-top: 2mm;
+        width: auto;
+        min-width: 50%;
+
+        th,
+        td {
+            border: 1px solid #000;
+            padding: 0.5mm 1.5mm;
+        }
+
+        th {
+            text-align: center;
+        }
+
+        td.o_number {
+            text-align: right;
+        }
+    }
+
     .l10n_vn_voucher_signatures {
         margin-top: 6mm;
         page-break-inside: avoid;

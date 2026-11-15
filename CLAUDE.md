@@ -231,13 +231,17 @@ Outside the QMS-PMS and IE-MES suites.
 ## The VN voucher modules
 
 Printed Vietnamese vouchers and purchase forms, signed by hand. Design:
-`docs/Accounting/VN Vouchers — Design.md`. Not built yet.
+`docs/Accounting/VN Vouchers — Design.md`. Done: `l10n_vn_voucher` steps 1–2 (shared layout and order-form
+blocks, 10 tests), `l10n_vn_voucher_stock` steps 1–2 (stock vouchers and *Biên bản giao nhận*, 16 tests),
+`l10n_vn_purchase_report` steps 1–2 (17 tests), `l10n_vn_sale_report` step 1 (7 tests). Next (design §11): cash
+vouchers (`l10n_vn_voucher` step 3).
 
 | Module | Role |
 |---|---|
 | `l10n_vn_voucher` | Shared A4 layout (header, Số/Nợ/Có box, signatures, copies, amount in words); *Phiếu thu* and *Phiếu chi* from cash journal entries, with their own PT/PC series |
 | `l10n_vn_voucher_stock` | *Phiếu nhập kho* and *Phiếu xuất kho* from transfers, configured per operation type; *Biên bản giao nhận hàng hóa* |
 | `l10n_vn_purchase_report` | Purchase order (titled *đơn đặt hàng gia công* for subcontracting), compact purchase order (one row per style), blanket order (*hợp đồng nguyên tắc*, or *hợp đồng gia công* with material norms) |
+| `l10n_vn_sale_report` | Sales order (*báo giá* / *xác nhận đơn hàng*) and compact sales order |
 
 - Cash vouchers belong to posted entries in cash journals, never to `account.payment`: the Pay button is
   not used (Peter, 2026-11-13).
@@ -447,6 +451,13 @@ the module doc named.
   fixtures on `TransactionCase`: create a company, link it to the test user, load its chart with
   `account.chart.template.try_loading`. The failed run still commits the module's tables, menus and
   views while its state stays *uninstalled*; running `-i` again completes it. (`l10n_vn_einvoice`, step 1)
+- Products created in tests get an internal reference from OCA `product_sequence` (`PR/00141`), so their
+  `display_name` reads `[PR/00141] name`. Compare printed names with the name read under
+  `with_context(display_default_code=False)`, and never assert a coded name absent: it passes for the wrong
+  reason. (`l10n_vn_purchase_report`, step 1)
+- A transfer's `group_id` is a read-only copy of its moves' group (`stock/models/stock_picking.py:582-584`):
+  passed to `stock.picking.create` it is dropped without error. Set the group on the moves.
+  (`l10n_vn_voucher_stock`, step 2)
 
 **Scripts**
 - Scripts run through `odoo shell`, such as the IE prototype harness, live outside `addons/`:
@@ -486,6 +497,11 @@ the module doc named.
   (`qms_quality_control`, step 6)
 
 **OCA modules**
+- `mrp_bom_attribute_match` is installed: a bill-of-materials line may leave *Component* (`product_id`) empty and
+  name a *Component (product template)* (`component_template_id`), the variant being chosen from the finished
+  product's attributes when an order is built. Such lines are intentional, not damage. Code that lists BoM
+  components resolves them with `mrp.bom._get_component_template_product(line, product, line.product_id)`
+  (`oca/manufacture/mrp_bom_attribute_match/models/mrp_bom.py:327-364`). (`l10n_vn_purchase_report`, step 2.1)
 - `excel_import_export` cannot read a template's `_HEAD_` cells from an `.xlsx`: for a head cell it
   passes the cell's value to its converter (`oca/server-tools/excel_import_export/models/xlsx_import.py:209`),
   which reads `.value` from it (`models/common.py:301`); the error is swallowed and every head cell
