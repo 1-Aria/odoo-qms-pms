@@ -4,7 +4,7 @@ from collections import defaultdict
 
 from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
-from odoo.tools import float_compare, float_is_zero, float_round
+from odoo.tools import float_compare, float_is_zero, float_round, formatLang
 
 MAX_DEPTH = 10
 WARNING_LIST_MAX = 10
@@ -163,7 +163,8 @@ class SaleMaterialBatch(models.Model):
                     ("not_received", self.env._("Billed, not received: %(materials)s")),
                 ):
                     found = [
-                        f"{product.display_name} ({quantities[product.id][key]:g} "
+                        f"{product.display_name} "
+                        f"({formatLang(self.env, quantities[product.id][key], dp='Product Unit of Measure')} "
                         f"{product.uom_id.name})"
                         for product in materials
                         if float_compare(
@@ -677,8 +678,11 @@ class SaleMaterialBatch(models.Model):
         if products is not None:
             domain.append(("product_id", "in", products.ids))
         lines = self.env["account.move.line"].sudo().search(domain)
+        start = company.material_ownership_start
         counts = {}
-        po_groups = defaultdict(lambda: {"counted": 0.0, "awaiting": 0.0})
+        po_groups = defaultdict(
+            lambda: {"counted": 0.0, "billed": 0.0, "refunded": 0.0, "before_start": 0.0}
+        )
         for line in lines:
             move = line.move_id
             if move.id not in counts:
@@ -688,19 +692,25 @@ class SaleMaterialBatch(models.Model):
                 line.quantity, product.uom_id, round=False
             )
             refund = move.move_type == "in_refund"
+            # A bill dated before the ownership start without a correct e-invoice will never
+            # get one (the cutover's internal bills): it is not "awaiting" (spec D6).
+            before_start = bool(start and move.date < start)
             figures = result[product.id]
             if line.purchase_line_id:
                 group = po_groups[line.purchase_line_id]
                 if refund:
-                    group["counted"] -= qty
-                elif counts[move.id]:
+                    group["refunded"] += qty
+                    continue
+                group["billed"] += qty
+                if counts[move.id]:
                     group["counted"] += qty
-                else:
-                    group["awaiting"] += qty
+                elif before_start:
+                    group["before_start"] += qty
             elif refund:
                 figures["in"] -= qty
             elif not counts[move.id]:
-                figures["awaiting"] += qty
+                if not before_start:
+                    figures["awaiting"] += qty
             elif move.material_batch_id:
                 figures["in"] += qty
             else:
@@ -711,9 +721,13 @@ class SaleMaterialBatch(models.Model):
             received = po_line.product_uom._compute_quantity(
                 po_line.qty_received, product.uom_id, round=False
             )
-            figures["in"] += min(group["counted"], received)
-            figures["not_received"] += max(group["counted"] - received, 0.0)
-            figures["awaiting"] += group["awaiting"]
+            # Refunds first cancel billing on the PO line, whether or not it counted: what
+            # remains billed counts up to the bills with a correct e-invoice (spec D6).
+            net = group["billed"] - group["refunded"]
+            counted = min(group["counted"], net)
+            figures["in"] += min(counted, received)
+            figures["not_received"] += max(counted - received, 0.0)
+            figures["awaiting"] += max(net - counted - group["before_start"], 0.0)
 
         batch_domain = [("batch_id.company_id", "=", company.id)]
         if products is not None:

@@ -163,6 +163,58 @@ class TestOwnership(MaterialOwnershipCase):
         self.assertAlmostEqual(figures["in"], 0)
         self.assertAlmostEqual(figures["no_receipt"], 10)
 
+    def test_refund_cancels_uncounted_bill(self):
+        """The P00097 case: a bill without e-invoice, refunded, then billed again by the
+        real vendor with its e-invoice. The refund cancels the first bill, not the second."""
+        purchase = self._purchase(self.fabric, 100)
+        self._bill(purchase)
+        figures = self._q(self.fabric)[self.fabric.id]
+        self.assertAlmostEqual(figures["in"], 0)
+        self.assertAlmostEqual(figures["awaiting"], 100)
+        self._po_refund(purchase, 100)
+        figures = self._q(self.fabric)[self.fabric.id]
+        self.assertAlmostEqual(figures["in"], 0)
+        self.assertAlmostEqual(figures["awaiting"], 0)
+        real_vendor = self.env["res.partner"].create({"name": "MO Real Vendor"})
+        bill = self._bill(purchase, partner=real_vendor)
+        self.assertAlmostEqual(self._q(self.fabric)[self.fabric.id]["awaiting"], 100)
+        self._einvoice(bill)
+        figures = self._q(self.fabric)[self.fabric.id]
+        self.assertAlmostEqual(figures["in"], 100)
+        self.assertAlmostEqual(figures["awaiting"], 0)
+
+    def test_refund_after_counted_bill(self):
+        """A refund on a PO line whose bill counts lowers what is owned."""
+        purchase = self._purchase(self.fabric, 100)
+        self._einvoice(self._bill(purchase))
+        self._po_refund(purchase, 30)
+        figures = self._q(self.fabric)[self.fabric.id]
+        self.assertAlmostEqual(figures["in"], 70)
+        self.assertAlmostEqual(figures["awaiting"], 0)
+
+    def test_bill_before_start_not_awaiting(self):
+        """A bill dated before the ownership start (the cutover's internal bill) is never
+        awaiting; it still counts if it gets a correct e-invoice."""
+        purchase = self._purchase(self.fabric, 100)
+        bill = self._bill(purchase, date=self.start - timedelta(days=1))
+        figures = self._q(self.fabric)[self.fabric.id]
+        self.assertAlmostEqual(figures["in"], 0)
+        self.assertAlmostEqual(figures["awaiting"], 0)
+        self._einvoice(bill)
+        self.assertAlmostEqual(self._q(self.fabric)[self.fabric.id]["in"], 100)
+        # Dated before the start from creation: re-dating a posted bill across months is
+        # refused by its sequence number (account/models/sequence_mixin.py:173).
+        self._direct_bill([(self.button, 10)], date=self.start - timedelta(days=1))
+        figures = self._q(self.button)[self.button.id]
+        self.assertAlmostEqual(figures["awaiting"], 0)
+        self.assertAlmostEqual(figures["no_receipt"], 0)
+
+    def test_warning_quantity_format(self):
+        self._bill(self._purchase(self.button, 1234567))
+        batch = self._batch(self._order([(self.button, 1)]))
+        self.assertIn("1,234,567", batch.warning)
+        self.assertNotIn("e+", batch.warning)
+
     def test_draft_batch_uses_nothing(self):
         self._counted_bill(self.fabric, 100)
         self._batch(self._order([(self.shirt, 10)]))

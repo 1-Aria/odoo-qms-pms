@@ -19,8 +19,11 @@ The garment company (Odoo company 1, Công ty TNHH SX TM Quang Phương) separat
 > trading company.
 
 What makes a material legally owned is a vendor bill backed by a correct e-invoice, for goods received
-(D11). The separation bill PRP/2026/10/0001 transferred materials only. The finished goods and cut panels
-in the warehouse, and the materials no bill covers, are still the trading company's. The garment company
+(D11). The separation bill PRP/2026/10/0001 is an internal record with **no legal e-invoice** (Peter,
+2026-11-17): the cutover closed its payable into 33889, and it never makes anything owned. So everything in
+the warehouse on 24 Oct, materials, cut panels and finished goods, is still the trading company's until its
+legal invoices arrive, batch by batch; only materials bought since from other suppliers, with their
+e-invoices, are the garment company's. The garment company
 may only deliver and invoice goods it owns. The module therefore:
 
 1. keeps a running **ownership balance per material**, in quantities;
@@ -59,7 +62,7 @@ Checked on `prod_copy` (production as of 12 Nov 2026 20:48) and in `../odoo`, `.
 
 | Fact | Source |
 |---|---|
-| PRP/2026/10/0001, 23 Oct, partner = the trading company (partner 7), 17,447,989,638 + VAT 1,744,798,967. 1,007 product lines, all from a purchase order (`purchase_line_id` set), posted to 3399 (GRNP, the stock input account), 6320 (packaging, then periodic) and 6273 | `account_move_line` |
+| PRP/2026/10/0001, 23 Oct, an **internal bill with no legal e-invoice**, its payable closed into 33889 by the cutover entry MISC/2026/10/0001; partner = the trading company (partner 7), 17,447,989,638 + VAT 1,744,798,967. 1,007 product lines, all from a purchase order (`purchase_line_id` set), posted to 3399 (GRNP, the stock input account), 6320 (packaging, then periodic) and 6273 | `account_move_line` |
 | Material bills of company 1: PRP/2026/10/0001 and PRP/2026/10/0003 (23 Oct), BILL/2026/10/0001, BILL/2026/11/0001 and BILL/2026/11/0002 (since 24 Oct, all from the trading company). **None before 23 Oct.** Every line comes from a purchase order with a receipt, and no line is billed beyond what was received | `account_move`, `purchase_order_line` |
 | **No bill has an e-invoice attached.** Production holds no `l10n_vn.einvoice` record at all, although `l10n_vn_einvoice` is installed | `l10n_vn_einvoice` |
 | Material, WIP and finished-goods categories are AVCO (`average`) with real-time valuation in company 1; stock input = 3399, stock output = 1599, valuation 1520 (materials, packaging) and 1541 (WIP) | `product_category` |
@@ -140,7 +143,15 @@ A posted vendor bill line of a material counts when:
 
 **Refunds count at once, without waiting for an e-invoice.** A vendor refund lowers what we own, so it is
 taken into account as soon as it is posted (negative), and a return to a vendor lowers `qty_received`
-anyway. Increases need proof; decreases do not.
+anyway. Increases need proof; decreases do not. On a PO line, a refund first cancels that line's billing,
+whether or not the billing counted (step 3.2): what remains billed counts up to the bills with a correct
+e-invoice. Found with P00097 (2026-11-17), whose khaki had been billed on PRP, was credited, and billed again
+by its real supplier, Việt Thành, with its e-invoice: under the first rule the credit note cancelled
+Việt Thành's bill instead of PRP's.
+
+**Bills before the start are never awaiting.** A bill dated before the ownership start without a correct
+e-invoice is the cutover's internal bill and will never get one, so it is not shown as *awaiting* (step 3.2).
+It still counts if one is ever attached.
 
 Bills of any vendor count, not only the trading company's. A subcontractor's bill for a finished good
 (the hammock) does not: its product is not a material, and the materials inside were ours to supply.
@@ -169,9 +180,11 @@ Beside the balance, the method gives two quantities that do not count yet:
 
 ### 4.4 Before go-live
 
-As of 12 Nov no bill carries an e-invoice (§2.1), so the counted balance would start at zero and the
-first batch would ask the trading company to invoice everything again. **The XMLs of the five material
-bills are attached first**, PRP/2026/10/0001 above all, with *Attach e-invoice*.
+PRP/2026/10/0001 has no e-invoice and never will, so the owned balance starts close to zero: the first
+batches ask the trading company to invoice most of what the orders since 24 Oct used, which is the intent.
+What does count must carry its e-invoice: the bills of other suppliers (PRP/2026/10/0003 from Nhựa Bình Minh,
+HTC, Hoài Nguyễn, Việt Thành) and any of the trading company's later bills that are legal invoices (open:
+BILL/2026/10/0001 and BILL/2026/11/0001–0004).
 
 ---
 
@@ -382,8 +395,12 @@ Depends on `sale_stock`, `mrp`, `purchase_stock`, `l10n_vn_einvoice`, all instal
 From `revaluation-conversion/ownership_balance.py` on `prod_copy` (production 12 Nov 2026 20:48;
 `ownership_prodcopy.txt`, `ownership_balance_prodcopy.csv`). The script nets the 12 sales invoiced since
 24 Oct against **all posted** material bills (the rule before D11), then compares the balance with raw
-stock on hand. Once the five bills carry their e-invoices (§4.4), D11 gives the same result, since every
-line was received.
+stock on hand.
+
+**These figures are void** (2026-11-17): they counted PRP/2026/10/0001 as a purchase, and PRP has no legal
+invoice (§1). Under D11 nothing on PRP is owned, so the materials used by the orders since 24 Oct are
+requested from the trading company in full, less what other suppliers have invoiced since. They are kept as
+the record of the 12 Nov estimate.
 
 | Category | Items | Raw stock value | Owned | Still the trading company's | Already short |
 |---|---:|---:|---:|---:|---:|
@@ -502,12 +519,14 @@ The module is built: `sale_material_ownership` steps 1–3 are done on the test 
 `docs/modules/sale_material_ownership.md`). Before its first use on production:
 
 1. O1–O7 settled (Peter, 2026-11-15; §11).
-2. Attach the e-invoice XMLs of the five material bills (§4.4).
+2. Attach the e-invoice XMLs of the material bills that have one (§4.4); PRP/2026/10/0001 has none.
 3. Clear or accept the zero-cost materials the batch warning names: production holds 233 active
    materials with a cost of 0 (none on hand on 12 Nov), and any of them in a BoM is requested at 0.
 4. Install the module; mark Raw Materials, Raw Materials / Fabric and Consumables / Packaging *Counts as
    Material*; create the fiscal position 3399 → 33889 (*Detect Automatically* off, no tax mapping); in
    Sales settings set the ownership start (24 Oct 2026), the material owner (the trading company) and
    that fiscal position.
-5. Re-run `ownership_balance.py` on a fresh production backup with D11's rule (§9), and compare it with
-   the module's *Material Ownership* report and the first batch's request.
+5. ~~Re-run `ownership_balance.py`~~: void with PRP not counting (§9). The first batch's request is checked
+   against the module's *Material Ownership* report instead.
+6. Install step 3.2 (18.0.1.4.0) before the first real *Request*; the demonstration batch MTB/2026/0001 is
+   cancelled.

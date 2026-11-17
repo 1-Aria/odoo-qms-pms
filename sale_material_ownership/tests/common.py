@@ -229,19 +229,49 @@ class MaterialOwnershipCase(TransactionCase):
         receipt.with_context(skip_backorder=True).button_validate()
         return order
 
-    def _bill(self, purchase):
+    def _bill(self, purchase, date=None, partner=None):
         purchase.action_create_invoice()
-        bill = purchase.invoice_ids.sorted("id")[-1:]
-        bill.invoice_date = fields.Date.context_today(bill)
+        bill = purchase.invoice_ids.filtered(lambda m: m.state == "draft").sorted("id")[-1:]
+        if partner:
+            bill.partner_id = partner
+        bill.invoice_date = date or fields.Date.context_today(bill)
+        bill.date = date or fields.Date.context_today(bill)
         bill.action_post()
         return bill
 
-    def _direct_bill(self, lines, refund=False):
+    def _po_refund(self, purchase, qty, partner=None):
+        """A posted credit note on the purchase's first line, linked to it."""
+        line = purchase.order_line[:1]
+        move = self.env["account.move"].create(
+            {
+                "move_type": "in_refund",
+                "partner_id": (partner or self.supplier).id,
+                "invoice_date": fields.Date.context_today(self.env.user),
+                "invoice_line_ids": [
+                    Command.create(
+                        {
+                            "product_id": line.product_id.id,
+                            "product_uom_id": line.product_uom.id,
+                            "quantity": qty,
+                            "price_unit": line.price_unit,
+                            "purchase_line_id": line.id,
+                            "tax_ids": [Command.clear()],
+                        }
+                    )
+                ],
+            }
+        )
+        move.action_post()
+        return move
+
+    def _direct_bill(self, lines, refund=False, date=None):
+        date = date or fields.Date.context_today(self.env.user)
         move = self.env["account.move"].create(
             {
                 "move_type": "in_refund" if refund else "in_invoice",
                 "partner_id": self.supplier.id,
-                "invoice_date": fields.Date.context_today(self.env.user),
+                "invoice_date": date,
+                "date": date,
                 "invoice_line_ids": [
                     Command.create(
                         {

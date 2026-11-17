@@ -3,7 +3,7 @@
     "name": "Sale Material Ownership",
     "summary": "Materials owned per vendor bill and e-invoice; transfer batches of "
     "sales orders invoiced by the former owner",
-    "version": "18.0.1.3.0",
+    "version": "18.0.1.4.0",
     "author": "1-Aria",
     "website": "https://github.com/1-Aria/odoo-qms-pms",
     "license": "AGPL-3",
