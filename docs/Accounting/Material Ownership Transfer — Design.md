@@ -183,8 +183,12 @@ Beside the balance, the method gives two quantities that do not count yet:
 PRP/2026/10/0001 has no e-invoice and never will, so the owned balance starts close to zero: the first
 batches ask the trading company to invoice most of what the orders since 24 Oct used, which is the intent.
 What does count must carry its e-invoice: the bills of other suppliers (PRP/2026/10/0003 from Nhựa Bình Minh,
-HTC, Hoài Nguyễn, Việt Thành) and any of the trading company's later bills that are legal invoices (open:
-BILL/2026/10/0001 and BILL/2026/11/0001–0004).
+HTC, Hoài Nguyễn, Việt Thành) and the trading company's bills since 24 Oct (BILL/2026/10/0001,
+BILL/2026/11/0001–0004 and later). Those are real purchases whose e-invoices the trading company issues later
+(Peter, 2026-11-17): until their XMLs are attached they show as *awaiting* and count for nothing, so a batch
+requested meanwhile asks the trading company again for materials it has already billed. **Before each
+*Request*, attach the e-invoices that have arrived**; the batch warning's *Bills awaiting their e-invoice*
+line names what is still missing.
 
 ---
 
@@ -528,5 +532,5 @@ The module is built: `sale_material_ownership` steps 1–3 are done on the test 
    that fiscal position.
 5. ~~Re-run `ownership_balance.py`~~: void with PRP not counting (§9). The first batch's request is checked
    against the module's *Material Ownership* report instead.
-6. Install step 3.2 (18.0.1.4.0) before the first real *Request*; the demonstration batch MTB/2026/0001 is
-   cancelled.
+6. Step 3.2 (18.0.1.4.0) installed on production (2026-11-17); the demonstration batch MTB/2026/0001 is
+   cancelled and a new batch made.

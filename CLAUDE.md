@@ -246,6 +246,10 @@ order-form blocks, cash vouchers; 19 tests), `l10n_vn_voucher_stock` steps 1–2
   not used (Peter, 2026-11-13). In Odoo 18 those entries come from the cash journal's transactions (statement
   lines); a hand-keyed entry can only use a *Miscellaneous* journal.
 - Vouchers print accounts, prices and amounts as posted, never typed into the form.
+- `stock_picking_type_partner_owner` (generic, OCA-style, depends on `stock` only) goes with the customer-material
+  flow: *Partner Owns the Goods* on an operation type makes its transfers assign the goods to their partner, or
+  their sales order's customer, as owner, keeping customer material out of valuation. Done 2026-11-17, 6 tests;
+  spec `docs/modules/stock_picking_type_partner_owner.md`.
 
 ---
 

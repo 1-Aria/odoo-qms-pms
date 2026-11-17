@@ -11,7 +11,7 @@ unprefixed field names. Context: `docs/Accounting/VN Vouchers — Design.md` §5
 
 | # | Scope | Status | Result |
 |---|---|---|---|
-| 1 | The operation-type flag; the owner set in the form and at validation, with the sales-order fallback | spec | |
+| 1 | The operation-type flag; the owner set in the form and at validation, with the sales-order fallback | done | 2026-11-17: `-i`, `exit=0`, 6 post-tests, 0 failures. UI checked: *Partner Owns the Goods* on *Resupply From Customer*; WH/SBC/00027, without partner, validated with owner *chị út nhí* from S00071, no valuation entry; a new receipt's owner set on choosing the customer |
 
 ## Divergences from the design
 
@@ -22,9 +22,9 @@ None.
 | # | Decision |
 |---|---|
 | D1 | **The owner is the commercial partner** (`commercial_partner_id`): quants of one customer are not split between the company and its contacts |
-| D2 | **An owner already on the transfer is never replaced;** the module only fills an empty one, so a different owner can be set by hand |
+| D2 | **At validation an owner already on the transfer is never replaced;** only an empty one is filled, so a different owner can be set by hand |
 | D3 | **Validation is the hook that matters:** `stock.picking._action_done` is overridden to fill the owner before `super()`, which copies it to the moves' `restrict_partner_id` and the move lines' `owner_id` (`stock/models/stock_picking.py:1256-1260`). Every transfer passes there, including those created by procurement |
-| D4 | **The form shows the owner earlier** through an onchange on the partner and the operation type, from the transfer's partner only |
+| D4 | **The form shows the owner earlier** through an onchange on the partner and the operation type: for a flagged type with a partner, the owner becomes the partner's commercial partner, also when it already held one, so correcting a wrongly chosen partner corrects the owner. An owner set by hand after the partner stays until the partner changes again |
 | D5 | **Without a partner, the customer of the sales order behind the moves' procurement group** (`group_id.sale_id.partner_id`, read as superuser, only when `sale_stock` adds `sale_id` to groups, `sale_stock/models/stock.py:84`). A *Resupply From Customer* receipt is created by a manufacturing order and has no partner (WH/SBC/00027: group WH/MO/01716, sales order S00071). No dependency on `sale_stock` |
 | D6 | **Nothing else changes.** Reservation already takes quants of any owner when a move names none (`stock/models/stock_move.py:1957`, `strict=False`), so manufacturing consumes the customer's material; moves and lines with an owner other than the company are left out of valuation by `stock_account` (`stock_account/models/stock_move_line.py:121-128`, `stock_move.py:700`). Material of one customer can be reserved for another's order, as for any owned stock; OCA `stock_owner_restriction` would restrict it and is not used |
 
@@ -89,7 +89,7 @@ No access rules: the module adds one field to an existing model.
 | Method | Decorator | Behaviour |
 |---|---|---|
 | `_get_partner_owner` | — | `ensure_one`. `partner_id.commercial_partner_id`; else, when procurement groups have `sale_id`, the commercial partner of `group_id.sudo().sale_id.partner_id`, browsed back in the user's environment; else an empty partner (D1, D5) |
-| `_onchange_owner_from_partner` | `@api.onchange("partner_id", "picking_type_id")` | When the type has `owner_from_partner` and `owner_id` is empty: `owner_id` = `partner_id.commercial_partner_id` (D2, D4) |
+| `_onchange_owner_from_partner` | `@api.onchange("partner_id", "picking_type_id")` | When the type has `owner_from_partner` and the transfer a partner: `owner_id` = `partner_id.commercial_partner_id` (D4) |
 | `_action_done` | — | For each transfer whose type has `owner_from_partner` and whose `owner_id` is empty: `owner_id` = `_get_partner_owner()` when found. Then `super()` (D2, D3) |
 
 ## Views — `views/stock_picking_type_views.xml`
@@ -118,7 +118,7 @@ warehouse's stock, `owner_from_partner` True); the warehouse's own receipt type,
 | `test_owner_on_validation` | a receipt of the flagged type from the contact, validated: `owner_id` the customer company; the move's `restrict_partner_id`, the move line's `owner_id` and the quant's `owner_id` the same |
 | `test_owner_kept` | the same with `owner_id` another partner before validation: kept |
 | `test_type_without_flag` | a receipt of the warehouse's receipt type from the contact, validated: no owner |
-| `test_onchange` | a `Form` of a new transfer: choosing the flagged type and the contact shows the customer company as owner; with the receipt type, no owner |
+| `test_onchange` | a new transfer (`stock.picking.new`) of the flagged type and the contact, `_onchange_owner_from_partner` called: owner the customer company; the partner changed to another and the onchange called again: owner that partner; of the receipt type: no owner. Called directly, not through `Form`, because the form shows `owner_id` only to *Consignment* users |
 | `test_sale_fallback` | skipped when procurement groups have no `sale_id`. A sales order for the contact; a receipt of the flagged type without partner whose moves get a procurement group with that `sale_id`, validated: `owner_id` the customer company |
 | `test_no_valuation` | skipped without `stock_account`. The flagged receipt validated creates no valuation layer for its move; a receipt of the unflagged type creates one |
 
