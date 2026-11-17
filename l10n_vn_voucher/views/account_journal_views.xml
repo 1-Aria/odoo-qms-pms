@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_journal_form" model="ir.ui.view">
+        <field name="name">account.journal.form.l10n_vn_voucher</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.view_account_journal_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='advanced_settings']" position="after">
+                <page name="l10n_vn_voucher" string="Vietnamese Vouchers" invisible="type != 'cash'">
+                    <group>
+                        <group string="Phiếu thu">
+                            <field name="l10n_vn_cash_in_sequence_id" groups="base.group_no_one"/>
+                            <field name="l10n_vn_cash_in_copies" placeholder="Liên 1: Kế toán lưu"/>
+                        </group>
+                        <group string="Phiếu chi">
+                            <field name="l10n_vn_cash_out_sequence_id" groups="base.group_no_one"/>
+                            <field name="l10n_vn_cash_out_copies" placeholder="Liên 1: Kế toán lưu"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

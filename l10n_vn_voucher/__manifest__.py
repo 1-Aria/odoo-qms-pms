@@ -4,7 +4,7 @@
     "name": "Vietnam - Printed Vouchers",
     "summary": "Shared A4 layout of the Vietnamese printed vouchers: header, title box, "
     "copies, amount in words, signatures",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.2.0",
     "author": "1-Aria",
     "website": "https://github.com/1-Aria/odoo-qms-pms",
     "license": "AGPL-3",
@@ -17,6 +17,10 @@
     "data": [
         "data/report_paperformat.xml",
         "report/l10n_vn_voucher_templates.xml",
+        "report/l10n_vn_cash_voucher_templates.xml",
+        "report/l10n_vn_cash_voucher_reports.xml",
+        "views/account_journal_views.xml",
+        "views/account_move_views.xml",
     ],
     "assets": {
         "web.report_assets_common": [

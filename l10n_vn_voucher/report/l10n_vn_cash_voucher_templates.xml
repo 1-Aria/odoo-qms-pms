@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_cash_voucher">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="l10n_vn_voucher.report_cash_voucher_document" t-lang="'vi_VN'"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_cash_voucher_document">
+        <t t-set="o" t-value="o.with_context(lang='vi_VN')"/>
+        <t t-set="v" t-value="o._l10n_vn_cash_voucher_data()"/>
+        <t t-call="l10n_vn_voucher.voucher_article">
+            <t t-foreach="env['l10n_vn.voucher']._copy_labels(v['copies'])" t-as="copy_label">
+                <t t-call="l10n_vn_voucher.voucher_page">
+                    <t t-call="l10n_vn_voucher.voucher_header">
+                        <t t-set="company" t-value="v['company']"/>
+                        <t t-set="department" t-value="v['department']"/>
+                        <t t-set="form_code" t-value="v['form_code']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_title">
+                        <t t-set="title" t-value="v['title']"/>
+                        <t t-set="voucher_date" t-value="v['date']"/>
+                        <t t-set="number" t-value="v['number']"/>
+                        <t t-set="debit_accounts" t-value="v['debit_accounts']"/>
+                        <t t-set="credit_accounts" t-value="v['credit_accounts']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_field">
+                        <t t-set="label" t-value="'Quyển số'"/>
+                        <t t-set="value" t-value="v['book']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_field">
+                        <t t-set="label" t-value="v['person_label']"/>
+                        <t t-set="value" t-value="v['person']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_field">
+                        <t t-set="label" t-value="'Địa chỉ'"/>
+                        <t t-set="value" t-value="v['address']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_field">
+                        <t t-set="label" t-value="v['reason_label']"/>
+                        <t t-set="value" t-value="v['reason']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_field">
+                        <t t-set="label" t-value="'Số tiền'"/>
+                        <t t-set="value" t-value="v['amount_text']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_amount_words">
+                        <t t-set="label" t-value="'(Viết bằng chữ)'"/>
+                        <t t-set="currency" t-value="v['currency']"/>
+                        <t t-set="amount" t-value="v['amount']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_field">
+                        <t t-set="label" t-value="'Kèm theo (chứng từ gốc)'"/>
+                        <t t-set="value" t-value="''"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_signatures">
+                        <t t-set="sign_date" t-value="v['date']"/>
+                        <t t-set="signers" t-value="v['signers']"/>
+                    </t>
+                    <t t-call="l10n_vn_voucher.voucher_field">
+                        <t t-set="label" t-value="'Đã nhận đủ số tiền (viết bằng chữ)'"/>
+                        <t t-set="value" t-value="''"/>
+                    </t>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

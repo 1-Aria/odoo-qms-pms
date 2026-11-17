@@ -231,10 +231,9 @@ Outside the QMS-PMS and IE-MES suites.
 ## The VN voucher modules
 
 Printed Vietnamese vouchers and purchase forms, signed by hand. Design:
-`docs/Accounting/VN Vouchers — Design.md`. Done: `l10n_vn_voucher` steps 1–2 (shared layout and order-form
-blocks, 10 tests), `l10n_vn_voucher_stock` steps 1–2 (stock vouchers and *Biên bản giao nhận*, 16 tests),
-`l10n_vn_purchase_report` steps 1–2 (17 tests), `l10n_vn_sale_report` step 1 (7 tests). Next (design §11): cash
-vouchers (`l10n_vn_voucher` step 3).
+`docs/Accounting/VN Vouchers — Design.md`. All steps done (2026-11-17): `l10n_vn_voucher` steps 1–3 (shared layout,
+order-form blocks, cash vouchers; 19 tests), `l10n_vn_voucher_stock` steps 1–2 (stock vouchers and *Biên bản giao nhận*, 16 tests),
+`l10n_vn_purchase_report` steps 1–2 (17 tests), `l10n_vn_sale_report` step 1 (7 tests).
 
 | Module | Role |
 |---|---|
@@ -244,7 +243,8 @@ vouchers (`l10n_vn_voucher` step 3).
 | `l10n_vn_sale_report` | Sales order (*báo giá* / *xác nhận đơn hàng*) and compact sales order |
 
 - Cash vouchers belong to posted entries in cash journals, never to `account.payment`: the Pay button is
-  not used (Peter, 2026-11-13).
+  not used (Peter, 2026-11-13). In Odoo 18 those entries come from the cash journal's transactions (statement
+  lines); a hand-keyed entry can only use a *Miscellaneous* journal.
 - Vouchers print accounts, prices and amounts as posted, never typed into the form.
 
 ---

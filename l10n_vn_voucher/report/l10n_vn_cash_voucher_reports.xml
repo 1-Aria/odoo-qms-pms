@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_cash_in" model="ir.actions.report">
+        <field name="name">Phiếu thu</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l10n_vn_voucher.report_cash_voucher</field>
+        <field name="report_file">l10n_vn_voucher.report_cash_voucher</field>
+        <field name="paperformat_id" ref="paperformat_l10n_vn_voucher"/>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+        <field name="domain">[("l10n_vn_voucher_kind", "=", "cash_in"), ("state", "=", "posted")]</field>
+        <field name="print_report_name">'Phiếu thu - %s' % (object.l10n_vn_voucher_number)</field>
+    </record>
+
+    <record id="action_report_cash_out" model="ir.actions.report">
+        <field name="name">Phiếu chi</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l10n_vn_voucher.report_cash_voucher</field>
+        <field name="report_file">l10n_vn_voucher.report_cash_voucher</field>
+        <field name="paperformat_id" ref="paperformat_l10n_vn_voucher"/>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+        <field name="domain">[("l10n_vn_voucher_kind", "=", "cash_out"), ("state", "=", "posted")]</field>
+        <field name="print_report_name">'Phiếu chi - %s' % (object.l10n_vn_voucher_number)</field>
+    </record>
+</odoo>

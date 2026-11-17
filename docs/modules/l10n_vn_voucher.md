@@ -13,7 +13,7 @@ Design: `docs/Accounting/VN Vouchers — Design.md` (§4).
 |---|---|---|---|
 | 1 | Paper format; QWeb blocks; `l10n_vn.voucher` helpers; `res.currency.l10n_vn_amount_to_words`; report stylesheet (design §4.1–4.3, §4.5). Installed together with `l10n_vn_voucher_stock` step 1, the first form that uses them | done | 2026-11-13, first run: `-i`, `exit=1`, 6 tests, 2 errors (`test_blocks_render`, `test_copies_render`): the signature cell's width, `t-att-style="'width: %.2f%%;' % (...)"`, reached Odoo with `%%` collapsed to `%`, and the formatting failed. Fixed with `table-layout: fixed` on the signature table and no computed width. Second run: `-u`, `exit=0`, 6 post-tests, 0 failures. UI checked as admin with `l10n_vn_voucher_stock` (its step 1) |
 | 2 | Order-form blocks: `voucher_header` without form code or department, `voucher_party`, `voucher_order_lines`, `voucher_variant_grids`, `voucher_totals`; `l10n_vn.voucher._compact_rows`, `_numbered_rows`, `_date_short`, `_qty_text`; version `18.0.1.1.0` (design §6.2, §6.4; design step 3). Installed with `l10n_vn_purchase_report` step 1 | done | 2026-11-15: `-u`, `exit=0`, 10 post-tests, 0 failures. UI checked with the purchase and sales forms |
-| 3 | Cash vouchers: fields on `account.move` and `account.journal`, the PT/PC series, *Phiếu thu* and *Phiếu chi* (design §4.4; design step 7) | planned | |
+| 3 | Cash vouchers: fields on `account.move` and `account.journal`, the PT/PC series, *Phiếu thu* and *Phiếu chi* (design §4.4; design step 7); version `18.0.1.2.0` | done | 2026-11-17: `-u`, `exit=0`, 19 post-tests, 0 failures. UI check found that Odoo 18 lets hand-keyed entries use only *Miscellaneous* journals; cash entries come from the cash journal's transactions, which post on creation and keep their number when reconciled (D8, readme corrected). UI checked with transactions in *Cash* and *Petty Cash*: Phiếu chi and Phiếu thu numbered per journal, accounts after reconciliation, person override, repost keeping the number. Printing before reconciliation shows the suspense account in *Nợ/Có* (accepted, Peter 2026-11-17) |
 
 ## Divergences from the design
 
@@ -32,6 +32,12 @@ Design: `docs/Accounting/VN Vouchers — Design.md` (§4).
 | D4 | **Amounts in words are VND only,** rounded half-up to the đồng, read by `num2words(lang="vi")`, first letter capitalised, followed by *đồng* (design §4.3). Core's `amount_to_text` is not used: it capitalises every word and VND's label is *Dong* (`odoo/odoo/addons/base/models/res_currency.py:177-190`) |
 | D5 | **A copy list is one label per line;** blank lines are ignored, an empty list gives one unlabelled copy (design §4.5) |
 | D6 | **Each copy is a `div.page`** from `voucher_page`, inside the form's own loop over `_copy_labels` with `t-as="copy_label"`; every copy after the first (`copy_label_first` False) starts on a new page (`page-break-before: always`). Table rows and the signature block do not break across pages; table headers repeat |
+| D7 | **A cash entry is a posted entry of a journal of type *cash*; its cash lines are those on the journal's own account** (`default_account_id`): 1110 for the garment company's *Cash* (CSH1), 1111 for *Petty Cash* (PCSH) on this database. All cash lines debit: *Phiếu thu*; all credit: *Phiếu chi*; both, or none: no voucher (design §4.4) (step 3) |
+| D8 | **The kind and number are given in `_post`,** after `super()`, to the moves it returns. In the UI, cash entries come from the cash journal's transactions (statement lines): Odoo 18 lets an entry keyed in by hand use only a *general* journal (`account/models/account_move.py:875-882`, `:921-928`). Creating a transaction posts its entry (`account/models/account_bank_statement_line.py:435`); reconciling it in OCA `account_reconcile_oca` rewrites its lines and posts it again (`oca/account-reconcile/account_reconcile_oca/models/account_bank_statement_line.py:917`), which keeps the number. A number is kept when the entry is reset and posted again with the same kind; a changed kind takes a new number of the new kind, and the old one is not reused (step 3) |
+| D9 | **The series are `ir.sequence` records on the journal,** created as superuser the first time the journal posts a voucher of that kind: `implementation` `no_gap`, `use_date_range` True (a range per year, created by the sequence itself), prefix `PT/%(range_year)s/` or `PC/%(range_year)s/`, padding 4, the journal's company. The number is drawn with `next_by_id(sequence_date=move.date)`. Two cash journals have separate series with the same prefix; *Quyển số* (the journal's name) tells them apart, and a number is unique per journal (SQL) (step 3) |
+| D10 | **The person paying or receiving defaults, at print, to the partner of the other lines when they have exactly one;** the entry's own `l10n_vn_voucher_person` and `l10n_vn_voucher_address`, editable before and after posting (neither is a hashed field, `account/models/account_move.py:4066-4073`), win (step 3) |
+| D11 | **The reason is the entry's `ref`,** else the label of its first cash line, where a transaction puts its label (`payment_ref`); transactions leave `ref` empty (step 3) |
+| D12 | **Nợ and Có list the debit and the credit accounts of the entry's lines,** the cash account among them, each code once, sorted; when a side has several accounts, each prints with its amount, as `code: amount`, in the currency's format (`formatLang`, Vietnamese grouping). It always matches the posting (step 3) |
 
 ## Folder structure
 
@@ -41,16 +47,24 @@ l10n_vn_voucher/
 ├── models/
 │   ├── __init__.py
 │   ├── l10n_vn_voucher.py
-│   └── res_currency.py
+│   ├── res_currency.py
+│   ├── account_journal.py                    # 3
+│   └── account_move.py                       # 3
 ├── data/
 │   └── report_paperformat.xml
 ├── report/
-│   └── l10n_vn_voucher_templates.xml
+│   ├── l10n_vn_voucher_templates.xml
+│   ├── l10n_vn_cash_voucher_templates.xml   # 3
+│   └── l10n_vn_cash_voucher_reports.xml     # 3
+├── views/                                   # 3
+│   ├── account_journal_views.xml
+│   └── account_move_views.xml
 ├── static/src/scss/
 │   └── l10n_vn_voucher.scss
 ├── tests/
 │   ├── __init__.py
-│   └── test_l10n_vn_voucher.py
+│   ├── test_l10n_vn_voucher.py
+│   └── test_cash_voucher.py                 # 3
 └── readme/ DESCRIPTION.md, USAGE.md
 ```
 
@@ -60,7 +74,7 @@ l10n_vn_voucher/
 |---|---|
 | `name` | `Vietnam - Printed Vouchers` |
 | `summary` | `Shared A4 layout of the Vietnamese printed vouchers: header, title box, copies, amount in words, signatures` |
-| `version` | `18.0.1.0.0` |
+| `version` | `18.0.1.1.0` (step 2); `18.0.1.2.0` (step 3) |
 | `author` | `1-Aria` |
 | `website` | `https://github.com/1-Aria/odoo-qms-pms` |
 | `license` | `AGPL-3` |
@@ -68,7 +82,7 @@ l10n_vn_voucher/
 | `countries` | `["vn"]` |
 | `depends` | `account` |
 | `external_dependencies` | `{"python": ["num2words"]}` |
-| `data` | `data/report_paperformat.xml`, `report/l10n_vn_voucher_templates.xml` |
+| `data` | `data/report_paperformat.xml`, `report/l10n_vn_voucher_templates.xml`; step 3 adds `report/l10n_vn_cash_voucher_templates.xml`, `report/l10n_vn_cash_voucher_reports.xml`, `views/account_journal_views.xml`, `views/account_move_views.xml` |
 | `assets` | `{"web.report_assets_common": ["l10n_vn_voucher/static/src/scss/l10n_vn_voucher.scss"]}` |
 | `installable` | `True` |
 
@@ -77,8 +91,8 @@ l10n_vn_voucher/
 | File | Content |
 |---|---|
 | `__init__.py` | `from . import models` |
-| `models/__init__.py` | `from . import l10n_vn_voucher`, `from . import res_currency` |
-| `tests/__init__.py` | `from . import test_l10n_vn_voucher` |
+| `models/__init__.py` | `from . import l10n_vn_voucher`, `from . import res_currency`; step 3: `from . import account_journal`, `from . import account_move` |
+| `tests/__init__.py` | `from . import test_l10n_vn_voucher`; step 3: `from . import test_cash_voucher` |
 
 ## Access
 
@@ -118,6 +132,63 @@ fields. Templates call it as `env["l10n_vn.voucher"]`.
 |---|---|---|
 | `l10n_vn_amount_to_words(amount)` | — | `ensure_one`. `""` unless `name == "VND"` and `num2words` imported (imported as core does, `None` on `ImportError`). Otherwise the absolute amount rounded half-up to an integer (`float_round(..., precision_digits=0)`), read by `num2words(value, lang="vi")`, first letter upper-cased, followed by `" đồng"` (D4) |
 
+### `account.journal` — `models/account_journal.py` (step 3)
+
+`_inherit = "account.journal"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_cash_in_sequence_id` | Many2one → `ir.sequence` | `string="Phiếu thu Sequence"`, `copy=False`, `check_company=True` |
+| `l10n_vn_cash_out_sequence_id` | Many2one → `ir.sequence` | `string="Phiếu chi Sequence"`, `copy=False`, `check_company=True` |
+| `l10n_vn_cash_in_copies` | Text | `string="Phiếu thu Copies"`, `help="One line per copy, with the label it prints. Empty: one copy without a label."` |
+| `l10n_vn_cash_out_copies` | Text | `string="Phiếu chi Copies"`, same help |
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_l10n_vn_voucher_sequence(kind)` | — | `ensure_one`. The journal's sequence for `kind` (`cash_in`, `cash_out`), created as superuser when missing and stored on the journal (D9): `name` `"%s – Phiếu thu"` / `"%s – Phiếu chi"` of the journal's name |
+
+### `account.move` — `models/account_move.py` (step 3)
+
+`_inherit = "account.move"`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_voucher_kind` | Selection `[("cash_in", "Phiếu thu"), ("cash_out", "Phiếu chi")]` | `string="Cash Voucher"`, `readonly=True`, `copy=False`, `index="btree_not_null"` |
+| `l10n_vn_voucher_number` | Char | `string="Cash Voucher Number"`, `readonly=True`, `copy=False` |
+| `l10n_vn_voucher_person` | Char | `string="Người nộp / nhận tiền"`, `copy=False` |
+| `l10n_vn_voucher_address` | Char | `string="Địa chỉ người nộp / nhận tiền"`, `copy=False` |
+| `l10n_vn_journal_type` | Selection | `related="journal_id.type"`, not stored; for the form |
+
+`_sql_constraints`: `("l10n_vn_voucher_number_uniq", "unique(journal_id, l10n_vn_voucher_number)", "A cash voucher number is used once per journal.")`
+
+| Method | Decorator | Behaviour |
+|---|---|---|
+| `_l10n_vn_cash_lines` | — | `ensure_one`. The lines on the journal's `default_account_id` when the journal is of type *cash*; empty otherwise (D7) |
+| `_l10n_vn_voucher_kind_of` | — | `ensure_one`. `cash_in` when there are cash lines and all have a positive `balance`, `cash_out` when all have a negative one, else False (D7) |
+| `_post(soft=True)` | — | `posted = super()._post(soft)`; for each of `posted`: its kind (`_l10n_vn_voucher_kind_of`); none, the stored kind cleared, the number kept on the entry but no longer printed; the same as the stored kind with a number, the number kept; otherwise kind written and `l10n_vn_voucher_number` drawn from `journal_id._l10n_vn_voucher_sequence(kind).next_by_id(sequence_date=move.date)` (D8). Returns `posted` |
+| `_l10n_vn_side_accounts(lines)` | — | The accounts of `lines` for the *Nợ* or *Có* box (D12) |
+| `_l10n_vn_voucher_partner` | — | `ensure_one`. The partner of the non-cash lines when there is exactly one, else an empty partner (D10) |
+| `_l10n_vn_cash_voucher_data` | — | `ensure_one`. Raises `UserError` unless posted with a kind: `"%(entry)s is not a posted cash entry that only receives or only pays cash; split it into one entry per direction to print a voucher."` Otherwise the dict below, read in `vi_VN` |
+
+`_l10n_vn_cash_voucher_data` keys:
+
+| Key | *cash_in* (*Phiếu thu*) | *cash_out* (*Phiếu chi*) |
+|---|---|---|
+| `kind`, `title`, `form_code` | `cash_in`, `"PHIẾU THU"`, `"01-TT"` | `cash_out`, `"PHIẾU CHI"`, `"02-TT"` |
+| `company`, `department` | `company_id`, `""` | same |
+| `book` | the journal's name (*Quyển số*) | same |
+| `number`, `date` | `l10n_vn_voucher_number`, `date` | same |
+| `debit_accounts`, `credit_accounts` | `_l10n_vn_side_accounts` of the lines with a debit, and of those with a credit (D12) | same |
+| `person_label`, `person` | `"Họ và tên người nộp tiền"`, `l10n_vn_voucher_person` or `_l10n_vn_voucher_partner().name` or `""` | `"Họ và tên người nhận tiền"`, same |
+| `address` | `l10n_vn_voucher_address` or `l10n_vn.voucher._address(_l10n_vn_voucher_partner())` | same |
+| `reason_label`, `reason` | `"Lý do nộp"`, `ref` or the first cash line's `name` or `""` (D11) | `"Lý do chi"`, same |
+| `amount`, `currency` | the cash lines' total, absolute, in company currency; `company_currency_id` | same |
+| `amount_text` | `formatLang` of `amount` at the currency's decimals, then the currency's name: `1.000.000 VND` | same |
+| `copies` | `journal_id.l10n_vn_cash_in_copies` | `journal_id.l10n_vn_cash_out_copies` |
+| `signers` | Giám đốc *(Ký, họ tên, đóng dấu)*; Kế toán trưởng; Người nộp tiền; Người lập phiếu (`create_uid.name`); Thủ quỹ | Giám đốc *(Ký, họ tên, đóng dấu)*; Kế toán trưởng; Thủ quỹ; Người lập phiếu (`create_uid.name`); Người nhận tiền |
+
+Read in `vi_VN`, so amounts group with `.` (D12).
+
 ## Templates — `report/l10n_vn_voucher_templates.xml`
 
 Building blocks, called with `t-call`; the variables each reads are set by the caller. None is a report
@@ -138,6 +209,51 @@ on its own.
 | `voucher_signatures` | `sign_date`, `signers` | `div.l10n_vn_voucher_signatures`. When `sign_date` is not None: `_date_text(sign_date)` right-aligned (italic). Then a table of one equal-width column per signer, each a dict with `role`, `hint` and `name`: `role` (bold), `hint` (italic, default *(Ký, họ tên)*, a `\n` in it becomes a line break), an empty `div.o_sign_space`, then `name` when set |
 
 The dotted span is `span.o_dots`. Callers set a block's variables with `t-set` inside the `t-call`; they reach the block only, not the caller.
+
+## Templates — `report/l10n_vn_cash_voucher_templates.xml` (step 3)
+
+**`report_cash_voucher`**: `web.html_container`; for each `o` of `docs`, `t-call` `report_cash_voucher_document`
+with `t-lang="'vi_VN'"`.
+
+**`report_cash_voucher_document`**: sets `o` to `o.with_context(lang="vi_VN")` and `v` to
+`o._l10n_vn_cash_voucher_data()`, then `voucher_article` around a loop over `_copy_labels(v["copies"])`, one
+`voucher_page` per copy holding:
+
+| Part | Content |
+|---|---|
+| Header | `voucher_header`: `company`, `department` `""`, `form_code` |
+| Title | `voucher_title`: `title`, `voucher_date`, `number`, `debit_accounts`, `credit_accounts`, `copy_label`; then `voucher_field` *Quyển số* / `book` |
+| Person | `voucher_field` `person_label` / `person`; *Địa chỉ* / `address` |
+| Reason | `voucher_field` `reason_label` / `reason` |
+| Amount | `voucher_field` *Số tiền* / `amount_text`; `voucher_amount_words` with label *(Viết bằng chữ)* |
+| Attachments | `voucher_field` *Kèm theo (chứng từ gốc)* / empty |
+| Signatures | `voucher_signatures`: `sign_date` `date`, `signers` |
+| Received | `voucher_field` *Đã nhận đủ số tiền (viết bằng chữ)* / empty |
+
+## Reports — `report/l10n_vn_cash_voucher_reports.xml` (step 3)
+
+| XML id | `name` | `domain` | `print_report_name` |
+|---|---|---|---|
+| `action_report_cash_in` | *Phiếu thu* | `[("l10n_vn_voucher_kind", "=", "cash_in"), ("state", "=", "posted")]` | `'Phiếu thu - %s' % (object.l10n_vn_voucher_number)` |
+| `action_report_cash_out` | *Phiếu chi* | `[("l10n_vn_voucher_kind", "=", "cash_out"), ("state", "=", "posted")]` | `'Phiếu chi - %s' % (object.l10n_vn_voucher_number)` |
+
+Both: `model` `account.move`, `report_type` `qweb-pdf`, `report_name` and `report_file`
+`l10n_vn_voucher.report_cash_voucher`, `paperformat_id` `paperformat_l10n_vn_voucher`, `binding_model_id`
+`account.model_account_move`, `binding_type` `report`.
+
+## Views — `views/account_journal_views.xml` (step 3)
+
+One record, `view_account_journal_form`, inheriting `account.view_account_journal_form`: after its last page, a
+page *Vietnamese Vouchers*, `invisible="type != 'cash'"`, with the two sequences (`groups="base.group_no_one"`)
+and the two copy lists (`placeholder` *Liên 1: Kế toán lưu*).
+
+## Views — `views/account_move_views.xml` (step 3)
+
+One record, `view_move_form`, inheriting `account.view_move_form`:
+
+| Position | Content |
+|---|---|
+| `//group[@name='misc_group']` inside, last | `l10n_vn_journal_type` and `l10n_vn_voucher_kind` invisible; `l10n_vn_voucher_number`, `invisible="not l10n_vn_voucher_number"`; `l10n_vn_voucher_person` and `l10n_vn_voucher_address`, `invisible="l10n_vn_journal_type != 'cash'"` |
 
 ## Stylesheet — `static/src/scss/l10n_vn_voucher.scss`
 
@@ -184,9 +300,33 @@ and returns the markup as text.
 | `test_header_without_code` | step 2. `form_code` False and `department` None: no *Mẫu số*, no *Bộ phận:* |
 | `test_blocks_render` | with form code `01-VT`, number `WH/IN/00001`, debit `["152"]`, credit `["3399"]`, amount 10,000 VND and two signers: the output holds *Mẫu số*, `01-VT`, the main company's name, `WH/IN/00001`, `152`, `3399`, *Mười nghìn đồng*, both roles, *(Ký, họ tên)*; with debit, credit and reason empty, at least three dotted elements; with `show_accounts` False, no *Nợ:* |
 
+### `tests/test_cash_voucher.py` (step 3)
+
+`TestCashVoucher(TransactionCase)`, `@tagged("post_install", "-at_install")`.
+
+**Fixtures (`setUpClass`):** a Vietnamese company with the `vn` chart, as the other modules' tests; its cash
+journal (`type` `cash`, from the chart) and the chart's payable (`account.<company id>_chart3311`), receivable
+(`_chart1311`) and expense (`_chart632`) accounts; two partners, one with an address; a user with
+*Invoicing* (`account.group_account_invoice`) only, in that company.
+
+**Helpers:** `_entry(lines, date=date(2026, 11, 10), **values)` creates an entry in the cash journal from
+`(account, debit, credit, partner)` tuples and posts it; the cash account is the journal's `default_account_id`.
+
+| Test | Asserts |
+|---|---|
+| `test_cash_out_series` | two payments (Nợ payable / Có cash 1,000,000): `cash_out`, `PC/2026/0001` and `PC/2026/0002`; a receipt (Nợ cash / Có receivable): `cash_in`, `PT/2026/0001` |
+| `test_new_year` | a payment dated 2027-01-05 after one of 2026: `PC/2027/0001` |
+| `test_no_voucher` | an entry in the cash journal that both receives and pays cash, and one that does not touch the cash account: no kind, no number; `_l10n_vn_cash_voucher_data` raises `UserError` |
+| `test_repost` | a posted payment reset (`button_draft`) and posted again keeps its number; reset, its lines turned into a receipt and posted: `cash_in`, `PT/2026/0001`; the next payment takes `PC/2026/0002` |
+| `test_person` | one partner on the other lines: `person` its name, `address` its address; two partners: `person` `""`; the entry's own person and address win |
+| `test_accounts` | a payment to one account: `debit_accounts` the payable's code, `credit_accounts` the cash code; to the payable and the expense account (600,000 and 400,000): `debit_accounts` `"<code>: 600.000"` and `"<code>: 400.000"`, sorted |
+| `test_render_cash_in` | with the journal's `l10n_vn_cash_in_copies` three lines, the receipt's render holds *PHIẾU THU*, *Mẫu số*, `01-TT`, its number, *Quyển số*, the journal's name, *Một triệu đồng*, *Người nộp tiền*, *Thủ quỹ*, *Đã nhận đủ số tiền*, each label once and `page-break-before` twice |
+| `test_report_domains` | `get_valid_action_reports`: a posted receipt keeps only `action_report_cash_in`; a posted payment only `…_cash_out`; the payment reset to draft neither |
+| `test_post_as_invoicing_user` | in a new cash journal without sequences, an *Invoicing* user posts a payment: `PC/2026/0001`, the sequence created; the same user renders it. Positive control: the user reads the entry's `name` |
+
 ## Readme
 
 | File | Content |
 |---|---|
 | `readme/DESCRIPTION.md` | The shared layout of the Vietnamese printed vouchers: A4, the company header with the form code, the title box with number and accounts, copies (*liên*) with their labels, amounts in words in Vietnamese, signature rows. Used by `l10n_vn_voucher_stock` and `l10n_vn_purchase_report`; step 2 adds *Phiếu thu* and *Phiếu chi* |
-| `readme/USAGE.md` | How copy lists are written (one label per line), where they are set (operation types; cash journals from step 2); that the forms print in Vietnamese; that signed vouchers are scanned and attached to their record |
+| `readme/USAGE.md` | Step 3 adds: cash transactions (statement lines) number their entries, which print their *Phiếu thu* / *Phiếu chi* (*Print*); entries keyed in by hand can only use *Miscellaneous* journals; the person and address on the entry's *Other Info*; copies and sequences on the cash journal's *Vietnamese Vouchers* tab; an entry that both receives and pays cash is split to print. How copy lists are written (one label per line), where they are set (operation types; cash journals from step 2); that the forms print in Vietnamese; that signed vouchers are scanned and attached to their record |

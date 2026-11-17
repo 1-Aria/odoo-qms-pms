@@ -60,7 +60,7 @@ Checked against the running code and database on 2026-11-12 and 13.
 | *Pick Components* (WH/Stock → WH/Pre-Production) and *Store Finished Product* (WH/Post-Production → WH/Stock) move between internal locations and create no layer or entry | Their vouchers carry quantities only; accounting fills in values by hand (§5.4) |
 | *Resupply Subcontractor* moves WH/Stock → *Subcontracting Location*, an internal location (`is_subcontracting_location`); its transfers carry the subcontractor as partner and post no entry (WH/RES/00063–67) | Material sent to a subcontractor prints a quantity-only *Phiếu xuất kho* naming the subcontractor as receiver (§5.1) |
 | A payment's counterpart can only be a receivable or payable account (`account/models/account_payment.py:134-140`). CSH1's payment methods post to 1131/1132 (money in transit), not 1111 | Advances, petty expenses, withdrawals and cash wages cannot be payments, and a cash payment would not touch 1111. **Cash vouchers belong to cash journal entries; the Pay button stays unused** (D3) |
-| A bill's *Outstanding debits* lists any unreconciled payable line of its partner from any posted entry, whatever the journal (`account/models/account_move.py:1410-1430`) | A bill is paid in cash by posting Nợ 331 / Có 1111 in the cash journal and adding it from the bill. No payment record is needed |
+| A bill's *Outstanding debits* lists any unreconciled payable line of its partner from any posted entry, whatever the journal (`account/models/account_move.py:1410-1430`) | A bill is paid in cash by a cash transaction reconciled with it (or added from the bill's outstanding debits). No payment record is needed |
 | `account_reconcile_oca` is installed | Statement lines in a cash journal also create cash journal entries, so they print vouchers too |
 | A journal's `payment_sequence` separates payments from other entries but not money in from money out (`account/models/account_move.py:3721-3729`) | **Separate PT and PC numbers are a field of our own** (§4.4, D4) |
 | `purchase.requisition.requisition_type` is *Blanket Order* or *Purchase Template* (`purchase_requisition/models/purchase_requisition.py:21-22`). Core prints both with one report (`purchase_requisition/report/purchase_requisition_report.xml`). No agreements exist yet | The blanket order form shows only on blanket orders (§6.3) |
@@ -121,8 +121,11 @@ read by `num2words(lang="vi")`, first letter capitalised, followed by *đồng*:
 
 ### 4.4 Cash vouchers
 
-**Which entries.** A posted `account.move` in a journal of type *cash*. Its **cash lines** are the lines on
-the journal's own account (`default_account_id`, 1111 for CSH1).
+**Which entries.** A posted `account.move` in a journal of type *cash*. In Odoo 18 these are the entries of the cash journal's
+transactions (statement lines): an entry keyed in by hand can only use a *Miscellaneous* journal
+(`account/models/account_move.py:875-882`; found in the step 3 UI check, 2026-11-17). Its **cash lines** are the lines on
+the journal's own account (`default_account_id`: 1110 for the garment company's *Cash*, CSH1; 1111 for *Petty
+Cash*, PCSH; checked 2026-11-16).
 
 | Cash lines | Voucher |
 |---|---|
@@ -424,7 +427,7 @@ In build order (D21).
 | 4 | `l10n_vn_sale_report` (1) | Sales order and compact sales order (§6.4) | done |
 | 5 | `l10n_vn_purchase_report` (2) | Blanket order and processing contract (§6.3) | done |
 | 6 | `l10n_vn_voucher_stock` (2) | *Biên bản giao nhận hàng hóa* (§5.5) | done |
-| 7 | `l10n_vn_voucher` (3) | Cash-entry fields, series, *Phiếu thu* and *Phiếu chi* (§4.4); before payroll's first cash payday, 10 December | |
+| 7 | `l10n_vn_voucher` (3) | Cash-entry fields, series, *Phiếu thu* and *Phiếu chi* (§4.4); before payroll's first cash payday, 10 December | done |
 
 Tests render each report to HTML (`ir.actions.report._render_qweb_html`) in a `TransactionCase` and check
 its content: the number, accounts, amounts, words and copy labels. Tests that create products, partners or

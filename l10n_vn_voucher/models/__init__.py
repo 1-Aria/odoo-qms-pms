@@ -2,3 +2,5 @@
 
 from . import l10n_vn_voucher
 from . import res_currency
+from . import account_journal
+from . import account_move
