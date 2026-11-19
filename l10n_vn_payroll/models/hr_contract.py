@@ -11,6 +11,13 @@ from odoo.exceptions import UserError, ValidationError
 _logger = logging.getLogger(__name__)
 
 PAYROLL_GROUPS = "payroll.group_payroll_user"
+PAY_GROUPS = [
+    ("worker", "Worker"),
+    ("support", "Production support"),
+    ("office", "Office"),
+    ("daily", "Daily-paid"),
+    ("manager", "Manager without labour contract"),
+]
 
 
 class HrContract(models.Model):
@@ -37,6 +44,10 @@ class HrContract(models.Model):
     )
     l10n_vn_declared_si_base = fields.Monetary(
         string="Declared SI Base", groups=PAYROLL_GROUPS
+    )
+    # the pay group goes with the pay terms (step 12, D110)
+    l10n_vn_pay_group = fields.Selection(
+        PAY_GROUPS, string="Pay Group", groups=PAYROLL_GROUPS, tracking=True
     )
     l10n_vn_probation_form = fields.Selection(
         [

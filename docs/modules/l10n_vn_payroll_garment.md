@@ -17,6 +17,8 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | 4 | Account mapping, after `l10n_vn_payroll_account` (design §28.2) | planned | |
 | 5 | Following `l10n_vn_payroll` step 10: `vn.check.long_days` = *note* (quilting's double shifts); `OT_NIGHT` PIT treatment `exempt` (a premium on normal hours, outside the OT hour limits); `vn.policy.ot_min_hours_day` no longer created; version 18.0.1.1.0 | done | 2026-11-08, one run: `-u`, `exit=0`, 25 tests, 0 failures. On the test copy, which kept its step 1 records, `OT_NIGHT`'s PIT treatment is set by hand and a second load adds `vn.check.long_days` |
 | 6 | November 2026 go-live (Technical Design v0.6 PTD-19, PTD-25): `BASE` from a dated scale `BASE` by group and `PROD` as the rest of a level total; the training allowance `TRAIN`; the contract types Labour, Probation, Training and Casual with their participant types; `vn.policy.base_salary` no longer created; version 18.0.1.2.0 | done | 2026-11-12, one run: `-u`, `exit=0`, 28 tests, 0 failures. The test copy, loaded before step 6, keeps its `BASE` and `PROD` (D21); the full setup is exercised by the first load on `prod_copy` |
+| 7 | With `l10n_vn_payroll_payment` step 1: `vn.policy.advance_max_share` 0.5 (Pay Policy §11), version 18.0.1.3.0 | done | 2026-11-19, one run: `-u`, `exit=0`, 28 tests, 0 failures. On the test copy the parameter was created by hand |
+| 8 | With `l10n_vn_payroll_payment` step 1.1: `vn.policy.advance_pay_groups` `worker`, the pay groups eligible for advances; version 18.0.1.4.0 | done | 2026-11-19, one run: `-u`, `exit=0`, 28 tests, 0 failures. On the test copy the parameter was created by hand |
 
 ## Divergences from the design
 
@@ -25,7 +27,7 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | 1 | §1: depends on `l10n_vn_payroll_account` and `auditlog` | step 1 depends on `l10n_vn_payroll` only; `auditlog` comes with step 2, `l10n_vn_payroll_account` with step 4 | The garment configuration is built before the account module (Peter, 2026-11-07); the account mapping is the only part that needs it |
 | 2 | §28: the configuration shipped as module data, accounts set by a `post_init_hook` | created per company by a loader that a payroll manager starts from *Settings* (D1) | Components, scales, parameters, categories, rules and structures belong to one company, and the trading company is Vietnamese too, so an install cannot know which company to configure; the public repo cannot name one (`maintenance_sla_garment` divergence 1). The loader is also how tests configure their own company |
 | 3 | §28.1: eight OT components, and `ATT`, `KPI`, `SUPP`, `DUTY`, `PHONE` inactive | the three day OT components and the five night components active; `ATT`, `DUTY`, `PHONE` inactive; no `KPI`, no `SUPP` (D9) | Night pay is statutory, so its components stay active and pay as soon as night hours are recorded. `ATT`, `DUTY` and `PHONE` are options of the module, kept apart from the target policy. `KPI` behaves as `ONE`; `SUPP` is not part of any pay in use (Peter, 2026-11-07) |
-| 4 | §4.3: `vn.policy.std_days.mode`, `ot_supplement`, `unit_rate`, `attendance_late_max`, `advance_max_share` | not created (D10) | `std_days.mode` was not built (engine divergence 12); `SUPP` is not shipped; the unit rate is set once IE is live (Pay Policy OPEN-04); the attendance limit and the attendance bonus amount are decided when `ATT` is switched on; the advance limit comes with the advances |
+| 4 | §4.3: `vn.policy.std_days.mode`, `ot_supplement`, `unit_rate`, `attendance_late_max` | not created (D10) | `std_days.mode` was not built (engine divergence 12); `SUPP` is not shipped; the unit rate is set once IE is live (Pay Policy OPEN-04); the attendance limit and the attendance bonus amount are decided when `ATT` is switched on. `advance_max_share` came with the advances (step 7) |
 | 5 | §28.1: `ATT` takes its amount from the pay line | from the parameter `vn.policy.attendance_bonus`, not created (D12) | One amount for every worker, changed in one place |
 | 6 | §28.2: scale versions from the go-live month | parameters and scale versions from 2026-01-01 (D10) | The go-live month is open (Pay Policy OPEN-16); a version from January covers every month calculated in 2026, the trial months included |
 | 7 | §28.2: contract line templates, cost groups and accounts, contribution registers | later steps (3, 4) | Step 1 is the configuration a payslip needs |
@@ -122,6 +124,7 @@ In the company, `country_id` the company's country, one version from 2026-01-01 
 | `vn.policy.attainment_cap` | Attainment and score cap | float | `1` |
 | `vn.policy.constant_months` | Months of unchanged variable pay before a check | integer | `6` |
 | `vn.policy.net_change` | Net pay change from last month before a check | float | `0.30` |
+| `vn.policy.advance_max_share` | Advance limit, share of the monthly amount | float | `0.5` (step 7) |
 | `vn.check.variable_constant.PERF` | Check level: performance pay unchanged | string | `note` |
 | `vn.check.long_days` | Check level: days with more than 12 hours of work | string | `note` (step 5, D15) |
 

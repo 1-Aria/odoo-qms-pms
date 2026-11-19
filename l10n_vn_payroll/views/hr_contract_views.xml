@@ -14,6 +14,7 @@
                     <group name="l10n_vn_profile">
                         <group>
                             <field name="l10n_vn_participant_type_id" />
+                            <field name="l10n_vn_pay_group" />
                             <field name="l10n_vn_base_source" invisible="1" />
                             <field
                                 name="l10n_vn_declared_si_base"

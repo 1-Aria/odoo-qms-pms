@@ -14,15 +14,13 @@ EXCEPTION_GROUPS = ("office", "manager")
 class HrEmployee(models.Model):
     _inherit = "hr.employee"
 
+    # a copy of the current contract's (step 12, D111)
     l10n_vn_pay_group = fields.Selection(
-        [
-            ("worker", "Worker"),
-            ("support", "Production support"),
-            ("office", "Office"),
-            ("daily", "Daily-paid"),
-            ("manager", "Manager without labour contract"),
-        ],
+        related="contract_id.l10n_vn_pay_group",
+        store=True,
+        readonly=True,
         string="Pay Group",
+        help="The pay group of the current contract.",
         groups=PAYROLL_GROUPS,
     )
     l10n_vn_attendance_mode = fields.Selection(

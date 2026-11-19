@@ -416,7 +416,8 @@ class L10nVnPayrollCheck(models.Model):
 
     def _l10n_vn_find_ie_scope(self, payslip, context):
         inp = payslip.l10n_vn_input_id.sudo()
-        if inp.ie_units and payslip.employee_id.sudo().l10n_vn_pay_group != "worker":
+        # the month's contract, not the employee's current one (D112)
+        if inp.ie_units and payslip.contract_id.sudo().l10n_vn_pay_group != "worker":
             return [
                 (
                     False,

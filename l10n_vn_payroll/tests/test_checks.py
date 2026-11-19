@@ -302,13 +302,29 @@ class TestChecks(PayslipCase):
         self.assertFalse(self._results(payslip, "net_change"))
 
     def test_ie_scope(self):
-        employee, _c = self._salaried()
-        employee.l10n_vn_pay_group = "office"
+        employee, contract = self._salaried()
+        contract.l10n_vn_pay_group = "office"
         self._input(employee, ie_units=100)
         payslip = self._payslip(employee)
         self.assertEqual(self._results(payslip, "ie_scope").level, "warning")
-        employee.l10n_vn_pay_group = "worker"
+        contract.l10n_vn_pay_group = "worker"
         payslip.compute_sheet()
+        self.assertFalse(self._results(payslip, "ie_scope"))
+
+    def test_ie_scope_reads_payslip_contract(self):
+        # the month's contract decides, not the employee's current one (step 12, D112)
+        employee, october = self._salaried(date_end=D(2026, 10, 31))
+        october.l10n_vn_pay_group = "worker"
+        self._hire(
+            employee=employee,
+            date_start=D(2026, 11, 1),
+            lines=[(self.sal, {"amount": 4500000})],
+            l10n_vn_pay_group="office",
+        )
+        self.assertEqual(employee.l10n_vn_pay_group, "office")
+        self._input(employee, ie_units=100)
+        payslip = self._payslip(employee)
+        self.assertEqual(payslip.contract_id, october)
         self.assertFalse(self._results(payslip, "ie_scope"))
 
     def test_level_review(self):
@@ -368,8 +384,8 @@ class TestChecks(PayslipCase):
     def test_payslip_level(self):
         self.period.attendance_closed = True
         self._parameter_text("vn.check.ie_scope", "note")
-        employee, _c = self._travel_in_ot_base()
-        employee.l10n_vn_pay_group = "office"
+        employee, contract = self._travel_in_ot_base()
+        contract.l10n_vn_pay_group = "office"
         inp = self._input(employee, ie_units=100)
         payslip = self._payslip(employee)
         self.assertEqual(set(payslip.l10n_vn_check_result_ids.mapped("level")),

@@ -19,13 +19,33 @@ class TestEmployeePayroll(PayrollCase):
         return (env or self.env)["hr.employee.relative"].create(vals)
 
     def test_attendance_mode_follows_pay_group(self):
+        # the pay group is the contract's; the employee holds a copy (step 12, D111)
         employee = self.employee
-        employee.l10n_vn_pay_group = "worker"
+        self.contract.l10n_vn_pay_group = "worker"
+        self.assertEqual(employee.l10n_vn_pay_group, "worker")
         self.assertEqual(employee.l10n_vn_attendance_mode, "scan")
-        employee.l10n_vn_pay_group = "office"
+        self.contract.l10n_vn_pay_group = "office"
         self.assertEqual(employee.l10n_vn_attendance_mode, "exception")
         employee.l10n_vn_attendance_mode = "scan"
         self.assertEqual(employee.l10n_vn_attendance_mode, "scan")
+
+    def test_pay_group_from_current_contract(self):
+        self.contract.write({"date_end": D(2026, 10, 31), "l10n_vn_pay_group": "worker"})
+        self.assertEqual(self.employee.l10n_vn_pay_group, "worker")
+        self.env["hr.contract"].create(
+            {
+                "name": "Payroll Test Contract November",
+                "employee_id": self.employee.id,
+                "company_id": self.company.id,
+                "date_start": D(2026, 11, 1),
+                "wage": 1,
+                "resource_calendar_id": self.calendar.id,
+                "state": "open",
+                "l10n_vn_pay_group": "office",
+            }
+        )
+        self.assertEqual(self.employee.l10n_vn_pay_group, "office")
+        self.assertEqual(self.employee.l10n_vn_attendance_mode, "exception")
 
     def test_region_default(self):
         self.env["base.time.parameter"].create(

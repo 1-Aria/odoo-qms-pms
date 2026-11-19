@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_advance_batch_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.advance.batch.list</field>
+        <field name="model">l10n_vn.payroll.advance.batch</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="date" />
+                <field name="reason" />
+                <field name="amount_total" sum="Total" />
+                <field
+                    name="state"
+                    widget="badge"
+                    decoration-info="state == 'draft'"
+                    decoration-warning="state == 'approved'"
+                    decoration-success="state == 'paid'"
+                />
+                <field name="currency_id" column_invisible="True" />
+                <field name="company_id" groups="base.group_multi_company" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_advance_batch_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.advance.batch.form</field>
+        <field name="model">l10n_vn.payroll.advance.batch</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button
+                        name="action_generate"
+                        type="object"
+                        string="Generate"
+                        class="oe_highlight"
+                        invisible="state != 'draft'"
+                        groups="payroll.group_payroll_user"
+                    />
+                    <button
+                        name="action_approve"
+                        type="object"
+                        string="Approve"
+                        class="oe_highlight"
+                        invisible="state != 'draft' or not advance_ids"
+                        groups="l10n_vn_payroll.group_payroll_reviewer"
+                    />
+                    <button
+                        name="action_open_pay"
+                        type="object"
+                        string="Mark as Paid"
+                        class="oe_highlight"
+                        invisible="state != 'approved'"
+                        groups="payroll.group_payroll_user"
+                    />
+                    <button
+                        name="action_cancel"
+                        type="object"
+                        string="Cancel"
+                        invisible="state not in ('draft', 'approved') or not advance_ids"
+                        groups="payroll.group_payroll_user"
+                        confirm="Cancel the draft and approved advances of this batch?"
+                    />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,approved,paid" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="state != 'draft'" /></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date" readonly="advance_ids" />
+                            <field name="reason" readonly="advance_ids" />
+                            <field name="company_id" groups="base.group_multi_company" readonly="advance_ids" />
+                            <field name="currency_id" invisible="1" />
+                        </group>
+                        <group>
+                            <field name="pay_group" readonly="state != 'draft'" />
+                            <field name="department_ids" widget="many2many_tags" readonly="state != 'draft'" />
+                            <field name="amount_mode" readonly="state != 'draft'" />
+                            <field
+                                name="fixed_amount"
+                                invisible="amount_mode != 'fixed'"
+                                readonly="state != 'draft'"
+                            />
+                            <field
+                                name="share"
+                                widget="percentage"
+                                invisible="amount_mode != 'share'"
+                                readonly="state != 'draft'"
+                            />
+                            <field
+                                name="round_to"
+                                invisible="amount_mode != 'share'"
+                                readonly="state != 'draft'"
+                            />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Advances" name="advances">
+                            <field
+                                name="advance_ids"
+                                context="{'default_date': date, 'default_reason': reason, 'default_company_id': company_id}"
+                            >
+                                <list
+                                    editable="bottom"
+                                    decoration-danger="not eligible and state == 'draft'"
+                                    decoration-warning="over_limit and state == 'draft'"
+                                    decoration-muted="state == 'cancelled'"
+                                >
+                                    <field name="employee_id" readonly="state != 'draft'" />
+                                    <field name="amount" sum="Total" readonly="state != 'draft'" />
+                                    <field name="eligible" />
+                                    <field name="days_worked" />
+                                    <field name="earned_amount" />
+                                    <field name="monthly_amount" />
+                                    <field name="limit_left" />
+                                    <field name="over_limit" />
+                                    <field name="limit_note" readonly="state != 'draft'" />
+                                    <field name="state" widget="badge" />
+                                    <field name="date" column_invisible="True" />
+                                    <field name="reason" column_invisible="True" />
+                                    <field name="company_id" column_invisible="True" />
+                                    <field name="currency_id" column_invisible="True" />
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer">
+                                <field name="amount_total" />
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_advance_batch_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.advance.batch.search</field>
+        <field name="model">l10n_vn.payroll.advance.batch</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="reason" />
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]" />
+                <filter name="to_pay" string="To Pay" domain="[('state', '=', 'approved')]" />
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_advance_batch_action" model="ir.actions.act_window">
+        <field name="name">Advance Batches</field>
+        <field name="res_model">l10n_vn.payroll.advance.batch</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

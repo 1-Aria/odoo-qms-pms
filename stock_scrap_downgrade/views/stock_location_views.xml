@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_location_form" model="ir.ui.view">
+        <field name="name">stock.location.form.downgrade</field>
+        <field name="model">stock.location</field>
+        <field name="inherit_id" ref="stock.view_location_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='scrap_location']" position="after">
+                <field name="downgrade_categ_id"
+                       invisible="not scrap_location or usage != 'inventory'"
+                       options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

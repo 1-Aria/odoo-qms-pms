@@ -27,7 +27,7 @@ class TestInputTime(InputCase):
         self.assertAlmostEqual(inp.days_worked, 26 - 2 * 20 / 480, places=4)
 
     def test_exception_mode(self):
-        self.employee.l10n_vn_pay_group = "office"
+        self.contract.l10n_vn_pay_group = "office"
         self.assertEqual(self.employee.l10n_vn_attendance_mode, "exception")
         day = D(2026, 10, 12)
         self._leave(self._leave_type("Payroll Test Annual"), day, day)

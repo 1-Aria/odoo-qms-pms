@@ -25,6 +25,18 @@ PARAMETERS = [
         "0.30",
     ),
     (
+        "vn.policy.advance_max_share",
+        "Advance limit, share of the monthly amount",
+        "float",
+        "0.5",
+    ),
+    (
+        "vn.policy.advance_pay_groups",
+        "Pay groups eligible for advances",
+        "string",
+        "worker",
+    ),
+    (
         "vn.check.variable_constant.PERF",
         "Check level: performance pay unchanged",
         "string",

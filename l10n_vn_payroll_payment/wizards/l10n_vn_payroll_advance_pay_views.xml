@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_advance_pay_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.advance.pay.form</field>
+        <field name="model">l10n_vn.payroll.advance.pay</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="advance_count" />
+                    <field name="amount_total" />
+                    <field name="paid_date" />
+                    <field name="advance_ids" invisible="1" />
+                    <field name="currency_id" invisible="1" />
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Mark as Paid" class="oe_highlight" />
+                    <button special="cancel" string="Cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

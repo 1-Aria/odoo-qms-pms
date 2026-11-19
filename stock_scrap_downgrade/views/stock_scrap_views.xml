@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="stock_scrap_form_view" model="ir.ui.view">
+        <field name="name">stock.scrap.form.downgrade</field>
+        <field name="model">stock.scrap</field>
+        <field name="inherit_id" ref="stock.stock_scrap_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='scrap_location_id']" position="after">
+                <field name="downgrade_product_id"
+                       invisible="not downgrade_categ_id"
+                       required="downgrade_categ_id"
+                       readonly="state == 'done'"
+                       options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_scrap_form_view2" model="ir.ui.view">
+        <field name="name">stock.scrap.form2.downgrade</field>
+        <field name="model">stock.scrap</field>
+        <field name="inherit_id" ref="stock.stock_scrap_form_view2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='scrap_location_id']" position="after">
+                <field name="downgrade_product_id"
+                       invisible="not downgrade_categ_id"
+                       required="downgrade_categ_id"
+                       readonly="state == 'done'"
+                       options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_scrap_tree_view" model="ir.ui.view">
+        <field name="name">stock.scrap.list.downgrade</field>
+        <field name="model">stock.scrap</field>
+        <field name="inherit_id" ref="stock.stock_scrap_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='scrap_location_id']" position="after">
+                <field name="downgrade_product_id" readonly="1" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

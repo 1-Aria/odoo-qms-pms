@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_advance_user,l10n_vn.payroll.advance user,model_l10n_vn_payroll_advance,payroll.group_payroll_user,1,1,1,1
+access_advance_reader,l10n_vn.payroll.advance reader,model_l10n_vn_payroll_advance,l10n_vn_payroll.group_payroll_reader,1,0,0,0
+access_advance_approver,l10n_vn.payroll.advance approver,model_l10n_vn_payroll_advance,l10n_vn_payroll.group_payroll_approver,1,0,0,0
+access_advance_batch_user,l10n_vn.payroll.advance.batch user,model_l10n_vn_payroll_advance_batch,payroll.group_payroll_user,1,1,1,1
+access_advance_batch_reader,l10n_vn.payroll.advance.batch reader,model_l10n_vn_payroll_advance_batch,l10n_vn_payroll.group_payroll_reader,1,0,0,0
+access_advance_batch_approver,l10n_vn.payroll.advance.batch approver,model_l10n_vn_payroll_advance_batch,l10n_vn_payroll.group_payroll_approver,1,0,0,0
+access_advance_settlement_user,l10n_vn.payroll.advance.settlement user,model_l10n_vn_payroll_advance_settlement,payroll.group_payroll_user,1,0,0,0
+access_advance_settlement_reader,l10n_vn.payroll.advance.settlement reader,model_l10n_vn_payroll_advance_settlement,l10n_vn_payroll.group_payroll_reader,1,0,0,0
+access_advance_settlement_approver,l10n_vn.payroll.advance.settlement approver,model_l10n_vn_payroll_advance_settlement,l10n_vn_payroll.group_payroll_approver,1,0,0,0
+access_advance_pay_user,l10n_vn.payroll.advance.pay user,model_l10n_vn_payroll_advance_pay,payroll.group_payroll_user,1,1,1,1

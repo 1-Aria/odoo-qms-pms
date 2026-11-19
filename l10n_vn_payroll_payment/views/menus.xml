@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem
+        id="menu_l10n_vn_payroll_advance"
+        name="Salary Advances"
+        parent="l10n_vn_payroll.menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_advance_action"
+        sequence="8"
+    />
+    <menuitem
+        id="menu_l10n_vn_payroll_advance_batch"
+        name="Advance Batches"
+        parent="l10n_vn_payroll.menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_advance_batch_action"
+        sequence="9"
+    />
+</odoo>

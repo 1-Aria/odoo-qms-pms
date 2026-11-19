@@ -25,6 +25,7 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | 10 | Time from `hr_attendance_day`: the monthly summary reads each day's figures from `hr.employee._attendance_days()` instead of `hr.attendance`; Odoo's tolerances replace the 0.8 h rule; days worked per paid day (combined shifts); the night categories; late arrivals, absences and days without check-out from the day figures; the exception-driven mode's first reader; the daily OT limit reported by the `ot_limit` check; the check `long_days`; night hours in the OT schedule | done | 2026-11-08, one run: `-u`, `exit=0`, 236 tests, 0 failures. Corrected against the code: days worked per date are computed in payroll as normal hours ÷ hours of a paid day, the day figures' rule without their per-day rounding (D91); `long_days` takes sequence 135 and the other checks keep theirs |
 | 10.1 | Hours over the daily limit are at most the day's overtime (D95), so long normal days (quilting's double shifts) count only in `long_days`; `test_paid_day_hours` asserts it | done | 2026-11-08, one run: `-u`, `exit=0`, 236 tests, 0 failures; May 2026 compared again: 0 h over the daily limit. Found by comparing May 2026 on the test copy, where all 106.6 h over the daily limit came from quilting, which has no overtime |
 | 11 | Contracts, identification and corrections (Technical Design v0.6 PTD-19 to PTD-23): participant types `TRAINING` and `CASUAL`, the flags `paid_by_transfer` and `posted`, `PROBATION` progressive; a participant type on each contract type, given to new contracts; the PIT method with the commitment form first; `missing_ids` asking for the CCCD and, where paid by transfer, the bank account; checks `contract_term` and `attendance_corrections`; corrected days on the summary; version 18.0.1.1.0 with a migration | done | 2026-11-12, two runs. First: `-u`, 243 tests, 1 failure: `test_probation_and_short` still expected `PROBATION` flat; the test now expects `progressive` (D102). The migration ran on the test copy (`PROBATION` progressive; `TRAINING` and `CASUAL` created, `CASUAL` neither paid by transfer nor posted). Second: `-u`, `exit=0`, 243 tests, 0 failures. UI checked by Peter: the participant type on contract types, the correction reason on attendance |
+| 12 | The pay group on the contract (D110–D113): `hr.contract.l10n_vn_pay_group`; the employee's a stored copy of the current contract's; `ie_scope` reads the payslip's contract; migration 18.0.1.2.0 copies each employee's value to their contracts; version 18.0.1.2.0 | spec, awaiting review | |
 
 ## Divergences from the design
 
@@ -72,6 +73,7 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | 40 | Divergence 11: night hours not computed | normal night hours under `NIGHT`, night OT under `NWD`, `NWD_AFTER`, `NRD`, `NHOL` (step 10, D93) | Quilting works past 22:00 (design note §8); the module now captures night time |
 | 41 | §19.2: `ot_limit` against the monthly and yearly limits | also the daily limit: 50% of the day's scheduled hours on a workday and 12 hours of work in the day (step 10, D95) | Labor Code Art. 107 and the rest-day limit of 12 h (Peter, 2026-11-08). The daily limit is a labour rule only: the PIT exemption keeps the monthly and yearly limits (Peter, 2026-11-08) |
 | 42 | §19.2: the catalogue | adds `long_days` (legal): days with more than 12 hours of work (step 10, D97) | Quilting's double shifts (design note §8, AD-10; Peter, 2026-11-08): reported, never enforced |
+| 43 | §8.3: `l10n_vn_pay_group` on `hr.employee` | on `hr.contract`; the employee's field a stored read-only copy of the current contract's (step 12, D110–D111) | The pay group goes with the pay terms the contract already holds (pay lines, participant type, structure) and changes with them; on the employee a past month would be read with today's group (Peter, 2026-11-19) |
 
 ## Decisions
 
@@ -186,6 +188,10 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | D107 | **`contract_term`** (legal, warning, PTD-23), on the main contract: when its participant type is `LABOUR` and it has an end date, the employee's `LABOUR` contracts in the company (states `open`, `close`) up to it, newest first, are counted while each has an end date; three or more give *%(n)s fixed-term labour contracts in a row: the law allows one renewal, the next contract must be indefinite.* When its participant type is `TRAINING` and it has no end date, or `date_start` + 3 months is before `date_end` + 1 day: *Training contract longer than 3 months.* |
 | D108 | **Corrected days** (PTD-22): the summary's `corrected_days` counts the dates of its contracts' spans with `corrected` (`hr_attendance_day` D13), and `corrections_json` maps each such date (ISO) to its reasons; both are figures (`FIGURES`), frozen at close |
 | D109 | **`attendance_corrections`** (policy, warning): when the summary's `corrected_days` > 0, one finding: *%(days)s days with attendance corrected by hand: %(list)s*, the list as `dd/mm reason; …`, at most ten dates then `…`. The reviewer's note is the approval (Pay Policy v0.6 §7) |
+| D110 | **The pay group is on the contract** (step 12, divergence 43): `hr.contract.l10n_vn_pay_group`, same selection, tracked, copied with the contract so a renewal keeps it |
+| D111 | **The employee's pay group** becomes a stored, read-only copy of the current contract's (`contract_id.l10n_vn_pay_group`): employee lists, searches and the attendance mode keep reading it. The attendance mode stays the employee's own editable value (D16); it follows a change of the current contract's group through it, and an employee without a group keeps theirs |
+| D112 | **A month reads that month's contract:** `ie_scope` reads the payslip's contract, the month's main contract (D31), not the employee's current one. The attendance mode stays on the employee, as how a person's time is recorded |
+| D113 | **Migration 18.0.1.2.0:** before the upgrade, each contract without a pay group takes its employee's, contracts of every state included; after it, the employees whose stored group differs from their current contract's (those without a current contract) are recomputed. On the test copy that is the trial employees |
 
 ## Folder structure
 
@@ -1324,6 +1330,45 @@ SQL: `employee_year_unique`: `unique(company_id, employee_id, year)`.
 - `data/l10n_vn_payroll_checks.xml`: `check_contract_term` (`contract_term`, *Contract term beyond the legal limit*, legal, warning, sequence 136) and `check_attendance_corrections` (`attendance_corrections`, *Attendance corrected by hand*, policy, warning, sequence 205).
 - `models/__init__.py` gains `from . import hr_contract_type`.
 
+### Step 12: the pay group on the contract
+
+#### `hr.contract` additions — `models/hr_contract.py`
+
+Module constant `PAY_GROUPS`: `worker` *Worker*, `support` *Production support*, `office` *Office*, `daily` *Daily-paid*, `manager` *Manager without labour contract* (moved here from `hr_employee.py`, whose field no longer declares a selection).
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_pay_group` | Selection | `PAY_GROUPS`, string *Pay Group*, `groups=PAYROLL_GROUPS`, `tracking=True` (D110) |
+
+#### `hr.employee` changes — `models/hr_employee.py`
+
+| Field | Type | Attributes |
+|---|---|---|
+| `l10n_vn_pay_group` | Selection | `related="contract_id.l10n_vn_pay_group"`, `store=True`, `readonly=True`, string *Pay Group*, `groups=PAYROLL_GROUPS`, help *The pay group of the current contract.* (D111) |
+
+`_compute_l10n_vn_attendance_mode` is unchanged.
+
+#### Checks — `models/l10n_vn_payroll_check.py`
+
+| Finder | Behaviour |
+|---|---|
+| `_l10n_vn_find_ie_scope` | `payslip.contract_id.sudo().l10n_vn_pay_group != "worker"` (D112) |
+
+#### Views
+
+`views/hr_contract_views.xml`: `l10n_vn_pay_group` after `l10n_vn_participant_type_id` in the group `l10n_vn_profile`. The employee form keeps its field, read-only through the relation.
+
+#### Migration — `migrations/18.0.1.2.0/`
+
+| File | `migrate(cr, version)`, when `version` is set |
+|---|---|
+| `pre-migrate.py` | `ALTER TABLE hr_contract ADD COLUMN IF NOT EXISTS l10n_vn_pay_group varchar`; `UPDATE hr_contract c SET l10n_vn_pay_group = e.l10n_vn_pay_group FROM hr_employee e WHERE c.employee_id = e.id AND e.l10n_vn_pay_group IS NOT NULL AND c.l10n_vn_pay_group IS NULL` (D113) |
+| `post-migrate.py` | with `env = api.Environment(cr, SUPERUSER_ID, {})`: employees of every company, archived included, whose `l10n_vn_pay_group` differs from `contract_id.l10n_vn_pay_group`; `env.add_to_compute(field, employees)` for the employee field, then `env.flush_all()` (D113) |
+
+#### Manifest
+
+`version` `18.0.1.2.0`.
+
 ### `res.company` — `models/res_company.py`
 
 `_inherit = "res.company"`.
@@ -2088,6 +2133,19 @@ A September 2026 period and run beside October's where a test needs two months.
 | `tests/test_input_time.py` | `test_corrections_counted` | one attendance with a correction reason: `corrected_days` 1 and `corrections_json` holding its date and reason |
 
 **Expected count after step 11:** 236 + 7 = 243: `test_probation_type` became `test_probation_contract_months` (a rewrite, not a new test).
+
+### Step 12 tests
+
+| File | Test | Asserts |
+|---|---|---|
+| `tests/test_employee_payroll.py` | `test_attendance_mode_follows_pay_group` (rewritten) | the pay group written on `self.contract`: `worker` gives the employee `worker` and `scan`, `office` gives `exception`; a hand-set `scan` stays |
+| | `test_pay_group_from_current_contract` | `self.contract` `worker` ending 2026-10-31; a new open contract from 2026-11-01 in `office`: the employee reads `office` and `exception` |
+| `tests/test_checks.py` | `test_ie_scope` (rewritten) | the group written on the contract `_salaried` returns |
+| | `test_payslip_level` (rewritten) | the group written on the contract `_travel_in_ot_base` returns |
+| | `test_ie_scope_reads_payslip_contract` | an October payslip on a `worker` contract ending 2026-10-31, a November contract in `office` current for the employee: no `ie_scope` finding |
+| `tests/test_input_time.py` | `test_exception_mode` (rewritten) | the group written on `self.contract` |
+
+**Expected count after step 12:** 243 + 2 = 245. Upgrading this module also upgrades and tests `l10n_vn_payroll_garment` (28) and `l10n_vn_payroll_payment` (35 from its step 1.2).
 
 ## Readme
 

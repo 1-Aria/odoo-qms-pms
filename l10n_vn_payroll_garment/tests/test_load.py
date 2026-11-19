@@ -10,7 +10,7 @@ from odoo.addons.l10n_vn_payroll.tests.common import D, PayrollCase
 from ..models.garment_scheme import CONTRACT_TYPES
 
 # parameters, scales, categories, components, contract types, structure, rules
-TOTAL = 8 + 3 + 4 + 36 + 4 + 1 + 36
+TOTAL = 10 + 3 + 4 + 36 + 4 + 1 + 36
 CATEGORY_OF_KIND = {
     "earning": "EARN",
     "deduction": "DED",
@@ -71,6 +71,8 @@ class TestLoad(PayrollCase):
             ("vn.policy.attainment_cap", 1),
             ("vn.policy.constant_months", 6),
             ("vn.policy.net_change", 0.30),
+            ("vn.policy.advance_max_share", 0.5),
+            ("vn.policy.advance_pay_groups", "worker"),
             ("vn.check.variable_constant.PERF", "note"),
             ("vn.check.long_days", "note"),
         ):
