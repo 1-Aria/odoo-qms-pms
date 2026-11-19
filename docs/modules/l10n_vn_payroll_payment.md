@@ -13,8 +13,8 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.6.md` §23, PTD-16
 |---|---|---|---|
 | 1 | Advances: the record, batches, the limit at approval, approval, payment date, cancellation; settlement on payslips through `_l10n_vn_advances()`; the check at run approval; `vn.policy.advance_max_share` in the garment loader | done | 2026-11-19: `-u l10n_vn_payroll_garment`, then `-i`, then `-u l10n_vn_payroll`, each `exit=0`; 31 post-tests here, 0 failures (the last run 302: 243 engine + 28 garment + 31, the dependent modules upgraded with it). UI as officer, reviewer and approver on the three trial employees: single advance, a batch with a line above the limit refused until noted, share batch rounded down, cancelling, read-only approver |
 | 1.1 | The limit on pay earned to date (attendance from `hr_attendance_day`), the limit kept at approval; eligibility by pay group, a hard refusal; share batches on earned pay; `vn.policy.advance_pay_groups` in the garment loader (its step 8) | done | 2026-11-19: `-u l10n_vn_payroll_payment` 34 tests, `-u l10n_vn_payroll_garment` 28 tests, each `exit=0`, 0 failures. UI on the trial employees dated 16 May: days worked and earned from May attendance, limit kept at approval, an employee without pay group refused even with a note and left out by *Generate* |
-| 1.2 | With `l10n_vn_payroll` step 12: eligibility and the batch's pay group filter read the pay group of the main contract for the advance's month (D18) | spec, awaiting review | |
-| 2 | Payment lists: the run's transfer list (the module's own copy of the layout of *Export Payslip Batch*, paying `l10n_vn_to_pay`), the cash list for signatures, the transfer list of an advance batch, *Mark as Paid* with the payment date | planned | |
+| 1.2 | With `l10n_vn_payroll` step 12: eligibility and the batch's pay group filter read the pay group of the main contract for the advance's month (D18) | done | 2026-11-19, with engine step 12: one `-u l10n_vn_payroll`, `exit=0`, 35 tests here, 0 failures; UI as expected |
+| 2 | Payment lists (D19–D27): `l10n_vn.payroll.payment` and its lines, one mechanism for payday and advances; a run's list made at approval, an advance list from approved advances or a batch; the transfer file (the module's copy of the *Export Payslip Batch* layout, paying the amount to pay) and the cash list; *Mark as Paid* per method or per line with the payment date, which pays the advances and, once every line is paid, the run; step 1's advance payment wizard replaced | done | 2026-11-19, one run: `-u l10n_vn_payroll`, `exit=0`, 320 post-tests (245 engine, 28 garment, 47 here), 0 failures. UI on the test copy: advance lists from a batch and from selected advances, the transfer file against Peter's layout, transfers marked paid and the advances paid with that date, the approver read-only. Changed from the spec while coding: the run's own *Mark as Paid* pays a listed run's remaining lines instead of refusing (D25) |
 
 ## Divergences from the design
 
@@ -26,9 +26,11 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.6.md` §23, PTD-16
 | 4 | §23.2: the batch is a wizard creating drafts | a batch record (D9) | It carries the group's approval and payment, and step 2 needs a record to export the group's transfer list from |
 | 5 | §19.2, engine D66 and divergence 27: `advance_limit` as a check with a finder on payslips | applied at the advance's approval, through the catalogue record's level; no payslip finding (D3) | TC-F16 places it at approval. On a payslip a warning needs a second note before review (engine D74) |
 | 6 | FR-71, Pay Policy §11: advances paid by bank | the record does not say how it is paid; step 2 lists it as transfer or cash by `paid_by_transfer`, as payday does | Casual workers are paid in cash |
+| 7 | Engine D57, its divergence 27, the docstring of `_l10n_vn_advances()`: the hook and the finder belong to `l10n_vn_payroll_account` | this module overrides the hook (D7) | PTD-24 |
 | 8 | Pay Policy §11: the limit on the monthly amount (base + productivity or performance pay at 100%) | on pay earned to date (D14, step 1.1) | A monthly limit ignores attendance: an absent worker, a new hire or a leaver could draw half a month not earned (Peter, 2026-11-19). Pay Policy §11 to be reworded |
 | 9 | Pay Policy §11: no rule on who may take an advance | the pay groups of `vn.policy.advance_pay_groups`; others are refused (D16, step 1.1) | Eligibility is configuration, a limit of 0 inside it an exception the approver may grant, outside it no advance (Peter, 2026-11-19). Pay Policy §11 to be reworded |
-| 7 | Engine D57, its divergence 27, the docstring of `_l10n_vn_advances()`: the hook and the finder belong to `l10n_vn_payroll_account` | this module overrides the hook (D7) | PTD-24 |
+| 10 | §23.1: payday through `account.payment.order`, a payment mode with the code `l10n_vn_bank_xlsx`, the run paid once the order's payments reconcile | a payment list of this module, its transfer file and *Mark as Paid* (D19, D25); the run paid when the list is | Payment works without accounting (PTD-24, FR-77). OCA's payment orders are built around payable journal items, which do not exist before posting. `l10n_vn_payroll_account` posts each payment from *Mark as Paid* to the bank's outstanding account, and the bank statement reconciles it (Peter, 2026-11-19) |
+| 11 | Engine D72: *Mark as Paid* on the run, replaced by the reconciliation in `l10n_vn_payroll_account` | a run with a payment list is paid through it; the run's own button is hidden for it and, called anyway, pays the list's remaining lines dated today (D25) | One way to pay, the same for payday and advances, recording when each person was paid |
 
 ## Decisions
 
@@ -51,6 +53,15 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.6.md` §23, PTD-16
 | D16 | **Eligibility** (step 1.1): `vn.policy.advance_pay_groups` on `date` is a comma-separated list of pay groups (`worker`, `support`, `office`, `daily`, `manager`). An employee whose `l10n_vn_pay_group` is not in it, or empty, gets no advance: approval refuses it whatever the note, and *Generate* leaves them out. Inside the list a limit above the amount, 0 included, follows D3. A missing parameter refuses approval and *Generate* with the strict reader's message |
 | D17 | **Share batches on earned pay** (step 1.1): `share` × pay earned to date on the batch's `date` (D14), so a share of 0.5 meets the garment limit exactly |
 | D18 | **The pay group of the month's contract** (step 1.2, engine step 12): eligibility (D16) and the batch's `pay_group` filter read `l10n_vn_pay_group` on the employee's main contract for the month of `date`, the contract D2 already reads; an employee without one is not eligible |
+| D19 | **One payment mechanism** (step 2): a payment list `l10n_vn.payroll.payment` of kind `payroll` (one run) or `advance` (approved advances), with a line per payment: employee, amount, method (`transfer` / `cash`), bank account, status and payment date. The transfer file, the cash list and *Mark as Paid* are the same for both kinds. It replaces step 1's advance payment wizard (D4) |
+| D20 | **A run's list is made at approval:** one line per payslip whose `l10n_vn_to_pay` is above 0, with that amount; `transfer` when the payslip's contract's participant type is `paid_by_transfer`, else `cash`; the employee's `bank_account_id` on transfer lines. No list when no payslip has anything to pay |
+| D21 | **An advance list** is made from approved advances not yet on a list, chosen in the advance list or all those of a batch: one line per advance, its amount; the method from the participant type of the main contract for the advance's month |
+| D22 | **The bank account is the line's:** set from the employee when the list is made, changeable on an unpaid line (an account corrected before the transfer), among the employee's own accounts. The file reads the line |
+| D23 | **The transfer file** is the module's own copy of the layout of Peter's *Export Payslip Batch* (`Bank Template 1.xlsx`: sheet `in`, headers in row 1, a row per transfer from row 2), on the payment list, row field `transfer_line_ids`; Peter's template stays for the old runs. It is made by a button that refuses a list without transfer lines or with a transfer line without bank account, naming them; each file made is attached to the list. The columns stay as Peter's; Peter asks for changes when the bank needs them |
+| D24 | **The cash list** is a printed list of the cash lines, a signature per person, the total and the signatures of preparer, chief accountant and director |
+| D25 | **Mark as Paid** takes a payment date for the unpaid lines of one method, which the officer may narrow (a transfer the bank returned stays unpaid and is paid later). A paid line records its date; its advance becomes `paid` with that date; the list is `paid` when every line is, and its run then moves to `paid`. The engine's run button, hidden for a run with a list, keeps its meaning there: it pays the lines still to pay, dated today, under the same officer check — so the engine's own tests, which run with this module installed, still hold |
+| D26 | **Deleting and cancelling:** an advance list without a paid line can be deleted, its advances going back to approved and off any list; a run's list cannot. Cancelling an approved advance removes its unpaid line |
+| D27 | **No accounting here:** paying a line is the step `l10n_vn_payroll_account` extends to post the payment |
 | D13 | **No change to the engine's code:** the module extends `_l10n_vn_advances`, `_l10n_vn_prepare_one`, `_l10n_vn_record_stop` and `action_l10n_vn_approve`. The check's level is read with the engine's `_l10n_vn_level`, given an object holding the advance's `date` as `date_to` and its `company_id` |
 
 ## Folder structure
@@ -327,6 +338,156 @@ Form: `advance_count`, `amount_total`, `paid_date`; footer *Mark as Paid* (`acti
 ### `views/menus.xml`
 
 Under `l10n_vn_payroll.menu_l10n_vn_payroll_inputs_root`: *Salary Advances* (sequence 8), *Advance Batches* (sequence 9).
+
+## Step 2: payment lists
+
+### Changes to the module
+
+| Where | Change |
+|---|---|
+| `__manifest__.py` | `depends` adds `excel_import_export` (already a dependency of `l10n_vn_payroll`, now used directly); `data` adds `views/l10n_vn_payroll_payment_views.xml`, `wizards/l10n_vn_payroll_payment_pay_views.xml`, `report/l10n_vn_payroll_cash_list.xml`, `data/l10n_vn_payroll_payment_templates.xml`, and drops `wizards/l10n_vn_payroll_advance_pay_views.xml` |
+| folders | new `models/l10n_vn_payroll_payment.py`, `wizards/l10n_vn_payroll_payment_pay.py` and its view, `views/l10n_vn_payroll_payment_views.xml`, `report/l10n_vn_payroll_cash_list.xml`, `data/l10n_vn_payroll_payment_templates.xml`, `templates/bank_transfer.xlsx` (a copy of the template file of Peter's *Export Payslip Batch*), `tests/test_payment.py`; `wizards/l10n_vn_payroll_advance_pay.py` and its view removed |
+| `security/ir.model.access.csv` | `access_payment_user`, `access_payment_line_user` (officer, 1 1 1 1); `access_payment_reader`, `access_payment_approver`, `access_payment_line_reader`, `access_payment_line_approver` (read); `access_payment_pay_user` (officer, 1 1 1 1); `access_advance_pay_user` removed |
+| `security/l10n_vn_payroll_payment_security.xml` | `rule_payment_company`, `rule_payment_line_company`, as the others |
+| `views/menus.xml` | *Payment Lists* under *Monthly Inputs*, sequence 10 |
+| `version` | `18.0.1.1.0` |
+
+### `l10n_vn.payroll.payment` — `models/l10n_vn_payroll_payment.py`
+
+`_description = "Payroll Payment List"`, `_inherit = ["mail.thread"]`, `_order = "date desc, id desc"`, `_check_company_auto = True`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `name` | Char | required |
+| `kind` | Selection | `payroll` *Payroll*, `advance` *Advances*; required, readonly |
+| `run_id` | Many2one `hr.payslip.run` | readonly, `ondelete="restrict"`, index; SQL `unique(run_id)` |
+| `company_id` | Many2one `res.company` | required, readonly |
+| `currency_id` | Many2one | related `company_id.currency_id` |
+| `date` | Date | required, string *Payment Date Requested*, default today; the file's value date |
+| `company_bank_id` | Many2one `res.partner.bank` | string *Paying Account*, domain the company's partner's accounts; default the first of them (`sequence`, `id`) |
+| `line_ids` | One2many `l10n_vn.payroll.payment.line` | `payment_id` |
+| `transfer_line_ids`, `cash_line_ids` | One2many `l10n_vn.payroll.payment.line` | non-stored computes: the lines of each method, in line order |
+| `amount_transfer`, `amount_cash`, `amount_total` | Monetary | stored computes over the lines |
+| `state` | Selection | stored compute: `to_pay` *To Pay*, `paid` *Paid* when there are lines and all are paid; depends `line_ids.state` |
+
+| Method | Behaviour |
+|---|---|
+| `_l10n_vn_from_run(run)` | `@api.model`, as superuser: D20; the list's `name` the run's, `date` today; lines in employee name order; returns the list or an empty recordset |
+| `_l10n_vn_from_advances(advances, name)` | `@api.model`: D21 for the advances `approved` and without a line; `UserError` *No approved advance left to pay.* without one |
+| `action_transfer_file()` | officer; D23: `xlsx.export.export_xlsx` with `l10n_vn_payroll_payment.xlsx_bank_transfer`, the file attached to the list (`res_model`, `res_id`), named *%(name)s - transfer.xlsx*; returns an `ir.actions.act_url` downloading it. `UserError` *There is no transfer to pay in this list.* / *No bank account on the transfers of %(employees)s.* |
+| `action_print_cash_list()` | the report `action_report_l10n_vn_cash_list`; `UserError` *There is no cash payment in this list.* |
+| `action_open_pay_transfer()`, `action_open_pay_cash()` | officer; the wizard with the list, the method and its unpaid lines; `UserError` *Nothing of this kind is left to pay.* |
+| `_l10n_vn_after_paid()` | for a `paid` list with a run in `approved`: the run's `state` `paid`, as superuser |
+| `unlink` | D26: `UserError` *A run's payment list cannot be deleted.* / *A list with paid lines cannot be deleted.* |
+
+### `l10n_vn.payroll.payment.line` — `models/l10n_vn_payroll_payment.py`
+
+`_description = "Payroll Payment Line"`, `_order = "payment_id, method, sequence, id"`.
+
+| Field | Type | Attributes |
+|---|---|---|
+| `payment_id` | Many2one | required, `ondelete="cascade"`, index |
+| `sequence` | Integer | the creation order |
+| `number` | Integer | non-stored compute: the position among the list's lines of the same method, from 1 |
+| `payslip_id` | Many2one `hr.payslip` | readonly, `ondelete="restrict"`, index |
+| `advance_id` | Many2one `l10n_vn.payroll.advance` | readonly, `ondelete="restrict"`, index |
+| `employee_id` | Many2one `hr.employee` | required, readonly |
+| `company_id` | Many2one | related `payment_id.company_id`, stored |
+| `currency_id` | Many2one | related `company_id.currency_id` |
+| `amount` | Monetary | required, readonly |
+| `method` | Selection | `transfer` *Transfer*, `cash` *Cash*; required, readonly |
+| `bank_account_id` | Many2one `res.partner.bank` | domain the employee's contact's accounts (D22) |
+| `state` | Selection | `to_pay` *To Pay*, `paid` *Paid*; required, default `to_pay`, readonly |
+| `paid_date` | Date | readonly |
+
+SQL: `one_source`: `CHECK((payslip_id IS NULL) != (advance_id IS NULL))`, *A payment line pays one payslip or one advance.*
+
+| Method | Behaviour |
+|---|---|
+| `write` | unless superuser: `bank_account_id` only on a line `to_pay`, else `UserError` *A paid line does not change.* |
+| `_l10n_vn_mark_paid(paid_date)` | officer (`l10n_vn.payroll.advance._l10n_vn_require`); every line `to_pay`, else `UserError` *Only an unpaid line is marked as paid.*; as superuser writes `paid` and `paid_date`, calls `advance_id._l10n_vn_mark_paid(paid_date)` for advance lines, then `payment_id._l10n_vn_after_paid()` (D25, D27) |
+
+### `l10n_vn.payroll.payment.pay` — `wizards/l10n_vn_payroll_payment_pay.py`
+
+`TransientModel`, `_description = "Mark Payroll Payments as Paid"`: `payment_id` (Many2one, required), `method` (Selection as the line's, required), `line_ids` (Many2many lines, relation `l10n_vn_payment_pay_line_rel`, required; domain the list's unpaid lines of the method), `paid_date` (Date, required, default today), `amount_total` (non-stored compute). `action_confirm()`: `line_ids._l10n_vn_mark_paid(paid_date)`.
+
+### Changes to `l10n_vn.payroll.advance` and its batch
+
+| Where | Change |
+|---|---|
+| advance fields | `payment_line_ids` One2many (`advance_id`, readonly); `payment_id` non-stored compute, the list of its line |
+| `action_open_pay()` | removed with the wizard `l10n_vn.payroll.advance.pay` |
+| `action_create_payment()` (new) | officer; `_l10n_vn_from_advances(self, name)` with *Advances %(date)s* (today); returns the new list's form |
+| `_l10n_vn_mark_paid(paid_date)` | unchanged; called by the payment line |
+| `action_cancel()` | an approved advance's unpaid line is deleted, as superuser (D26); an advance on a paid line is `paid` and follows the paid rule |
+| batch `action_open_pay()` | replaced by `action_create_payment()`: `_l10n_vn_from_advances(advance_ids, name)` with the batch's name |
+| views | the advance list's header button *Create Payment List* (officer) instead of *Mark as Paid*; the form's *Mark as Paid* removed, `payment_id` shown after `paid_date`; the batch's *Mark as Paid* replaced by *Create Payment List* (state `approved`) |
+
+### Changes to `hr.payslip.run` — `models/hr_payslip_run.py`
+
+| Field or method | Behaviour |
+|---|---|
+| `l10n_vn_payment_ids` | One2many `l10n_vn.payroll.payment`, `run_id`, readonly |
+| `action_l10n_vn_approve()` | after `super()`, for each run now `approved` without a list: `_l10n_vn_from_run(run)` (D20) |
+| `action_l10n_vn_mark_paid()` | for runs with a list: the officer group checked (`AccessError` otherwise), each run `approved` (*Only an approved run is marked as paid.*), their lines still `to_pay` marked paid today through `_l10n_vn_mark_paid` as the user, then `_l10n_vn_after_paid()`; the other runs go to `super()` |
+| `action_open_l10n_vn_payment()` | the run's list in its form |
+| view | a smart button *Payment List* when the run has one; the engine's *Mark as Paid* hidden for a run with a list |
+
+### Views — `views/l10n_vn_payroll_payment_views.xml`
+
+| Record | Content |
+|---|---|
+| list | `name`, `kind`, `date`, `amount_transfer`, `amount_cash`, `amount_total`, `state` as badge |
+| form | header: *Transfer File*, *Print Cash List*, *Mark Transfers as Paid*, *Mark Cash as Paid* (officer; the pay buttons while there are unpaid lines of the method), statusbar `to_pay,paid`. Fields `name`, `kind`, `run_id`, `date`, `company_bank_id` (editable while `to_pay`), the three totals. Page *Payments*: `line_ids` editable without create or delete — `number`, `employee_id`, `method`, `bank_account_id` (readonly when paid), `amount` (sum), `state`, `paid_date`, `payslip_id` and `advance_id` optional. Chatter, which shows the files made |
+| search | `name`, `run_id`; filters *To Pay*, *Payroll*, *Advances* |
+| action | *Payment Lists*, `list,form` |
+
+Wizard form: `method` (readonly), `line_ids` as a list (`employee_id`, `bank_account_id`, `amount`) where lines can be removed, `amount_total`, `paid_date`; footer *Mark as Paid*, *Cancel*.
+
+### Data — `data/l10n_vn_payroll_payment_templates.xml`
+
+`noupdate="1"`: `xlsx_bank_transfer`, *Bank Transfer*, `res_model` `l10n_vn.payroll.payment`, `fname` `bank_transfer.xlsx`, `datas` from `templates/bank_transfer.xlsx`, with a `sheet` line (`1`), a `row` line on `transfer_line_ids` and these data cells in row 2:
+
+| Cell | Header (Peter's) | Field | Condition |
+|---|---|---|---|
+| A2 | Số thứ tự (No.) | `number` | |
+| B2 | Tên nhân viên | `employee_id.name` | |
+| C2 | Bộ phận | `employee_id.department_id.name` | |
+| D2 | Chức vụ | `employee_id.job_id.name` | |
+| E2 | Tài khoản nguồn (Debit Acc) | `payment_id.company_bank_id.acc_number` | |
+| F2 | Tài khoản đích (Credit Acc) | `bank_account_id.acc_number` | |
+| G2 | Tên người thụ hưởng (Ben Name) | `bank_account_id.acc_holder_name` | `${value or object.employee_id.name}` |
+| H2 | Số tiền (Amount) | `amount` | |
+| I2 | Tên ngân hàng đích | `bank_account_id.bank_id.name` | |
+| J2 | Mã Ngân hàng (Bank Code/CITAD) | `bank_account_id.bank_id.bic` | |
+| K2 | Nội dung (Remark) | — | empty, as Peter's |
+| L2 | Loại phí (Fee Type) | `id` | `${"OUR"}` |
+| M2 | Ngày hiệu lực (Value Date) | `payment_id.date` | |
+
+### Report — `report/l10n_vn_payroll_cash_list.xml`
+
+`action_report_l10n_vn_cash_list`, QWeb PDF on `l10n_vn.payroll.payment`, A4, `web.external_layout`, officer group. Title *DANH SÁCH CHI LƯƠNG BẰNG TIỀN MẶT* for `payroll`, *DANH SÁCH CHI TẠM ỨNG LƯƠNG BẰNG TIỀN MẶT* for `advance`, with English beneath as in the payslip; the list's name and payment date. Columns: STT, Mã NV (`identification_id`), Họ tên, Bộ phận, Số tiền, Ký nhận; a total row; signatures *Người lập biểu*, *Kế toán trưởng*, *Giám đốc*.
+
+### Step 2 tests — `tests/test_payment.py`, `TestPayment(AdvanceCase)`
+
+| Test | Proves |
+|---|---|
+| `test_run_list_at_approval` | approving the run makes one list of kind `payroll`: a line per payslip, amount its to pay, `transfer`, the employee's bank account |
+| `test_cash_and_nothing_to_pay` | Bao on a `CASUAL` contract: a `cash` line without bank account; Alice with a paid advance above her net: no line |
+| `test_transfer_file` | the file attached to the list; row 2 holds 1, Alice's name, the paying account, her account, her to pay, `OUR` and the date; the cash line is not in it |
+| `test_transfer_file_needs_bank` | a transfer line whose account was cleared: refused naming the employee |
+| `test_mark_paid_by_method` | transfers paid: their lines `paid` with the date, the list still `to_pay`, the run `approved`; cash paid: the list `paid`, the run `paid` |
+| `test_returned_transfer` | one line removed from the wizard stays `to_pay`; paid later, the list becomes `paid` |
+| `test_run_button_pays_the_rest` | Alice's transfer paid on 20 October through the list; the reader's *Mark as Paid* on the run: `AccessError`; the officer's pays Bao's line today, keeps Alice's date, and the run is `paid` |
+| `test_cash_list_report` | the report's HTML holds the cash line's employee and amount, and the title for `payroll` |
+| `test_advance_list` | approved advances give an advance list; a second call has nothing left; paying it makes the advances `paid` with the date and their batch `paid` |
+| `test_cancel_removes_line` | cancelling an approved advance on a list deletes its unpaid line |
+| `test_roles` | the reader reads the list and cannot mark it paid; the officer can |
+| `test_unlink` | an advance list without paid lines is deleted and its advances can be listed again; a run's list and a list with a paid line are refused |
+
+`test_advance.test_mark_paid` and `test_batch.test_approve_and_pay_together` pay through a payment list instead of the removed wizard.
+
+**Expected count from step 2:** 35 + 12 = 47 tests in this module.
 
 ## Readme
 

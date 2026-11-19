@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_payment_pay_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.payment.pay.form</field>
+        <field name="model">l10n_vn.payroll.payment.pay</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="method" readonly="1" />
+                    <field name="paid_date" />
+                    <field name="amount_total" />
+                    <field name="payment_id" invisible="1" />
+                    <field name="currency_id" invisible="1" />
+                </group>
+                <field name="line_ids">
+                    <list>
+                        <field name="number" />
+                        <field name="employee_id" />
+                        <field name="bank_account_id" />
+                        <field name="amount" sum="Total" />
+                        <field name="currency_id" column_invisible="True" />
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_confirm" type="object" string="Mark as Paid" class="oe_highlight" />
+                    <button special="cancel" string="Cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

@@ -14,4 +14,11 @@
         action="l10n_vn_payroll_advance_batch_action"
         sequence="9"
     />
+    <menuitem
+        id="menu_l10n_vn_payroll_payment"
+        name="Payment Lists"
+        parent="l10n_vn_payroll.menu_l10n_vn_payroll_inputs_root"
+        action="l10n_vn_payroll_payment_action"
+        sequence="10"
+    />
 </odoo>

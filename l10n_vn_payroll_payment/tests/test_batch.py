@@ -66,13 +66,10 @@ class TestBatch(AdvanceCase):
         self._do(self.reviewer, batch, "action_approve")
         self.assertEqual(set(batch.advance_ids.mapped("state")), {"approved"})
         self.assertEqual(batch.state, "approved")
-        action = self._do(self.officer, batch, "action_open_pay")
-        wizard = (
-            self._as(self.officer)["l10n_vn.payroll.advance.pay"]
-            .with_context(action["context"])
-            .create({"paid_date": D(2026, 10, 15)})
-        )
-        wizard.action_confirm()
+        action = self._do(self.officer, batch, "action_create_payment")
+        payment = self.env["l10n_vn.payroll.payment"].browse(action["res_id"])
+        self.assertEqual(payment.name, batch.name)
+        self._pay(payment, "transfer")
         self.assertEqual(set(batch.advance_ids.mapped("state")), {"paid"})
         self.assertEqual(batch.state, "paid")
         self.assertEqual(batch.amount_total, 2000000)

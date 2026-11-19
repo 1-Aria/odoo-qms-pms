@@ -8,4 +8,10 @@ access_advance_batch_approver,l10n_vn.payroll.advance.batch approver,model_l10n_
 access_advance_settlement_user,l10n_vn.payroll.advance.settlement user,model_l10n_vn_payroll_advance_settlement,payroll.group_payroll_user,1,0,0,0
 access_advance_settlement_reader,l10n_vn.payroll.advance.settlement reader,model_l10n_vn_payroll_advance_settlement,l10n_vn_payroll.group_payroll_reader,1,0,0,0
 access_advance_settlement_approver,l10n_vn.payroll.advance.settlement approver,model_l10n_vn_payroll_advance_settlement,l10n_vn_payroll.group_payroll_approver,1,0,0,0
-access_advance_pay_user,l10n_vn.payroll.advance.pay user,model_l10n_vn_payroll_advance_pay,payroll.group_payroll_user,1,1,1,1
+access_payment_user,l10n_vn.payroll.payment user,model_l10n_vn_payroll_payment,payroll.group_payroll_user,1,1,1,1
+access_payment_reader,l10n_vn.payroll.payment reader,model_l10n_vn_payroll_payment,l10n_vn_payroll.group_payroll_reader,1,0,0,0
+access_payment_approver,l10n_vn.payroll.payment approver,model_l10n_vn_payroll_payment,l10n_vn_payroll.group_payroll_approver,1,0,0,0
+access_payment_line_user,l10n_vn.payroll.payment.line user,model_l10n_vn_payroll_payment_line,payroll.group_payroll_user,1,1,1,1
+access_payment_line_reader,l10n_vn.payroll.payment.line reader,model_l10n_vn_payroll_payment_line,l10n_vn_payroll.group_payroll_reader,1,0,0,0
+access_payment_line_approver,l10n_vn.payroll.payment.line approver,model_l10n_vn_payroll_payment_line,l10n_vn_payroll.group_payroll_approver,1,0,0,0
+access_payment_pay_user,l10n_vn.payroll.payment.pay user,model_l10n_vn_payroll_payment_pay,payroll.group_payroll_user,1,1,1,1

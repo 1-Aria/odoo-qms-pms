@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_payment_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.payment.list</field>
+        <field name="model">l10n_vn.payroll.payment</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="name" />
+                <field name="kind" />
+                <field name="date" />
+                <field name="amount_transfer" sum="Total" />
+                <field name="amount_cash" sum="Total" />
+                <field name="amount_total" sum="Total" />
+                <field
+                    name="state"
+                    widget="badge"
+                    decoration-warning="state == 'to_pay'"
+                    decoration-success="state == 'paid'"
+                />
+                <field name="currency_id" column_invisible="True" />
+                <field name="company_id" groups="base.group_multi_company" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_payment_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.payment.form</field>
+        <field name="model">l10n_vn.payroll.payment</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <header>
+                    <button
+                        name="action_transfer_file"
+                        type="object"
+                        string="Transfer File"
+                        class="oe_highlight"
+                        invisible="amount_transfer == 0"
+                        groups="payroll.group_payroll_user"
+                    />
+                    <button
+                        name="action_print_cash_list"
+                        type="object"
+                        string="Print Cash List"
+                        invisible="amount_cash == 0"
+                    />
+                    <button
+                        name="action_open_pay_transfer"
+                        type="object"
+                        string="Mark Transfers as Paid"
+                        invisible="state == 'paid' or amount_transfer == 0"
+                        groups="payroll.group_payroll_user"
+                    />
+                    <button
+                        name="action_open_pay_cash"
+                        type="object"
+                        string="Mark Cash as Paid"
+                        invisible="state == 'paid' or amount_cash == 0"
+                        groups="payroll.group_payroll_user"
+                    />
+                    <field name="state" widget="statusbar" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="state == 'paid'" /></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="kind" />
+                            <field name="run_id" invisible="not run_id" />
+                            <field name="date" readonly="state == 'paid'" />
+                            <field
+                                name="company_bank_id"
+                                readonly="state == 'paid'"
+                                options="{'no_create': True}"
+                            />
+                            <field name="company_partner_id" invisible="1" />
+                            <field name="company_id" groups="base.group_multi_company" />
+                        </group>
+                        <group>
+                            <field name="amount_transfer" />
+                            <field name="amount_cash" />
+                            <field name="amount_total" />
+                            <field name="currency_id" invisible="1" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Payments" name="payments">
+                            <field name="line_ids">
+                                <list
+                                    editable="bottom"
+                                    create="0"
+                                    delete="0"
+                                    decoration-muted="state == 'paid'"
+                                >
+                                    <field name="number" />
+                                    <field name="employee_id" />
+                                    <field name="method" />
+                                    <field name="employee_partner_id" column_invisible="True" />
+                                    <field
+                                        name="bank_account_id"
+                                        readonly="state == 'paid' or method == 'cash'"
+                                        options="{'no_create': True}"
+                                    />
+                                    <field name="amount" sum="Total" />
+                                    <field name="state" widget="badge" />
+                                    <field name="paid_date" />
+                                    <field name="payslip_id" optional="hide" />
+                                    <field name="advance_id" optional="hide" />
+                                    <field name="currency_id" column_invisible="True" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_payment_view_search" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.payment.search</field>
+        <field name="model">l10n_vn.payroll.payment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="run_id" />
+                <filter name="to_pay" string="To Pay" domain="[('state', '=', 'to_pay')]" />
+                <separator />
+                <filter name="payroll" string="Payroll" domain="[('kind', '=', 'payroll')]" />
+                <filter name="advance" string="Advances" domain="[('kind', '=', 'advance')]" />
+            </search>
+        </field>
+    </record>
+
+    <record id="l10n_vn_payroll_payment_action" model="ir.actions.act_window">
+        <field name="name">Payment Lists</field>
+        <field name="res_model">l10n_vn.payroll.payment</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="hr_payslip_run_view_form_l10n_vn_payroll_payment" model="ir.ui.view">
+        <field name="name">hr.payslip.run.form.l10n_vn_payroll_payment</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="inherit_id" ref="l10n_vn_payroll.hr_payslip_run_view_form_l10n_vn_payroll" />
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_l10n_vn_mark_paid']" position="attributes">
+                <attribute name="invisible">not l10n_vn_period_id or state != 'approved' or l10n_vn_payment_ids</attribute>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="l10n_vn_payment_ids" invisible="1" />
+                <button
+                    name="action_open_l10n_vn_payment"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-money"
+                    string="Payment List"
+                    invisible="not l10n_vn_payment_ids"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>

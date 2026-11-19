@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from dateutil.relativedelta import relativedelta
 
-from odoo import Command, api, fields, models
+from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 from odoo.tools import format_date
 
@@ -86,6 +86,12 @@ class L10nVnPayrollAdvance(models.Model):
     settlement_ids = fields.One2many(
         "l10n_vn.payroll.advance.settlement", "advance_id", readonly=True
     )
+    payment_line_ids = fields.One2many(
+        "l10n_vn.payroll.payment.line", "advance_id", readonly=True
+    )
+    payment_id = fields.Many2one(
+        "l10n_vn.payroll.payment", string="Payment List", compute="_compute_payment_id"
+    )
     settled_amount = fields.Monetary(string="Settled", compute="_compute_settled", store=True)
     balance = fields.Monetary(compute="_compute_settled", store=True)
 
@@ -130,6 +136,11 @@ class L10nVnPayrollAdvance(models.Model):
                 except UserError:
                     pass  # a missing parameter or scale cell: the figures stay 0
             advance.update(values)
+
+    @api.depends("payment_line_ids.payment_id")
+    def _compute_payment_id(self):
+        for advance in self:
+            advance.payment_id = advance.payment_line_ids[:1].payment_id
 
     @api.depends("amount", "settlement_ids.amount", "settlement_ids.payslip_id.state")
     def _compute_settled(self):
@@ -343,18 +354,18 @@ class L10nVnPayrollAdvance(models.Model):
             raise UserError("\n".join(messages))
         return True
 
-    def action_open_pay(self):
+    def action_create_payment(self, name=None):
+        """A payment list of the approved advances not yet on one (step 2, D21)."""
         self._l10n_vn_require(OFFICER)
-        approved = self.filtered(lambda advance: advance.state == "approved")
-        if not approved:
-            raise UserError(self.env._("No approved advance is selected."))
+        name = name or self.env._(
+            "Advances %(date)s", date=fields.Date.to_string(fields.Date.context_today(self))
+        )
+        payment = self.env["l10n_vn.payroll.payment"]._l10n_vn_from_advances(self, name)
         return {
             "type": "ir.actions.act_window",
-            "name": self.env._("Mark as Paid"),
-            "res_model": "l10n_vn.payroll.advance.pay",
+            "res_model": "l10n_vn.payroll.payment",
+            "res_id": payment.id,
             "view_mode": "form",
-            "target": "new",
-            "context": {"default_advance_ids": [Command.set(approved.ids)]},
         }
 
     def _l10n_vn_mark_paid(self, paid_date):
@@ -373,6 +384,8 @@ class L10nVnPayrollAdvance(models.Model):
                 self._l10n_vn_require(REVIEWER)
                 if advance.sudo().settlement_ids.filtered(lambda s: s.payslip_id.state == "done"):
                     raise UserError(self.env._("This advance is already settled on a payslip."))
+        # an approved advance leaves its payment list (D26)
+        self.sudo().payment_line_ids.filtered(lambda l: l.state == "to_pay").unlink()
         self.sudo().write({"state": "cancelled"})
         return True
 

@@ -105,7 +105,7 @@ class GroupGCases:
         self._run("G13", employee, ["BASE", "PERF"], **self._managed())
 
     def test_g14(self):
-        # the advance is settled by l10n_vn_payroll_account
+        # the advance is settled by l10n_vn_payroll_payment, whose tests check TO_PAY
         employee, _c = self._worker("Entry")
         self._run("G14", employee, WORKER, advances=False, **self._supervised(
             ot_hours_json={"WD": 20}, lines=[(self.eff, {"amount": 300000})]))

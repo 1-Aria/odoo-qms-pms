@@ -16,9 +16,9 @@
                         groups="l10n_vn_payroll.group_payroll_reviewer"
                     />
                     <button
-                        name="action_open_pay"
+                        name="action_create_payment"
                         type="object"
-                        string="Mark as Paid"
+                        string="Create Payment List"
                         groups="payroll.group_payroll_user"
                     />
                     <button
@@ -66,14 +66,6 @@
                         groups="l10n_vn_payroll.group_payroll_reviewer"
                     />
                     <button
-                        name="action_open_pay"
-                        type="object"
-                        string="Mark as Paid"
-                        class="oe_highlight"
-                        invisible="state != 'approved'"
-                        groups="payroll.group_payroll_user"
-                    />
-                    <button
                         name="action_cancel"
                         type="object"
                         string="Cancel"
@@ -111,6 +103,7 @@
                             <field name="approved_at" />
                             <field name="limit_at_approval" />
                             <field name="paid_date" />
+                            <field name="payment_id" />
                             <field name="settled_amount" />
                             <field name="balance" />
                             <field name="currency_id" invisible="1" />

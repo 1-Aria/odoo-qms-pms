@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="action_report_l10n_vn_cash_list" model="ir.actions.report">
+        <field name="name">Cash List</field>
+        <field name="model">l10n_vn.payroll.payment</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l10n_vn_payroll_payment.report_l10n_vn_cash_list</field>
+        <field name="report_file">l10n_vn_payroll_payment.report_l10n_vn_cash_list</field>
+        <field name="print_report_name">'Cash list - %s' % object.name</field>
+        <field name="binding_model_id" ref="model_l10n_vn_payroll_payment" />
+        <field name="binding_type">report</field>
+        <field name="groups_id" eval="[(4, ref('payroll.group_payroll_user'))]" />
+    </record>
+
+    <template id="report_l10n_vn_cash_list_document">
+        <t t-set="money" t-value="{'widget': 'monetary', 'display_currency': o.currency_id}" />
+        <div class="page" style="font-size: 12px;">
+            <h4 class="text-center mb-0">
+                <t t-if="o.kind == 'advance'">DANH SÁCH CHI TẠM ỨNG LƯƠNG BẰNG TIỀN MẶT</t>
+                <t t-else="">DANH SÁCH CHI LƯƠNG BẰNG TIỀN MẶT</t>
+            </h4>
+            <p class="text-center text-muted mb-1">
+                <small t-if="o.kind == 'advance'">Cash list of salary advances</small>
+                <small t-else="">Cash payroll list</small>
+            </p>
+            <p class="text-center">
+                <strong t-out="o.name" /> —
+                Ngày chi <small class="text-muted">Payment date</small>:
+                <span t-out="o.date" t-options="{'widget': 'date'}" />
+            </p>
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th class="text-center">STT <br /><small class="text-muted">No.</small></th>
+                        <th>Mã NV <br /><small class="text-muted">Employee no.</small></th>
+                        <th>Họ tên <br /><small class="text-muted">Name</small></th>
+                        <th>Bộ phận <br /><small class="text-muted">Department</small></th>
+                        <th class="text-end">Số tiền <br /><small class="text-muted">Amount</small></th>
+                        <th style="width: 22%;">Ký nhận <br /><small class="text-muted">Signature</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="o.cash_line_ids" t-as="line">
+                        <td class="text-center" t-out="line.number" />
+                        <td t-out="line.employee_id.sudo().identification_id or ''" />
+                        <td t-out="line.employee_id.name" />
+                        <td t-out="line.employee_id.department_id.name or ''" />
+                        <td class="text-end" t-out="line.amount" t-options="money" />
+                        <td />
+                    </tr>
+                    <tr>
+                        <td colspan="4" class="text-end">
+                            <strong>Tổng cộng <small class="text-muted">Total</small></strong>
+                        </td>
+                        <td class="text-end">
+                            <strong t-out="o.amount_cash" t-options="money" />
+                        </td>
+                        <td />
+                    </tr>
+                </tbody>
+            </table>
+            <div class="row text-center mt-4">
+                <div class="col-4">
+                    <strong>Người lập biểu</strong><br /><small class="text-muted">Prepared by</small>
+                </div>
+                <div class="col-4">
+                    <strong>Kế toán trưởng</strong><br /><small class="text-muted">Chief accountant</small>
+                </div>
+                <div class="col-4">
+                    <strong>Giám đốc</strong><br /><small class="text-muted">Director</small>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="report_l10n_vn_cash_list">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <t t-call="l10n_vn_payroll_payment.report_l10n_vn_cash_list_document" />
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

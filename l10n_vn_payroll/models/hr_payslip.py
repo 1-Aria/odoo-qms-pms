@@ -409,7 +409,7 @@ class HrPayslip(models.Model):
     def _l10n_vn_advances(self):
         """Advances this payslip settles, oldest first, as [{"id", "amount"}] (D57).
 
-        None here; l10n_vn_payroll_account overrides it.
+        None here; l10n_vn_payroll_payment overrides it.
         """
         self.ensure_one()
         return []

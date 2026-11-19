@@ -118,3 +118,17 @@ class AdvanceCase(AdvanceMixin, RunCase):
 
     def _advances(self, user):
         return self._as(user)["l10n_vn.payroll.advance"]
+
+    def _pay(self, payment, method, paid_date=D(2026, 10, 16), user=None, lines=None):
+        """Marks a payment list's lines of one method as paid through the wizard (step 2)."""
+        env = self._as(user or self.officer)
+        action = getattr(
+            env["l10n_vn.payroll.payment"].browse(payment.id), f"action_open_pay_{method}"
+        )()
+        wizard = env["l10n_vn.payroll.payment.pay"].with_context(action["context"]).create(
+            {"paid_date": paid_date}
+        )
+        if lines is not None:
+            wizard.line_ids = [Command.set(lines.ids)]
+        wizard.action_confirm()
+        return wizard

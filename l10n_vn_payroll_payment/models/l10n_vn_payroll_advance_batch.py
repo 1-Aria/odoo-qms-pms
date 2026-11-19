@@ -156,8 +156,10 @@ class L10nVnPayrollAdvanceBatch(models.Model):
         drafts = self.advance_ids.filtered(lambda a: a.state == "draft")
         return drafts.action_approve()
 
-    def action_open_pay(self):
-        return self.advance_ids.action_open_pay()
+    def action_create_payment(self):
+        """A payment list of the batch's approved advances (step 2, D21)."""
+        self.ensure_one()
+        return self.advance_ids.action_create_payment(name=self.name)
 
     def action_cancel(self):
         Advance = self.env["l10n_vn.payroll.advance"]

@@ -163,17 +163,14 @@ class TestAdvance(AdvanceCase):
         approved = self._advance(self.bao, 1000000, state="approved")
         Advances = self._advances(self.officer)
         with self.assertRaises(UserError):
-            Advances.browse(draft.id).action_open_pay()
+            Advances.browse(draft.id).action_create_payment()
         with self.assertRaises(UserError):
             Advances.browse(draft.id)._l10n_vn_mark_paid(D(2026, 10, 16))
-        action = Advances.browse((draft | approved).ids).action_open_pay()
-        wizard = (
-            self._as(self.officer)["l10n_vn.payroll.advance.pay"]
-            .with_context(action["context"])
-            .create({"paid_date": D(2026, 10, 16)})
-        )
-        self.assertEqual(wizard.advance_ids, approved)
-        wizard.action_confirm()
+        # paid through a payment list (step 2)
+        action = Advances.browse((draft | approved).ids).action_create_payment()
+        payment = self.env["l10n_vn.payroll.payment"].browse(action["res_id"])
+        self.assertEqual(payment.line_ids.advance_id, approved)
+        self._pay(payment, "transfer")
         self.assertEqual((approved.state, approved.paid_date), ("paid", D(2026, 10, 16)))
         self.assertEqual(draft.state, "draft")
 

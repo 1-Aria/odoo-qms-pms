@@ -45,9 +45,9 @@
                         groups="l10n_vn_payroll.group_payroll_reviewer"
                     />
                     <button
-                        name="action_open_pay"
+                        name="action_create_payment"
                         type="object"
-                        string="Mark as Paid"
+                        string="Create Payment List"
                         class="oe_highlight"
                         invisible="state != 'approved'"
                         groups="payroll.group_payroll_user"
