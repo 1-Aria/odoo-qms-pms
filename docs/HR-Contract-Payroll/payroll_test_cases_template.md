@@ -1,6 +1,6 @@
 # Payroll Acceptance Test Cases
 
-v0.6 · Nov 3, 2026 · @Peter
+v0.8 · Nov 20, 2026 · @Peter
 
 These cases define the payroll module's expected results to the dong. The module is accepted when it reproduces every unblocked case exactly (Payroll Requirements Specification §10). Each case also becomes an automated test.
 
@@ -390,7 +390,7 @@ Each case sets up one fault in an otherwise valid run and checks the module's re
 | TC-F13 | A one-time bonus entered without an approver | Error: not paid; approval blocked until approved or removed | FR-69, §7 |
 | TC-F14 | A deduction component "uniform charge" configured outside damage compensation | Warning: a deduction of a kind the law does not allow | FR-70, §7 |
 | TC-F15 | The 6-month check set to *warning* for productivity pay and *note* for performance pay; a worker and a line leader both at 100% for 6 months | Warning for the worker; a note, not blocking, for the line leader | FR-59 (level per component) |
-| TC-F16 | An advance request above `vn.policy.advance_max_share` of the employee's monthly amount | Warning at approval of the advance; approval needs a note | FR-71, §7 |
+| TC-F16 | An advance request above `vn.policy.advance_max_share` of the pay earned to date: the monthly amount × days worked from the 1st to the day before the advance's date ÷ standard days, less the month's other advances | Warning at approval of the advance; approval needs a note. An employee outside the pay groups that may take advances is refused, note or not | FR-71, §7 |
 
 ## Group G: Current scheme (Pay Policy §3–§4)
 
@@ -512,6 +512,18 @@ Posting: the advance's payment booked Dr 3341 / Cr bank on the 15th; at approval
 
 Check: `advance_carried` warning on the payslip. The 269,231 stays an open debit on the employee's 3341 and is settled first in the next month.
 
+## Group P: Posting (garment mapping)
+
+The run's journal entry (Requirements FR-44, Technical Design §22) for payslips of group G, on the garment mapping (`l10n_vn_payroll_garment` step 4): cost groups DIRECT 6220, FACTORY 6271, ADMIN 6421, each debited with its employees' gross pay and employer funds; 3341 credited with each employee's gross pay and debited with each of their deductions; deductions and employer funds credited to 33831 (SI, and the employer's pension, sickness and accident), 33841 (HI), 33861 (UI), 33821 (union fee), 338811 (union dues), 33351 (PIT) and 7110 (damage compensation). Without advances, each employee's open 3341 is their net pay.
+
+### TC-P01 One run of G01, G10 and G13
+
+**Given:** the payslips of TC-G01 (an Entry worker in a sewing department under *Production*, whose cost group is DIRECT), TC-G10 (a G2 line leader in the same department, whose contract names the cost group FACTORY) and TC-G13 (a manager in *Administration*, cost group ADMIN), in one approved run of October 2026.
+
+**Proves:** FR-44 (one entry per run, cost by cost group with a contract's own group first, 3341 gross and each deduction per employee, credits by account)
+
+{{POSTING:P01}}
+
 ## Assumptions to confirm and blocked cases
 
 Writing the expected values surfaced these decisions. Each blocked case must be rechecked once its item is settled.
@@ -558,3 +570,5 @@ Writing the expected values surfaced these decisions. Each blocked case must be 
 | 0.4 | 2026-10-30 | Current scheme for production support, office and management: staff cases G10–G13 (line leader at 100% and 80%, QC staff, factory manager) and check F15 (6-month check level per component). Group H becomes the first live month's review. TC-OPEN-13 added. |
 | 0.5 | 2026-10-31 | Salary advances: TC-G14 (settled, remaining to pay), TC-G15 (capped at net, carried forward), check TC-F16 (advance above the limit). |
 | 0.6 | 2026-11-03 | The employer's SI is shown as its three funds (pension 14%, sickness 3%, accident 0.5%), each rounded on its own, as the module posts them (FR-22, Technical Design §32). No total changes. `payroll_reference_calc.py --json` also writes each case's insurance, PIT, net pay and employer funds for the module's tests. |
+| 0.7 | 2026-11-19 | TC-F16 on the advance limit of Pay Policy v0.7: a share of the pay earned to date, and eligibility by pay group (Requirements v0.8 FR-71). No figure changes. |
+| 0.8 | 2026-11-20 | Group P: TC-P01, the journal entry of a run of G01, G10 and G13 on the garment mapping (Requirements v0.8 FR-44, Technical Design v0.7 §32). Groups A–G unchanged. |

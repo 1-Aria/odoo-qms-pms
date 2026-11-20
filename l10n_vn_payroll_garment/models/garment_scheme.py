@@ -408,3 +408,35 @@ STRUCTURE = (
     "VN_GARMENT",
     ("Vietnamese pay — current scheme", "Lương — chế độ hiện hành"),
 )
+
+
+# step 4: the account mapping, by code (D22-D24; Requirements FR-44). Nothing is created in the
+# chart: what the company lacks is reported as missing.
+ACCOUNT_MAPPING = {
+    "cost_groups": [
+        ("DIRECT", ("Direct labour", "Nhân công trực tiếp"), "6220"),
+        ("FACTORY", ("Factory staff", "Nhân viên phân xưởng"), "6271"),
+        ("SELLING", ("Selling staff", "Nhân viên bán hàng"), "6411"),
+        ("ADMIN", ("Administration", "Nhân viên quản lý"), "6421"),
+    ],
+    "components": {
+        "EE_SI": "33831",
+        "ER_PENSION": "33831",
+        "ER_SICKNESS": "33831",
+        "ER_ACCIDENT": "33831",
+        "EE_HI": "33841",
+        "ER_HI": "33841",
+        "EE_UI": "33861",
+        "ER_UI": "33861",
+        "UNION_FEE": "33821",
+        "DUES": "338811",
+        "PIT": "33351",
+        "DAMAGE": "7110",
+    },
+    "settings": {
+        "l10n_vn_payroll_journal_id": ("PYRL", "general"),
+        "l10n_vn_payroll_payable_account_id": "3341",
+        "l10n_vn_payroll_bank_journal_id": ("BNK1", "bank"),
+        "l10n_vn_payroll_cash_journal_id": ("CSH1", "cash"),
+    },
+}

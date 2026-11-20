@@ -783,20 +783,20 @@ Not shipped: `KPI` (as `ONE`) and `SUPP` (no such pay in use).
 
 | Document | Proposal |
 | --- | --- |
-| Requirements §9 | Monthly attendance totals come from Odoo's own attendance through `hr_attendance_day` and the monthly summary (built); closing attendance for the month freezes them. Segments are computed. *(Was: imported until the attendance module is live.)* |
-| Attendance Specification | v0.5: Route A status (attendance design note v0.2); rosters, off-site registration, OT approval windows and the exception queue deferred; the grace period and OT minimum are Odoo's tolerances; hours per paid day for combined shifts |
-| Regulation Reference | v0.3: the OT exemption within the monthly and yearly limits only, the daily limits labour rules; untaken-leave pay exempt (Law 109/2025/QH15); `vn.ot.limit.day_share`, `vn.ot.limit.day_total` |
-| IE Technical Design | Attended minutes from `hr.employee._attendance_days()` (normal + overtime hours); proposal P-01 obsolete |
-| Requirements FR-59 | Check levels are parameters `vn.check.<code>[.<component>]`. |
+| Requirements §9 | Monthly attendance totals come from Odoo's own attendance through `hr_attendance_day` and the monthly summary (built); closing attendance for the month freezes them. Segments are computed. *(Was: imported until the attendance module is live.)* **Done:** Requirements v0.6. |
+| Attendance Specification | v0.5: Route A status (attendance design note v0.2); rosters, off-site registration, OT approval windows and the exception queue deferred; the grace period and OT minimum are Odoo's tolerances; hours per paid day for combined shifts. **Done:** Attendance Specification v0.5 (2026-11-08). |
+| Regulation Reference | v0.3: the OT exemption within the monthly and yearly limits only, the daily limits labour rules; untaken-leave pay exempt (Law 109/2025/QH15); `vn.ot.limit.day_share`, `vn.ot.limit.day_total`. **Done:** Regulation Reference v0.3 (2026-11-08). |
+| IE Technical Design | Attended minutes from `hr.employee._attendance_days()` (normal + overtime hours); proposal P-01 obsolete. **IE workflow:** a note on IE Technical Design v0.4 (2026-11-08), folded in with its next chunk. |
+| Requirements FR-59 | Check levels are parameters `vn.check.<code>[.<component>]`. **Closed, no change:** FR-59 already makes each level a dated parameter per check and component; the naming belongs here (§19). |
 | Acceptance Test Cases | The employer pension, sickness and accident lines are separate (FR-22). **Done:** Acceptance Test Cases v0.6 (2026-11-03). |
-| IE Technical Design TD-13 | Use `base_time_parameter_strict` (PTD-02). |
-| IE Technical Design chunk 4 | Valuation reads payroll's labour cost through `_l10n_vn_labour_cost()` when payroll is installed (§26). |
-| Requirements FR-44 | Department cost groups and component accounts (§22), and 3341 reconciled to net per employee. |
-| Acceptance Test Cases | Add posting and payment cases: the run entry for TC-G01, TC-G10 and TC-G13 together, and the bank file for them. |
+| IE Technical Design TD-13 | Use `base_time_parameter_strict` (PTD-02). **IE workflow:** with the IE technical design's next chunk. |
+| IE Technical Design chunk 4 | Valuation reads payroll's labour cost through `_l10n_vn_labour_cost()` when payroll is installed (§26). **IE workflow:** chunk 4, not written yet. |
+| Requirements FR-44 | Department cost groups and component accounts (§22), and 3341 reconciled to net per employee. **Done:** Requirements v0.8 (2026-11-19), with damage compensation to 7110 and payments to the outstanding payments account. |
+| Acceptance Test Cases | Add posting and payment cases: the run entry for TC-G01, TC-G10 and TC-G13 together, and the bank file for them. **Open:** with `l10n_vn_payroll_garment` step 4, so they use the garment mapping and the accountant can check them before the rehearsal. |
 | Pay Policy §11 | The advance limit on pay earned to date, eligibility by pay group, payment through the payroll's payment list. **Done:** Pay Policy v0.7 (2026-11-19). |
-| Requirements FR-71 | The limit on pay earned to date (Pay Policy v0.7 §11); only the pay groups the company names take advances; advances paid through the same payment list as payday, by transfer or in cash as the participant type says. |
-| Requirements FR-43 | The bank file is made from the payment list, for payday and advances alike; the run is paid when its list is. |
-| Acceptance Test Cases TC-F16 | The limit on pay earned to date: the case needs the days worked to the advance's date. |
+| Requirements FR-71 | The limit on pay earned to date (Pay Policy v0.7 §11); only the pay groups the company names take advances; advances paid through the same payment list as payday, by transfer or in cash as the participant type says. **Done:** Requirements v0.8 (2026-11-19). |
+| Requirements FR-43 | The bank file is made from the payment list, for payday and advances alike; the run is paid when its list is. **Done:** Requirements v0.8 (2026-11-19). |
+| Acceptance Test Cases TC-F16 | The limit on pay earned to date: the case needs the days worked to the advance's date. **Done:** Acceptance Test Cases v0.7 (2026-11-19). |
 
 ## 33. As built: corrections from the modules
 

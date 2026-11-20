@@ -9,57 +9,13 @@ from odoo.addons.l10n_vn_payroll.tests.common import D
 from odoo.addons.l10n_vn_payroll.tests.group_g import GroupGCases
 from odoo.addons.l10n_vn_payroll.tests.payslip_common import PayslipCase
 
-from ..models.garment_scheme import ENGINE_CODES
+from .common import GarmentMixin
 
 
 @tagged("post_install", "-at_install")
-class TestGarmentAcceptance(GroupGCases, PayslipCase):
+class TestGarmentAcceptance(GarmentMixin, GroupGCases, PayslipCase):
     # group G comes from GroupGCases
     allow_inherited_tests_method = True
-
-    @classmethod
-    def _l10n_vn_configure(cls):
-        cls.company._l10n_vn_garment_load()
-        components = (
-            cls.env["l10n_vn.payroll.component"]
-            .with_context(active_test=False)
-            .search([("company_id", "=", cls.company.id)])
-        )
-        cls.components = {component.code: component for component in components}
-        for attribute, code in (
-            ("base", "BASE"),
-            ("prod", "PROD"),
-            ("perf", "PERF"),
-            ("eff", "EFF"),
-            ("one", "ONE"),
-            ("ot_wd", "OT_WD"),
-            ("ot_rd", "OT_RD"),
-            ("ot_hol", "OT_HOL"),
-            ("gross", "GROSS"),
-        ):
-            setattr(cls, attribute, cls.components[code])
-        cls.engine = {code: cls.components[code] for code in ENGINE_CODES - {"GROSS"}}
-        cls.structure = cls.env["hr.payroll.structure"].search(
-            [("code", "=", "VN_GARMENT"), ("company_id", "=", cls.company.id)]
-        )
-
-    @staticmethod
-    def _code(code):
-        return code
-
-    # BASE comes from the scale BASE by group (step 6): workers carry the key WORKER, staff
-    # their amount until their grade's key exists
-    def _worker(self, level, **values):
-        return self._hire(
-            lines=[(self.base, {"in_cell": True, "scale_key": "WORKER"}),
-                   (self.prod, {"scale_key": level})],
-            **values,
-        )
-
-    def _staff(self, perf_values):
-        return self._hire(
-            lines=[(self.base, {"in_cell": True, "amount": 3700000}), (self.perf, perf_values)]
-        )
 
     def test_night_components(self):
         employee, _c = self._worker("Entry")

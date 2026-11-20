@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="l10n_vn_payroll_component_view_form_l10n_vn_payroll_account" model="ir.ui.view">
+        <field name="name">l10n_vn.payroll.component.form.l10n_vn_payroll_account</field>
+        <field name="model">l10n_vn.payroll.component</field>
+        <field name="inherit_id" ref="l10n_vn_payroll.l10n_vn_payroll_component_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='kind']" position="after">
+                <field
+                    name="l10n_vn_account_id"
+                    invisible="kind in ('total', 'info')"
+                    options="{'no_create': True}"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>

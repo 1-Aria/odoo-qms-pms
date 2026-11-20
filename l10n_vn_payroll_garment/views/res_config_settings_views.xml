@@ -11,7 +11,7 @@
                     <setting
                         id="l10n_vn_payroll_garment_load"
                         string="Garment pay scheme"
-                        help="Creates the current scheme's parameters, scales, components, structure and rules in this company. Records whose code already exists are kept as they are."
+                        help="Creates the current scheme's parameters, scales, components, structure and rules in this company. Records whose code already exists are kept as they are. It also maps the payroll accounts and journals by code, where they are empty; posting is switched on separately."
                     >
                         <button
                             name="action_l10n_vn_garment_load"

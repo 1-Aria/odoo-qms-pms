@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_department_view_form_l10n_vn_payroll_account" model="ir.ui.view">
+        <field name="name">hr.department.form.l10n_vn_payroll_account</field>
+        <field name="model">hr.department</field>
+        <field name="inherit_id" ref="hr.view_department_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='parent_id']" position="after">
+                <field
+                    name="l10n_vn_cost_group_id"
+                    groups="payroll.group_payroll_manager,account.group_account_manager"
+                    options="{'no_create': True}"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>

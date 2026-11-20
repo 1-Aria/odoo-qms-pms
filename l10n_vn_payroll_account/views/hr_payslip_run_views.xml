@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_payslip_run_view_form_l10n_vn_payroll_account" model="ir.ui.view">
+        <field name="name">hr.payslip.run.form.l10n_vn_payroll_account</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="inherit_id" ref="l10n_vn_payroll.hr_payslip_run_view_form_l10n_vn_payroll" />
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="l10n_vn_move_id" invisible="1" />
+                <button
+                    name="action_open_l10n_vn_move"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-book"
+                    string="Journal Entry"
+                    invisible="not l10n_vn_move_id"
+                    groups="account.group_account_readonly,payroll.group_payroll_user"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>

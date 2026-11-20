@@ -4,6 +4,7 @@ from odoo import Command, models
 from odoo.exceptions import AccessError, UserError
 
 from .garment_scheme import (
+    ACCOUNT_MAPPING,
     CATEGORIES,
     COMPONENTS,
     CONTRACT_TYPES,
@@ -24,7 +25,8 @@ class ResCompany(models.Model):
         """Create the garment pay scheme in this company, keeping what already exists.
 
         Every record is matched by code; a record found is left as it is. Returns
-        ``{"created": [labels], "kept": [labels]}`` in load order.
+        ``{"created": [labels], "kept": [labels], "missing": [labels]}`` in load order; the
+        missing ones are accounts and journals the company lacks for the mapping (D26).
         """
         self.ensure_one()
         if not (self.env.su or self.env.user.has_group("payroll.group_payroll_manager")):
@@ -40,7 +42,7 @@ class ResCompany(models.Model):
         company._l10n_vn_payroll_ensure_parameters()
         env = company.env(context=dict(company.env.context, active_test=False))
         vietnamese = VI in dict(env["res.lang"].get_installed())
-        result = {"created": [], "kept": []}
+        result = {"created": [], "kept": [], "missing": []}
         names = []  # (record, Vietnamese name) for the records created
 
         def done(label, created):
@@ -202,12 +204,87 @@ class ResCompany(models.Model):
             names.append((rule, vi))
             done(f"rule {code}", True)
 
+        # the account mapping (step 4)
+        company._l10n_vn_garment_load_accounts(env, result, names, done)
+
         if vietnamese:
             for record, vi in names:
                 # a name that is not translated has one value only: keep it English
                 if record._fields["name"].translate:
                     record.with_context(lang=VI).name = vi
         return result
+
+    # ------------------------------------------------------------------ the account mapping (step 4)
+    def _l10n_vn_garment_account(self, code):
+        """The company's account with this code, or an empty recordset (D22)."""
+        self.ensure_one()
+        Account = self.env["account.account"].sudo().with_company(self)
+        return Account.search([*Account._check_company_domain(self), ("code", "=", code)], limit=1)
+
+    def _l10n_vn_garment_journal(self, code, kind):
+        self.ensure_one()
+        return self.env["account.journal"].sudo().search(
+            [("company_id", "=", self.id), ("code", "=", code), ("type", "=", kind)], limit=1
+        )
+
+    def _l10n_vn_garment_load_accounts(self, env, result, names, done):
+        """Cost groups, component accounts and settings by code, only where empty (D22-D26).
+
+        Posting is not switched on and departments are not assigned (D25).
+        """
+        self.ensure_one()
+        company = self
+        missing = result["missing"]
+
+        Group = env["l10n_vn.payroll.cost.group"]
+        for code, (en, vi), account_code in ACCOUNT_MAPPING["cost_groups"]:
+            if Group.search([("code", "=", code), ("company_id", "=", company.id)], limit=1):
+                done(f"cost group {code}", False)
+                continue
+            account = company._l10n_vn_garment_account(account_code)
+            if not account:
+                missing.append(f"account {account_code} for cost group {code}")
+                continue
+            group = Group.create(
+                {"code": code, "name": en, "company_id": company.id,
+                 "expense_account_id": account.id}
+            )
+            names.append((group, vi))
+            done(f"cost group {code}", True)
+
+        Component = env["l10n_vn.payroll.component"]
+        for code, account_code in ACCOUNT_MAPPING["components"].items():
+            component = Component.search(
+                [("code", "=", code), ("company_id", "=", company.id)], limit=1
+            )
+            if not component:
+                continue
+            if component.l10n_vn_account_id:
+                done(f"account of component {code}", False)
+                continue
+            account = company._l10n_vn_garment_account(account_code)
+            if not account:
+                missing.append(f"account {account_code} for {code}")
+                continue
+            component.l10n_vn_account_id = account
+            done(f"account of component {code}", True)
+
+        for field, target in ACCOUNT_MAPPING["settings"].items():
+            label = f"setting {field}"
+            if company[field]:
+                done(label, False)
+                continue
+            if isinstance(target, tuple):
+                record = company._l10n_vn_garment_journal(*target)
+                what = f"journal {target[0]}"
+            else:
+                record = company._l10n_vn_garment_account(target)
+                what = f"account {target}"
+            if not record:
+                missing.append(f"{what} for {company._fields[field].string}")
+                continue
+            company[field] = record
+            done(label, True)
 
 
 def _grade_step(kind, key):

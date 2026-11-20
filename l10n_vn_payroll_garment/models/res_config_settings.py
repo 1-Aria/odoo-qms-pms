@@ -12,12 +12,15 @@ class ResConfigSettings(models.TransientModel):
         none = self.env._("none")
         message = self.env._(
             "%(company)s: created %(created_count)s (%(created)s); "
-            "kept as they were %(kept_count)s (%(kept)s).",
+            "kept as they were %(kept_count)s (%(kept)s); "
+            "missing %(missing_count)s (%(missing)s).",
             company=self.company_id.display_name,
             created_count=len(result["created"]),
             created=", ".join(result["created"]) or none,
             kept_count=len(result["kept"]),
             kept=", ".join(result["kept"]) or none,
+            missing_count=len(result["missing"]),
+            missing=", ".join(result["missing"]) or none,
         )
         return {
             "type": "ir.actions.client",
@@ -25,7 +28,7 @@ class ResConfigSettings(models.TransientModel):
             "params": {
                 "title": self.env._("Garment pay scheme loaded"),
                 "message": message,
-                "type": "success",
+                "type": "warning" if result["missing"] else "success",
                 "sticky": True,
             },
         }

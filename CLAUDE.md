@@ -280,9 +280,9 @@ The company's current pay scheme and its target policy are both configurations (
 | `base_time_parameter_strict` | Reads OCA time parameters strictly: 0 and False are values, a missing value raises (done) |
 | `l10n_vn_payroll` | Components, scales, pay lines, people data, monthly inputs, the pay context, checks, runs and lock, payslip, statements, opening data; time from `hr_attendance_day` (step 10); contract types, participant types `TRAINING`/`CASUAL`, ID and contract-term checks (step 11); the pay group on the contract (step 12). Done: steps 1–12, 245 tests |
 | `hr_attendance_day` | Each day's figures from Odoo's attendance (normal and night hours, OT and its night part, days worked, late, absent, correction reason); hours per paid day and night window on calendars. Done: steps 1–3, 20 tests |
-| `l10n_vn_payroll_garment` | The current scheme as configuration, loaded per company from Settings: components, scales (`BASE` by group, `PROD` totals, `GRADE`), structure, policy parameters, check levels, contract types, the advance limit and eligible pay groups (steps 7, 8). Done: steps 1, 5–8 (28 tests); steps 2 (`auditlog`), 3 (pay-line proposal), 4 (account mapping) to do |
+| `l10n_vn_payroll_garment` | The current scheme as configuration, loaded per company from Settings: components, scales (`BASE` by group, `PROD` totals, `GRADE`), structure, policy parameters, check levels, contract types, the advance limit and eligible pay groups (steps 7, 8), the account mapping by code (step 4). Done: steps 1, 4–8 (31 tests); steps 2 (`auditlog`), 3 (pay-line proposal) to do |
 | `l10n_vn_payroll_payment` | Salary advances and each run's payment list (bank file, cash list), without accounting (PTD-24). Done: steps 1–2 (advances: earned-pay limit, pay-group eligibility from the month's contract, settlement on payslips; payment lists for payday and advances with the bank file, cash list and *Mark as Paid*; 47 tests) |
-| `l10n_vn_payroll_account` | Posting per run of payslips whose participant type is *posted*; 3341 reconciliation; payment entries. Built after `l10n_vn_payroll_payment`, before the go-live rehearsal |
+| `l10n_vn_payroll_account` | Posting per run of payslips whose participant type is *posted*; payment entries from *Mark as Paid*; 3341 reconciled per employee; department cost groups and component accounts; posting switched on per company. Done: step 1 (14 tests) |
 
 - Statutory parameters (`vn.*`) are created per Vietnamese company by `l10n_vn_payroll` at every install
   and upgrade, never overwriting edited values: OCA's company rule hides parameters without a company.
@@ -455,6 +455,14 @@ the module doc named.
   fixtures on `TransactionCase`: create a company, link it to the test user, load its chart with
   `account.chart.template.try_loading`. The failed run still commits the module's tables, menus and
   views while its state stays *uninstalled*; running `-i` again completes it. (`l10n_vn_einvoice`, step 1)
+- Loading a chart with `account.chart.template.try_loading` into a company without accounting first deletes
+  that company's journals, accounts and taxes (`account/models/chart_template.py:205-217`), including ones the
+  fixtures made before. Create journals after loading the chart. (`l10n_vn_payroll_account`, step 1)
+- An `-u` test run can exit 0 with failing tests: 40 failed with no summary line and `exit=0`. Judge a run by its
+  `FAIL:` / `ERROR:` test lines and the post-tests count, never the exit code. (`l10n_vn_payroll_account`, step 1)
+- A module that adds behaviour to every company (posting, a check) runs inside the tests of the modules it
+  extends, which never configured it: make it a per-company switch, off by default, or their tests fail.
+  (`l10n_vn_payroll_account`, step 1)
 - Products created in tests get an internal reference from OCA `product_sequence` (`PR/00141`), so their
   `display_name` reads `[PR/00141] name`. Compare printed names with the name read under
   `with_context(display_default_code=False)`, and never assert a coded name absent: it passes for the wrong

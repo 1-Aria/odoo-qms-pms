@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- not noupdate, as the engine's catalogue (D8) -->
+    <record id="check_posting" model="l10n_vn.payroll.check">
+        <field name="code">posting</field>
+        <field name="name">Accounts for posting missing</field>
+        <field name="kind">integrity</field>
+        <field name="default_level">error</field>
+        <field name="sequence">75</field>
+    </record>
+</odoo>

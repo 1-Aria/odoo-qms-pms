@@ -12,6 +12,9 @@ Usage (from this folder):
     python3 -I payroll_reference_calc.py --json ../../l10n_vn_payroll/tests/data/acceptance_cases.json
         writes every case's earning rows, gross pay, insurance, PIT, net pay and employer funds,
         which the module's tests assert
+    python3 -I payroll_reference_calc.py --posting-json ../../l10n_vn_payroll_garment/tests/data/posting_cases.json
+        writes each posting case's entry lines and residuals (group P), which the garment
+        module's posting test asserts
 
 To change a case: edit its inputs below and its prose in the template, then regenerate.
 """
@@ -407,6 +410,69 @@ case("G15", [("Base salary", "3,700,000 × 10/26", prorate(BASE, 10)), prod("Ent
      si_base=None, si_note="No contributions: 16 working days neither worked nor paid",
      advance=2_000_000, advance_text="Advance paid on the 15th; capped at net pay")
 
+# ---------------------------------------------------------------- posting (group P)
+# The garment mapping (l10n_vn_payroll_garment step 4, Requirements FR-44): the account each
+# deduction and employer fund is credited to. Earnings and employer funds are debited to the
+# employee's cost group.
+CREDIT_ACCOUNT = {
+    "ee_si": "33831", "pension": "33831", "sickness": "33831", "accident": "33831",
+    "ee_hi": "33841", "hi": "33841", "ee_ui": "33861", "ui": "33861",
+    "union_fee": "33821", "dues": "338811", "pit": "33351", "damage": "7110",
+}
+DEDUCTIONS = [("ee_si", "social insurance"), ("ee_hi", "health insurance"),
+              ("ee_ui", "unemployment insurance"), ("dues", "union dues"), ("pit", "PIT"),
+              ("damage", "damage compensation")]
+EMPLOYER = ["pension", "sickness", "accident", "hi", "ui", "union_fee"]
+POSTINGS = {}
+
+
+def posting(pid, members):
+    """members: (case id, who, cost group, expense account) for each payslip of the run."""
+    lines = []  # (account, case or None, debit, credit, label)
+    expense = {}
+    for cid, who, group, account in members:
+        c = CASES[cid]
+        key = (account, group)
+        expense[key] = expense.get(key, 0) + c["gross"] + c["er"]
+    for (account, group), amount in expense.items():
+        lines.append((account, None, amount, 0, f"Cost group {group}: gross pay and employer funds"))
+    for cid, who, _group, _account in members:
+        lines.append(("3341", cid, 0, CASES[cid]["gross"], f"{who}: gross pay"))
+    for cid, who, _group, _account in members:
+        fig = CASES[cid]["figures"]
+        for key, name in DEDUCTIONS:
+            if fig[key]:
+                lines.append(("3341", cid, fig[key], 0, f"{who}: {name}"))
+    credits = {}
+    for cid, _who, _group, _account in members:
+        fig = CASES[cid]["figures"]
+        for key, _name in DEDUCTIONS:
+            if fig[key]:
+                credits[CREDIT_ACCOUNT[key]] = credits.get(CREDIT_ACCOUNT[key], 0) + fig[key]
+        for key in EMPLOYER:
+            if fig["employer"][key]:
+                credits[CREDIT_ACCOUNT[key]] = credits.get(CREDIT_ACCOUNT[key], 0) + fig["employer"][key]
+    for account in sorted(credits):
+        lines.append((account, None, 0, credits[account], "Deductions and employer funds"))
+    debit = sum(l[2] for l in lines)
+    credit = sum(l[3] for l in lines)
+    assert debit == credit, (pid, debit, credit)
+    who_of = {cid: who for cid, who, _g, _a in members}
+    rows = [f"| {a} | {who_of[c] if c else ''} | {l} | {f(d) if d else ''} | {f(k) if k else ''} |"
+            for a, c, d, k, l in lines]
+    rows.append(f"| **Total** |  |  | **{f(debit)}** | **{f(credit)}** |")
+    table = ("| Account | Employee | Line | Debit | Credit |\n| --- | --- | --- | --: | --: |\n"
+             + "\n".join(rows))
+    residual = {cid: CASES[cid]["net"] for cid, _w, _g, _a in members}
+    foot = " · ".join(f"{who_of[cid]}: 3341 open {f(net)} = net pay" for cid, net in residual.items())
+    POSTINGS[pid] = dict(md=table + "\n\n" + foot,
+                         lines=[[a, c, d, k] for a, c, d, k, _l in lines], residual=residual)
+
+
+posting("P01", [("G01", "G01 worker", "DIRECT", "6220"),
+                ("G10", "G10 line leader", "FACTORY", "6271"),
+                ("G13", "G13 manager", "ADMIN", "6421")])
+
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--json":
         import json
@@ -416,11 +482,20 @@ if __name__ == "__main__":
             json.dump(data, out, ensure_ascii=False, indent=1, sort_keys=True)
             out.write("\n")
         print("written", sys.argv[2])
+    elif len(sys.argv) == 3 and sys.argv[1] == "--posting-json":
+        import json
+        data = {pid: {"lines": p["lines"], "residual": p["residual"]} for pid, p in POSTINGS.items()}
+        with open(sys.argv[2], "w", encoding="utf-8") as out:
+            json.dump(data, out, ensure_ascii=False, indent=1, sort_keys=True)
+            out.write("\n")
+        print("written", sys.argv[2])
     elif len(sys.argv) == 3:
         text = open(sys.argv[1], encoding="utf-8").read()
         for cid, c in CASES.items():
             text = text.replace("{{CASE:%s}}" % cid, c["md"])
-        left = [l for l in text.splitlines() if "{{CASE:" in l]
+        for pid, p in POSTINGS.items():
+            text = text.replace("{{POSTING:%s}}" % pid, p["md"])
+        left = [l for l in text.splitlines() if "{{CASE:" in l or "{{POSTING:" in l]
         if left:
             sys.exit(f"unfilled placeholders: {left}")
         open(sys.argv[2], "w", encoding="utf-8").write(text)
