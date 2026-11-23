@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The annex (D46). `v` comes from l10n_vn.contract.version._l10n_vn_annex_values:
+         the contract's parties now, the annex's terms, and its changes. -->
+
+    <template id="report_contract_annex">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-set="v" t-value="o._l10n_vn_annex_values()"/>
+                <div class="article l10n_vn_contract"
+                     t-att-data-oe-model="o._name"
+                     t-att-data-oe-id="o.id"
+                     t-att-data-oe-lang="o.env.context.get('lang')">
+                    <div class="page">
+                        <t t-call="l10n_vn_hr_contract_document.doc_header">
+                            <t t-set="bases" t-value="['Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20 tháng 11 năm 2019;', 'Căn cứ Hợp đồng ' + v['form_name'] + ' số ' + v['contract_number'] + ' ký ngày ' + (v['contract_sign_date'] or '..........') + ';', 'Căn cứ thỏa thuận của hai bên,']"/>
+                        </t>
+                        <p>Hai bên thỏa thuận sửa đổi, bổ sung Hợp đồng số <t t-out="v['contract_number']"/> như sau:</p>
+
+                        <p class="o_article">Điều 1. Nội dung sửa đổi, bổ sung</p>
+                        <t t-foreach="v['changes']" t-as="change">
+                            <t t-if="change['action'] == 'remove'">
+                                <p><t t-out="change_index + 1"/>. Bãi bỏ Điều <t t-out="change['number']"/> (<t t-out="change['title']"/>).</p>
+                            </t>
+                            <t t-elif="change['action'] == 'add'">
+                                <p><t t-out="change_index + 1"/>. Bổ sung Điều <t t-out="change['number']"/>. <t t-out="change['title']"/> như sau:</p>
+                                <div class="o_indent"><t t-call="l10n_vn_hr_contract_document.body_individual"/></div>
+                            </t>
+                            <t t-else="">
+                                <p><t t-out="change_index + 1"/>. Sửa đổi Điều <t t-out="change['number']"/> (<t t-out="change['title']"/>) như sau:</p>
+                                <div class="o_indent"><t t-call="l10n_vn_hr_contract_document.annex_body"/></div>
+                            </t>
+                        </t>
+
+                        <p class="o_article">Điều 2. Hiệu lực</p>
+                        <p>1. Phụ lục này là một bộ phận của Hợp đồng số <t t-out="v['contract_number']"/> và có hiệu lực kể từ ngày <t t-out="v['effective_date']"/>.</p>
+                        <p>2. Các nội dung khác của Hợp đồng số <t t-out="v['contract_number']"/> không thay đổi.</p>
+                        <p>3. Phụ lục này được lập thành 02 bản có giá trị pháp lý như nhau, mỗi bên giữ 01 bản.</p>
+                        <t t-call="l10n_vn_hr_contract_document.doc_signatures"/>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- The new text of one changed article, the same body the contract's form prints (D47). -->
+    <template id="annex_body">
+        <t t-set="group" t-value="change['group']"/>
+        <t t-if="group == 'work' and v['kind'] == 'training'" t-call="l10n_vn_hr_contract_document.body_training_1"/>
+        <t t-elif="group == 'work'" t-call="l10n_vn_hr_contract_document.body_work"/>
+        <t t-elif="group == 'salary' and v['kind'] == 'labour'" t-call="l10n_vn_hr_contract_document.body_labour_salary"/>
+        <t t-elif="group == 'salary' and v['kind'] == 'probation'" t-call="l10n_vn_hr_contract_document.body_probation_salary"/>
+        <t t-elif="group == 'salary'" t-call="l10n_vn_hr_contract_document.body_training_salary"/>
+        <t t-elif="group == 'bonus'" t-call="l10n_vn_hr_contract_document.body_labour_bonus"/>
+        <t t-elif="group == 'insurance'" t-call="l10n_vn_hr_contract_document.body_labour_insurance"/>
+        <t t-elif="group == 'training'" t-call="l10n_vn_hr_contract_document.body_training_commitment"/>
+        <t t-elif="group == 'individual'" t-call="l10n_vn_hr_contract_document.body_individual"/>
+    </template>
+</odoo>

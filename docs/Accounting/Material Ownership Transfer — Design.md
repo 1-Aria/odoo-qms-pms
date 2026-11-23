@@ -1,5 +1,7 @@
 # Material Ownership Transfer — Design
 
+> **Superseded (2026-11-23)** by `Material Ownership v2 — Processing Model.md`: the trading company will not sell or invoice the transferred stock, so the garment company processes it as a subcontractor instead. This note is kept as history.
+
 Nov 14, 2026 · @Peter · Revised Nov 14, 2026 · Status: draft for review; module spec
 `docs/modules/sale_material_ownership.md`
 

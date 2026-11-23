@@ -19,6 +19,7 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | 6 | November 2026 go-live (Technical Design v0.6 PTD-19, PTD-25): `BASE` from a dated scale `BASE` by group and `PROD` as the rest of a level total; the training allowance `TRAIN`; the contract types Labour, Probation, Training and Casual with their participant types; `vn.policy.base_salary` no longer created; version 18.0.1.2.0 | done | 2026-11-12, one run: `-u`, `exit=0`, 28 tests, 0 failures. The test copy, loaded before step 6, keeps its `BASE` and `PROD` (D21); the full setup is exercised by the first load on `prod_copy` |
 | 7 | With `l10n_vn_payroll_payment` step 1: `vn.policy.advance_max_share` 0.5 (Pay Policy §11), version 18.0.1.3.0 | done | 2026-11-19, one run: `-u`, `exit=0`, 28 tests, 0 failures. On the test copy the parameter was created by hand |
 | 8 | With `l10n_vn_payroll_payment` step 1.1: `vn.policy.advance_pay_groups` `worker`, the pay groups eligible for advances; version 18.0.1.4.0 | done | 2026-11-19, one run: `-u`, `exit=0`, 28 tests, 0 failures. On the test copy the parameter was created by hand |
+| 9 | `vn.policy.probation_rate` 1.0: probation paid at the full salary for every pay group (D27). No version change: only the loader's constant and its test | done | 2026-11-21, with `l10n_vn_hr_contract_document` step 1: `-u l10n_vn_payroll_garment --test-enable`, 31 tests here, 0 failures; again in the full `-u l10n_vn_payroll` run (363 post-tests). The test copy keeps 0.85 until a version 1.0 is added by hand |
 
 ## Divergences from the design
 
@@ -61,6 +62,7 @@ Design: `docs/HR-Contract-Payroll/Payroll Technical Design v0.4.md` §28 (PTD-xx
 | D24 | **The mapping** (Requirements v0.8 FR-44, Peter 2026-11-19): cost groups `DIRECT` *Direct labour* / *Nhân công trực tiếp* 6220, `FACTORY` *Factory staff* / *Nhân viên phân xưởng* 6271, `SELLING` *Selling staff* / *Nhân viên bán hàng* 6411, `ADMIN` *Administration* / *Nhân viên quản lý* 6421. Credits: `EE_SI`, `ER_PENSION`, `ER_SICKNESS`, `ER_ACCIDENT` 33831; `EE_HI`, `ER_HI` 33841; `EE_UI`, `ER_UI` 33861; `UNION_FEE` 33821; `DUES` 338811; `PIT` 33351; `DAMAGE` 7110. Company: payroll journal `PYRL`, payable 3341, bank journal `BNK1`, cash journal `CSH1`. Earnings carry no account: they post to the cost group's |
 | D25 | **Posting stays off and departments stay unassigned:** which department belongs to which cost group, and when posting starts, are the accountant's (Technical Design §29 step 5); switching posting on makes every gap a review error (account module D8, D11), so it is the go-live act, not a load |
 | D26 | **The load reports what is missing:** the result gains `missing`, labels such as *account 338811 for DUES*; the settings notification shows it. Missing items are neither created nor kept, so the load totals of earlier steps hold |
+| D27 | **Probation at 100%** (step 9, Peter 2026-11-21): one rate for every pay group, as Pay Policy §14.2 sets for skilled workers; the legal floor stays `vn.probation.min_rate` 0.85, which the engine's `probation_length` check compares with. A company loaded before step 9 keeps 0.85 (D2) until a version 1.0 is added by hand. A rate per pay group or per contract was considered and not needed for now |
 | D21 | **Existing companies** keep their records (D2): a company loaded before step 6 keeps its `BASE` (parameter) and `PROD` (scale of variable amounts); changing them is a hand step or a fresh load in a new company. Production has not loaded the scheme, so it gets step 6 on its first load |
 
 ## Folder structure
@@ -130,7 +132,7 @@ In the company, `country_id` the company's country, one version from 2026-01-01 
 | `vn.policy.region` | Minimum wage region | string | `IV` |
 | `vn.policy.std_days` | Standard days per month | integer | `26` |
 | ~~`vn.policy.base_salary`~~ | not created from step 6: `BASE` reads the scale `BASE` (D16) | | |
-| `vn.policy.probation_rate` | Probation pay rate | float | `0.85` |
+| `vn.policy.probation_rate` | Probation pay rate | float | `1.0` (step 9; `0.85` before) |
 | `vn.policy.attainment_cap` | Attainment and score cap | float | `1` |
 | `vn.policy.constant_months` | Months of unchanged variable pay before a check | integer | `6` |
 | `vn.policy.net_change` | Net pay change from last month before a check | float | `0.30` |
@@ -353,7 +355,7 @@ The engine fixture's company (Vietnam, VND) is loaded in each test that needs it
 
 | Test | Asserts |
 |---|---|
-| `test_load_creates` | after one load: the 9 parameters read through `_strict_get` on 2026-10-31 give `IV`, 26, 3,700,000, 0.85, 1, 6, 0.30, `note`, `note` (`vn.check.long_days`, step 5); scale `PROD` has 5 cells and `GRADE` 15, `G2-2` = 8,000,000 with grade `G2`, step 2; 35 components, the inactive ones exactly `ATT`, `DUTY`, `PHONE`; the structure `VN_GARMENT` has `l10n_vn_payroll` and 35 rules, each with the code and component of one component and the category of its kind; `created` lists every record, `kept` is empty |
+| `test_load_creates` | after one load: the 9 parameters read through `_strict_get` on 2026-10-31 give `IV`, 26, 3,700,000, 1.0 (step 9), 1, 6, 0.30, `note`, `note` (`vn.check.long_days`, step 5); scale `PROD` has 5 cells and `GRADE` 15, `G2-2` = 8,000,000 with grade `G2`, step 2; 35 components, the inactive ones exactly `ATT`, `DUTY`, `PHONE`; the structure `VN_GARMENT` has `l10n_vn_payroll` and 35 rules, each with the code and component of one component and the category of its kind; `created` lists every record, `kept` is empty |
 | `test_component_settings` | `BASE`: source `parameter` `vn.policy.base_salary`, in SI and OT base, `sets_wage`; `PROD`: scale `PROD`, variable, `supervisor`, OT base only; `PERF`: `scale_remainder` on `GRADE`, `manager`; `LEAVE`: `exempt`; `ATT`: inactive, `parameter` `vn.policy.attendance_bonus`, condition `attendance`; `OT_NWD_AFTER`: category `NWD_AFTER`, PIT `ot`; `OT_NIGHT`: category `NIGHT`, PIT `exempt`, and no `vn.policy.ot_min_hours_day` (step 5) |
 | `test_vietnamese_names` | with `vi_VN` activated before the load: `BASE` reads *Lương cơ bản* in `vi_VN` and *Base salary* in `en_US`; the structure's rule `BASE` the same |
 | `test_load_again` | a second load creates nothing, `kept` lists all 9 + 2 + 4 + 35 + 1 + 35 records, counts unchanged |

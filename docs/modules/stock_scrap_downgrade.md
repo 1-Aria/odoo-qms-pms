@@ -1,7 +1,7 @@
 # stock_scrap_downgrade
 
 A scrap into a location marked as a downgrade location also receives a chosen lower-grade product: same quantity,
-at the scrapped goods' cost, in the same transaction. The first use is garment seconds (*hàng loại 2*). Generic, in
+same owner, at the scrapped goods' cost, in the same transaction. The first use is garment seconds (*hàng loại 2*). Generic, in
 OCA's `<base_module>_<feature>` form, with unprefixed field names. Context:
 `docs/Accounting/Defective Goods and Seconds — Design.md` §6.
 
@@ -10,6 +10,7 @@ OCA's `<base_module>_<feature>` form, with unprefixed field names. Context:
 | # | Scope | Status | Result |
 |---|---|---|---|
 | 1 | The location's category, the lower-grade product on the scrap with its proposal, the receipt at cost | done | 2026-11-18: `-i`, 12 post-tests passed (Peter's run). Database check: SP/00005 and SP/00006, 3 × PANT00589 from WH/MO/00611-001 to PR/00209; value out equals value in (3,218 and 1,609); every entry on 1550 only; WH/SFP/01428 reserved 93 of 96; downgrade location totals 0. Both UI scraps were made by an administrator; a plain stock user is covered by `test_as_stock_user` |
+| 1.1 | The receipt keeps the scrap's owner | done | 2026-11-23: `-u`, 13 post-tests passed (Peter's run). Database check: inventory adjustments of 5 × PR/00209 and 2 × PANT00589 owned by the trading company, no valuation layer or entry; SP/00007 downgraded the 2 owned PANT00589 to PR/00209: both moves' lines owned by the trading company, the receipt's `restrict_partner_id` too, no valuation layer or entry; PR/00209 in WH/Stock 7 owned and 2 unowned, its value unchanged at 3,218; `Hạ loại 2` totals 0 per owner. Core leaves the scrap's own move without `restrict_partner_id` (`stock/models/stock_scrap.py:144`); its line's owner is enough. UI by an administrator |
 
 ## Divergences from the design
 
@@ -28,6 +29,8 @@ None.
 | D7 | **The accounts are configuration.** The entries come from the location's *Incoming* and *Outgoing* valuation accounts (`stock_account/models/stock_move.py:536-543`). The module reads and checks no account |
 | D8 | **Core's other scrap behaviour is unchanged,** including the insufficient-quantity warning, which ends in `do_scrap` (`stock/wizard/stock_warn_insufficient_qty.py:45-46`) |
 | D9 | **No undo.** A downgrade is corrected by hand with transfers |
+| D10 | **The owner follows the goods** (step 1.1). The receipt takes the scrap's `owner_id` as `restrict_partner_id` and as its line's `owner_id`, as core does when it validates a transfer with an owner (`stock/models/stock_picking.py:1257-1260`). Goods owned by another partner are left out of valuation on both moves (`stock_account/models/stock_move_line.py:121-128`), so neither creates an entry. Core already puts the scrap's owner on the scrap's own move line (`stock/models/stock_scrap.py:141`) |
+| D11 | **No owner is guessed.** The owner is the one entered on the scrap, as for any scrap. Choosing which owner's stock to take stays with core and with the user |
 
 ## Folder structure
 
@@ -54,7 +57,7 @@ stock_scrap_downgrade/
 |---|---|
 | `name` | `Stock Scrap Downgrade` |
 | `summary` | `Scrap goods into a lower-grade product at their cost` |
-| `version` | `18.0.1.0.0` |
+| `version` | `18.0.1.1.0` |
 | `author` | `1-Aria` |
 | `website` | `https://github.com/1-Aria/odoo-qms-pms` |
 | `license` | `AGPL-3` |
@@ -83,7 +86,7 @@ No access rules: the module adds fields to existing models. Whoever may scrap ma
 
 | Field | Type | Attributes |
 |---|---|---|
-| `downgrade_categ_id` | Many2one `product.category` | `string="Downgrade Category"`, `help="Scrapping into this location downgrades the goods: a product of this category is received in their place, at their cost."` |
+| `downgrade_categ_id` | Many2one `product.category` | `string="Downgrade Category"`, `help="Scrapping into this location downgrades the goods: a product of this category is received in their place, with the same owner, at their cost."` |
 
 ### `stock.scrap` — `models/stock_scrap.py`
 
@@ -114,10 +117,11 @@ Values of the receipt move:
 | `location_id` | `scrap_location_id` |
 | `location_dest_id` | the destination |
 | `price_unit` | value ÷ quantity |
+| `restrict_partner_id` | the scrap's `owner_id` (D10) |
 | `scrap_id` | the scrap |
 | `state` | `draft` |
 | `picked` | `True` |
-| `move_line_ids` | one line: `product_id`, `product_uom_id`, `quantity`, `location_id` and `location_dest_id`, as above |
+| `move_line_ids` | one line: `product_id`, `product_uom_id`, `quantity`, `location_id` and `location_dest_id`, as above, and `owner_id` the scrap's `owner_id` (D10) |
 
 ### `stock.move` — `models/stock_move.py`
 
@@ -154,13 +158,14 @@ the fixtures create a company and products.
 `allowed_company_ids`, and its warehouse, which `stock` creates. Accounts created in that company: stock valuation,
 stock input, stock output and scrap expense. The chart's `STJ` journal. A category *Goods* and a category *Seconds*, both AVCO and real-time, with those accounts and journal. A
 template *Style* in *Goods* with a two-value attribute, so two variants; a product *Other* in *Goods*; a product
-*Second* and a product *Second B* in *Seconds*. A scrap location *Downgrade*, `usage` `inventory`, with
-`downgrade_categ_id` *Seconds* and both valuation accounts set to stock valuation. A scrap location *Waste*,
+*Second* and a product *Second B* in *Seconds*. A partner *Owner*. A scrap location *Downgrade*, `usage`
+`inventory`, with `downgrade_categ_id` *Seconds* and both valuation accounts set to stock valuation. A scrap location *Waste*,
 `usage` `inventory`, with its incoming valuation account set to scrap expense.
 
-**Helpers:** `_stock_in(product, quantity, price)` validates a move from the supplier location to the warehouse's
-stock at that `price_unit`. `_scrap(product, quantity, location, **values)` creates a scrap from the warehouse's
-stock and calls `do_scrap`. `_on_hand(product)` is the quantity in the warehouse's stock. `_value(product)` is
+**Helpers:** `_stock_in(product, quantity, price, owner=None)` validates a move from the supplier location to the
+warehouse's stock at that `price_unit`, with that owner as `restrict_partner_id` and line owner. `_scrap(product, quantity, location, **values)` creates a scrap from the warehouse's
+stock and calls `do_scrap`. `_on_hand(product, location=None, owner=None)` is the quantity in the warehouse's stock, or that location, of
+that owner when given. `_value(product)` is
 the sum of the product's valuation layers in the company.
 
 | Test | Asserts |
@@ -168,6 +173,7 @@ the sum of the product's valuation layers in the company.
 | `test_downgrade_moves_stock` | 10 of a variant in at 100; 3 downgraded to *Second*: the variant 7 on hand, *Second* 3; the *Downgrade* location holds +3 of the variant and −3 of *Second*; the scrap has 2 moves, both done |
 | `test_cost_follows_the_goods` | the same: the variant's value 700, *Second*'s value 300 and `standard_price` 100 |
 | `test_entries_stay_on_valuation` | the same: the two moves' journal entries have lines on the stock valuation account only, debits equal to credits, 300 each way |
+| `test_owner_kept` | 5 of a variant in at 100 owned by *Owner*; 3 downgraded to *Second* with the scrap's `owner_id` *Owner*: *Second* 3 on hand owned by *Owner*, 0 without owner; the receipt's `restrict_partner_id` and line `owner_id` *Owner*; no valuation layer and no journal entry on either move |
 | `test_average_of_two_sources` | 3 of one variant at 100 and 1 of *Other* at 200 downgraded to *Second*: on hand 4, value 500, `standard_price` 125 |
 | `test_zero_cost_stays_zero` | 2 at 100 downgraded to *Second*; then 2 of *Other*, in at price 0 and `standard_price` 0, downgraded to it: on hand 4, value 200, `standard_price` 50 |
 | `test_unit_conversion` | 24 of a variant in at 10; 1 dozen downgraded, `product_uom_id` the dozen: the variant 12 on hand, *Second* 12, value 120 |
@@ -182,5 +188,5 @@ the sum of the product's valuation layers in the company.
 
 | File | Content |
 |---|---|
-| `readme/DESCRIPTION.md` | Scrapping into a location with a *Downgrade Category* removes the goods and receives a chosen product of that category in their place: same quantity, at the cost of the goods removed, in one step |
+| `readme/DESCRIPTION.md` | Scrapping into a location with a *Downgrade Category* removes the goods and receives a chosen product of that category in their place: same quantity, same owner, at the cost of the goods removed, in one step |
 | `readme/USAGE.md` | Create a virtual scrap location (*Inventory Loss*, *Is a Scrap Location*); set its *Downgrade Category* and its *Incoming* and *Outgoing* valuation accounts, normally the stock valuation account of both products. In the *Scrap* form choose that location and the *Downgrade To* product, which is proposed from the last downgrade of the same product |

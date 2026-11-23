@@ -26,6 +26,7 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | 10.1 | Hours over the daily limit are at most the day's overtime (D95), so long normal days (quilting's double shifts) count only in `long_days`; `test_paid_day_hours` asserts it | done | 2026-11-08, one run: `-u`, `exit=0`, 236 tests, 0 failures; May 2026 compared again: 0 h over the daily limit. Found by comparing May 2026 on the test copy, where all 106.6 h over the daily limit came from quilting, which has no overtime |
 | 11 | Contracts, identification and corrections (Technical Design v0.6 PTD-19 to PTD-23): participant types `TRAINING` and `CASUAL`, the flags `paid_by_transfer` and `posted`, `PROBATION` progressive; a participant type on each contract type, given to new contracts; the PIT method with the commitment form first; `missing_ids` asking for the CCCD and, where paid by transfer, the bank account; checks `contract_term` and `attendance_corrections`; corrected days on the summary; version 18.0.1.1.0 with a migration | done | 2026-11-12, two runs. First: `-u`, 243 tests, 1 failure: `test_probation_and_short` still expected `PROBATION` flat; the test now expects `progressive` (D102). The migration ran on the test copy (`PROBATION` progressive; `TRAINING` and `CASUAL` created, `CASUAL` neither paid by transfer nor posted). Second: `-u`, `exit=0`, 243 tests, 0 failures. UI checked by Peter: the participant type on contract types, the correction reason on attendance |
 | 12 | The pay group on the contract (D110–D113): `hr.contract.l10n_vn_pay_group`; the employee's a stored copy of the current contract's; `ie_scope` reads the payslip's contract; migration 18.0.1.2.0 copies each employee's value to their contracts; version 18.0.1.2.0 | done | 2026-11-19, one run: `-u l10n_vn_payroll`, `exit=0`, 308 post-tests (245 here, 28 garment, 35 payment), 0 failures. On the test copy the migration put the trial employees' pay groups on their contracts; a contract's change reaches the employee and the attendance mode and is logged in the contract's chatter |
+| 12.1 | The end of a probation clause on the contract form (D114): core's `trial_date_end`, which `_check_l10n_vn_profile` requires for a clause, shown after *Probation* on the *Pay Lines* tab when the probation is a clause, and required there; view only, no version change | done | 2026-11-21: `-u l10n_vn_payroll`, 363 post-tests (245 here, 31 garment, 47 payment, 14 account, 26 contract document), 0 failures; UI checked by Peter. No view on the instance showed `trial_date_end`, so a clause could not be saved from the form (found in the contract-document UI check) |
 
 ## Divergences from the design
 
@@ -192,6 +193,7 @@ on `Payroll Requirements Specification v0.6.md` (FR-xx) and `Pay Policy v0.5.md`
 | D111 | **The employee's pay group** becomes a stored, read-only copy of the current contract's (`contract_id.l10n_vn_pay_group`): employee lists, searches and the attendance mode keep reading it. The attendance mode stays the employee's own editable value (D16); it follows a change of the current contract's group through it, and an employee without a group keeps theirs |
 | D112 | **A month reads that month's contract:** `ie_scope` reads the payslip's contract, the month's main contract (D31), not the employee's current one. The attendance mode stays on the employee, as how a person's time is recorded |
 | D113 | **Migration 18.0.1.2.0:** before the upgrade, each contract without a pay group takes its employee's, contracts of every state included; after it, the employees whose stored group differs from their current contract's (those without a current contract) are recomputed. On the test copy that is the trial employees |
+| D114 | **The end of a probation clause is entered on the contract** (step 12.1): core's `trial_date_end` has no view in core or OCA 18, and the clause needs it (step 2, `_check_l10n_vn_profile`; D33 cuts the month at it), so the payroll profile shows it beside *Probation*, for clauses only |
 
 ## Folder structure
 
@@ -1513,6 +1515,8 @@ Sequence 135, after `ot_limit` (130); the other checks keep theirs. `ot_limit`'s
 ### `views/hr_contract_views.xml` additions (step 2)
 
 In `hr_contract_view_form_l10n_vn_payroll`, at the top of the *Pay Lines* page, before `l10n_vn_line_ids`: a group with `l10n_vn_participant_type_id`, `l10n_vn_declared_si_base` (visible when `l10n_vn_base_source == 'declared'`, with the hidden `l10n_vn_base_source`), `l10n_vn_probation_form`.
+
+Step 12.1: after `l10n_vn_probation_form`, core's `trial_date_end`, `invisible="l10n_vn_probation_form != 'clause'"`, `required="l10n_vn_probation_form == 'clause'"` (D114).
 
 ### `views/hr_employee_views.xml` (step 2)
 

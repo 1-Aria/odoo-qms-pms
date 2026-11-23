@@ -10,7 +10,7 @@ DATE_FROM = "2026-01-01"
 PARAMETERS = [
     ("vn.policy.region", "Minimum wage region", "string", "IV"),
     ("vn.policy.std_days", "Standard days per month", "integer", "26"),
-    ("vn.policy.probation_rate", "Probation pay rate", "float", "0.85"),
+    ("vn.policy.probation_rate", "Probation pay rate", "float", "1.0"),
     ("vn.policy.attainment_cap", "Attainment and score cap", "float", "1"),
     (
         "vn.policy.constant_months",

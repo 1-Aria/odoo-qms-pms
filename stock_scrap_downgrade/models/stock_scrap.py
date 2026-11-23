@@ -65,7 +65,11 @@ class StockScrap(models.Model):
         return result
 
     def _receive_downgrade_product(self):
-        """Receive the lower-grade product at the value the scrap took out."""
+        """Receive the lower-grade product at the value the scrap took out.
+
+        The scrap's owner goes on the receipt as core puts a transfer's owner on its
+        moves, so goods owned by a partner stay that partner's and out of valuation.
+        """
         self.ensure_one()
         product = self.downgrade_product_id
         quantity = self.product_uom_id._compute_quantity(self.scrap_qty, self.product_id.uom_id)
@@ -86,6 +90,7 @@ class StockScrap(models.Model):
                 "location_id": self.scrap_location_id.id,
                 "location_dest_id": destination.id,
                 "price_unit": value / quantity,
+                "restrict_partner_id": self.owner_id.id,
                 "scrap_id": self.id,
                 "state": "draft",
                 "picked": True,
@@ -97,6 +102,7 @@ class StockScrap(models.Model):
                             "quantity": quantity,
                             "location_id": self.scrap_location_id.id,
                             "location_dest_id": destination.id,
+                            "owner_id": self.owner_id.id,
                         }
                     )
                 ],

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="l10n_vn_contract_wording_view_list" model="ir.ui.view">
+        <field name="name">l10n_vn.contract.wording.list</field>
+        <field name="model">l10n_vn.contract.wording</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="company_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="l10n_vn_contract_wording_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.contract.wording.form</field>
+        <field name="model">l10n_vn.contract.wording</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="company_id" groups="base.group_multi_company"/>
+                        <field name="duties"/>
+                        <field name="payday"/>
+                    </group>
+                    <group string="Raises">
+                        <field name="raises" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Working and Rest Time">
+                        <field name="hours" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Protective Equipment">
+                        <field name="equipment" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Employee's Rights and Duties">
+                        <field name="employee_rights" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Employer's Rights and Duties">
+                        <field name="employer_rights" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Training: Content">
+                        <field name="training_content" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Training: Evaluation and End">
+                        <field name="training_evaluation" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Extra Articles">
+                        <field name="article_ids" nolabel="1" colspan="2">
+                            <list>
+                                <field name="sequence" widget="handle"/>
+                                <field name="kind"/>
+                                <field name="title"/>
+                                <field name="active" widget="boolean_toggle"/>
+                            </list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_contract_article_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.contract.article.form</field>
+        <field name="model">l10n_vn.contract.article</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="kind"/>
+                    <field name="title"/>
+                    <field name="active" widget="boolean_toggle"/>
+                </group>
+                <field name="body"/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_l10n_vn_contract_wording" model="ir.actions.act_window">
+        <field name="name">Contract Wording</field>
+        <field name="res_model">l10n_vn.contract.wording</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_contract_view_form_l10n_vn_contract" model="ir.ui.view">
+        <field name="name">hr.contract.form.l10n_vn_contract</field>
+        <field name="model">hr.contract</field>
+        <field name="inherit_id" ref="hr_contract.hr_contract_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="l10n_vn_company_approval" invisible="1"/>
+                <button name="action_l10n_vn_approve"
+                        type="object"
+                        string="Approve"
+                        class="btn-primary"
+                        groups="hr_contract.group_hr_contract_manager"
+                        invisible="l10n_vn_approved or state not in ('draft', 'open')"/>
+                <button name="action_l10n_vn_amend"
+                        type="object"
+                        string="Amend"
+                        groups="hr_contract.group_hr_contract_manager"
+                        invisible="not l10n_vn_approved or l10n_vn_amendment_id or state not in ('draft', 'open')"/>
+                <button name="action_l10n_vn_approve_amendment"
+                        type="object"
+                        string="Approve Amendment"
+                        class="btn-primary"
+                        groups="hr_contract.group_hr_contract_manager"
+                        invisible="not l10n_vn_amendment_id"/>
+                <button name="action_l10n_vn_cancel_amendment"
+                        type="object"
+                        string="Cancel Amendment"
+                        groups="hr_contract.group_hr_contract_manager"
+                        invisible="not l10n_vn_amendment_id"
+                        confirm="Put the contract back as it was when the amendment opened?"/>
+                <button name="action_l10n_vn_next_contract"
+                        type="object"
+                        string="Next Contract"
+                        groups="hr_contract.group_hr_contract_manager"
+                        invisible="not l10n_vn_approved or l10n_vn_amendment_id"/>
+                <button name="action_l10n_vn_print"
+                        type="object"
+                        string="Print"
+                        groups="payroll.group_payroll_user"
+                        invisible="l10n_vn_document_kind in (False, 'none')"/>
+            </xpath>
+            <!-- running only through approval (D32) -->
+            <xpath expr="//header/field[@name='state'][1]" position="attributes">
+                <attribute name="readonly">l10n_vn_company_approval</attribute>
+            </xpath>
+            <xpath expr="//header/field[@name='state'][2]" position="attributes">
+                <attribute name="readonly">l10n_vn_company_approval</attribute>
+            </xpath>
+            <!-- a display copy of the pay lines; payroll never reads it (D37) -->
+            <xpath expr="//field[@name='wage']" position="attributes">
+                <attribute name="readonly">l10n_vn_approved</attribute>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="before">
+                <field name="l10n_vn_amendment_id" invisible="1"/>
+                <div class="alert alert-info" role="status" invisible="not l10n_vn_amendment_id">
+                    <strong>Amendment in progress</strong>, effective
+                    <field name="l10n_vn_amendment_date" readonly="1" class="oe_inline"/>:
+                    <field name="l10n_vn_amendment_reason" readonly="1" class="oe_inline"/>
+                </div>
+                <div class="alert alert-warning" role="alert" invisible="not l10n_vn_document_missing">
+                    <strong>Before this contract can be approved:</strong>
+                    <field name="l10n_vn_document_missing" nolabel="1"/>
+                </div>
+            </xpath>
+            <xpath expr="//page[@name='information']" position="after">
+                <page string="Contract Document"
+                      name="l10n_vn_document"
+                      invisible="l10n_vn_document_kind in (False, 'none') and not l10n_vn_approved">
+                    <group>
+                        <group name="l10n_vn_document_main">
+                            <field name="l10n_vn_approved"/>
+                            <field name="l10n_vn_number" invisible="not l10n_vn_number"/>
+                            <field name="l10n_vn_document_kind"/>
+                            <field name="l10n_vn_work_address_id"/>
+                            <field name="l10n_vn_sign_date"/>
+                        </group>
+                        <group name="l10n_vn_training"
+                               string="Training"
+                               invisible="l10n_vn_document_kind != 'training'">
+                            <field name="l10n_vn_training_kind"/>
+                            <field name="l10n_vn_commitment_months"/>
+                            <field name="l10n_vn_training_cost"/>
+                            <field name="l10n_vn_training_cost_items"/>
+                        </group>
+                    </group>
+                    <group name="l10n_vn_individual_terms" string="Individual Terms">
+                        <field name="l10n_vn_individual_terms" nolabel="1" colspan="2"/>
+                    </group>
+                </page>
+                <page string="Versions"
+                      name="l10n_vn_versions"
+                      groups="hr_contract.group_hr_contract_manager,payroll.group_payroll_user"
+                      invisible="not l10n_vn_version_ids">
+                    <field name="l10n_vn_version_ids" readonly="1">
+                        <list>
+                            <field name="sequence"/>
+                            <field name="kind"/>
+                            <field name="number"/>
+                            <field name="effective_date"/>
+                            <field name="reason"/>
+                            <field name="state"/>
+                            <field name="approved_by"/>
+                            <field name="approved_at"/>
+                            <button name="action_l10n_vn_print"
+                                    type="object"
+                                    string="Print"
+                                    icon="fa-print"
+                                    groups="payroll.group_payroll_user"
+                                    invisible="kind != 'annex' or state != 'approved'"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="hr_contract_view_tree_l10n_vn_contract" model="ir.ui.view">
+        <field name="name">hr.contract.list.l10n_vn_contract</field>
+        <field name="model">hr.contract</field>
+        <field name="inherit_id" ref="hr_contract.hr_contract_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='kanban_state']" position="before">
+                <field name="l10n_vn_number" optional="show"/>
+                <field name="l10n_vn_approved" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

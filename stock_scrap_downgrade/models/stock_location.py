@@ -10,5 +10,5 @@ class StockLocation(models.Model):
         comodel_name="product.category",
         string="Downgrade Category",
         help="Scrapping into this location downgrades the goods: a product of this "
-        "category is received in their place, at their cost.",
+        "category is received in their place, with the same owner, at their cost.",
     )

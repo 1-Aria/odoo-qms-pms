@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="l10n_vn_contract_amend_wizard_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.contract.amend.wizard.form</field>
+        <field name="model">l10n_vn.contract.amend.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="contract_id" readonly="1"/>
+                    <field name="effective_date"/>
+                    <field name="reason"/>
+                </group>
+                <footer>
+                    <button name="action_open_amendment" type="object" string="Open Amendment" class="btn-primary"/>
+                    <button special="cancel" string="Cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="l10n_vn_contract_annex_batch_wizard_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.contract.annex.batch.wizard.form</field>
+        <field name="model">l10n_vn.contract.annex.batch.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="date"/>
+                    <field name="reason"/>
+                    <field name="contract_ids" widget="many2many_tags"/>
+                </group>
+                <field name="line_ids" readonly="1">
+                    <list>
+                        <field name="contract_id"/>
+                        <field name="groups"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_find_changes" type="object" string="Find Changes" class="btn-secondary"/>
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary" invisible="not line_ids"/>
+                    <button special="cancel" string="Cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_l10n_vn_contract_annex_batch" model="ir.actions.act_window">
+        <field name="name">Annexes for a Date</field>
+        <field name="res_model">l10n_vn.contract.annex.batch.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="hr_contract.model_hr_contract"/>
+        <field name="binding_view_types">list</field>
+        <field name="groups_id" eval="[(4, ref('hr_contract.group_hr_contract_manager'))]"/>
+    </record>
+
+    <record id="l10n_vn_contract_next_wizard_view_form" model="ir.ui.view">
+        <field name="name">l10n_vn.contract.next.wizard.form</field>
+        <field name="model">l10n_vn.contract.next.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="contract_id" readonly="1"/>
+                    <field name="date_start"/>
+                    <field name="contract_type_id"/>
+                    <field name="date_end"/>
+                </group>
+                <footer>
+                    <button name="action_create_contract" type="object" string="Create Contract" class="btn-primary"/>
+                    <button special="cancel" string="Cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

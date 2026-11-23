@@ -21,6 +21,11 @@
                                 invisible="l10n_vn_base_source != 'declared'"
                             />
                             <field name="l10n_vn_probation_form" />
+                            <field
+                                name="trial_date_end"
+                                invisible="l10n_vn_probation_form != 'clause'"
+                                required="l10n_vn_probation_form == 'clause'"
+                            />
                         </group>
                     </group>
                     <field name="l10n_vn_line_ids" context="{'default_contract_id': id}">

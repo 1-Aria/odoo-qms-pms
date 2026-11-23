@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The contract forms. Every block reads `v` (the values of
+         hr.contract._l10n_vn_document_values) and the variables its caller sets.
+         An empty value prints as a dotted space to fill in by hand. -->
+
+    <template id="report_contract">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-set="v" t-value="o._l10n_vn_document_values()"/>
+                <div class="article l10n_vn_contract"
+                     t-att-data-oe-model="o._name"
+                     t-att-data-oe-id="o.id"
+                     t-att-data-oe-lang="o.env.context.get('lang')">
+                    <div class="page">
+                        <t t-if="v['kind'] == 'labour'" t-call="l10n_vn_hr_contract_document.form_labour"/>
+                        <t t-elif="v['kind'] == 'probation'" t-call="l10n_vn_hr_contract_document.form_probation"/>
+                        <t t-elif="v['kind'] == 'training'" t-call="l10n_vn_hr_contract_document.form_training"/>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- One amount row: "- name: amount đồng/unit (Bằng chữ: …)"; `with_name`
+         False leaves the name out. -->
+    <template id="amount_row">
+        <t t-if="with_name is not False"><t t-out="row['name']"/>: </t>
+        <t t-if="row['amount_text']"><t t-out="row['amount_text']"/> đồng/<t t-out="row['unit']"/>
+            (Bằng chữ: <t t-out="row['words']"/>)</t>
+        <span t-else="" class="o_dots"/>
+    </template>
+
+    <template id="doc_header">
+        <div t-if="v['draft']" class="o_draft">BẢN NHÁP</div>
+        <div class="o_motto">
+            <div><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></div>
+            <div><strong>Độc lập – Tự do – Hạnh phúc</strong></div>
+            <div class="o_rule"/>
+        </div>
+        <p class="o_place_date">
+            <t t-if="v['sign_place']" t-out="v['sign_place']"/><span t-else="" class="o_dots o_short"/>,
+            <t t-if="v['sign_date']">ngày <t t-out="v['sign_date'][0]"/> tháng <t t-out="v['sign_date'][1]"/> năm <t t-out="v['sign_date'][2]"/></t>
+            <t t-else="">ngày ...... tháng ...... năm ..........</t>
+        </p>
+        <h1 class="o_title" t-out="v['title']"/>
+        <p class="o_center">Số: <t t-if="v['number']" t-out="v['number']"/><span t-else="" class="o_dots"/></p>
+        <p t-foreach="bases" t-as="basis" class="o_italic" t-out="basis"/>
+        <p>Chúng tôi gồm:</p>
+
+        <p><strong>BÊN A: NGƯỜI SỬ DỤNG LAO ĐỘNG</strong></p>
+        <t t-set="c" t-value="v['company']"/>
+        <table class="o_fields">
+            <tr><td class="o_label">Tên doanh nghiệp:</td><td colspan="3"><strong t-out="c['name']"/></td></tr>
+            <tr><td class="o_label">Mã số doanh nghiệp:</td>
+                <td colspan="3"><t t-if="c['vat']" t-out="c['vat']"/><span t-else="" class="o_dots"/></td></tr>
+            <tr><td class="o_label">Địa chỉ trụ sở chính:</td>
+                <td colspan="3"><t t-if="c['address']" t-out="c['address']"/><span t-else="" class="o_dots"/></td></tr>
+            <tr><td class="o_label">Điện thoại:</td>
+                <td><t t-if="c['phone']" t-out="c['phone']"/><span t-else="" class="o_dots"/></td>
+                <td class="o_label"><t t-if="c['email']">Email:</t></td>
+                <td><t t-if="c['email']" t-out="c['email']"/></td></tr>
+            <tr><td class="o_label">Người đại diện:</td>
+                <td>Ông/Bà <t t-if="c['rep_name']" t-out="c['rep_name']"/><span t-else="" class="o_dots"/></td>
+                <td class="o_label">Chức danh:</td>
+                <td><t t-if="c['rep_title']" t-out="c['rep_title']"/><span t-else="" class="o_dots"/></td></tr>
+        </table>
+
+        <p><strong>BÊN B: <t t-out="v['party_b']"/></strong></p>
+        <t t-set="e" t-value="v['employee']"/>
+        <table class="o_fields">
+            <tr><td class="o_label">Họ và tên:</td><td><strong t-out="e['name']"/></td>
+                <td class="o_label">Giới tính:</td>
+                <td><t t-if="e['gender']" t-out="e['gender']"/><span t-else="" class="o_dots"/></td></tr>
+            <tr><td class="o_label">Ngày sinh:</td>
+                <td><t t-if="e['birthday']" t-out="e['birthday']"/><span t-else="" class="o_dots"/></td>
+                <td class="o_label">Quốc tịch:</td><td t-out="e['nationality']"/></tr>
+            <tr><td class="o_label">Số CCCD:</td>
+                <td><t t-if="e['personal_id']" t-out="e['personal_id']"/><span t-else="" class="o_dots"/></td>
+                <td class="o_label">Ngày cấp:</td>
+                <td><t t-if="e['id_issue_date']" t-out="e['id_issue_date']"/><span t-else="" class="o_dots"/></td></tr>
+            <tr><td class="o_label">Nơi cấp:</td>
+                <td colspan="3"><t t-if="e['id_issue_place']" t-out="e['id_issue_place']"/><span t-else="" class="o_dots"/></td></tr>
+            <tr><td class="o_label">Nơi thường trú:</td>
+                <td colspan="3"><t t-if="e['permanent_address']" t-out="e['permanent_address']"/><span t-else="" class="o_dots"/></td></tr>
+            <tr t-if="e['current_address']"><td class="o_label">Nơi ở hiện tại:</td>
+                <td colspan="3" t-out="e['current_address']"/></tr>
+            <tr t-if="e['phone'] or e['email']"><td class="o_label">Điện thoại:</td>
+                <td t-out="e['phone']"/>
+                <td class="o_label"><t t-if="e['email']">Email:</t></td>
+                <td t-out="e['email']"/></tr>
+        </table>
+    </template>
+
+    <template id="doc_closing">
+        <p class="o_article">Điều <t t-out="article"/>. Điều khoản thi hành</p>
+        <p>1. Những vấn đề không ghi trong hợp đồng này thực hiện theo Nội quy lao động, các quy chế của
+            Công ty, thỏa ước lao động tập thể (nếu có) và quy định của pháp luật.</p>
+        <p>2. Phụ lục hợp đồng do hai bên ký kết là một bộ phận của hợp đồng này và có hiệu lực như hợp
+            đồng này.</p>
+        <p>3. Hợp đồng này được lập thành 02 bản có giá trị pháp lý như nhau, mỗi bên giữ 01 bản, và có
+            hiệu lực từ ngày <t t-out="v['term']['date_start']"/>.</p>
+        <t t-call="l10n_vn_hr_contract_document.doc_signatures"/>
+    </template>
+
+    <!-- The extra articles of the form, then the individual terms (step 1.1, D15-D17). -->
+    <template id="doc_extra">
+        <t t-foreach="v['extra_articles']" t-as="article">
+            <p class="o_article">Điều <t t-out="article['number']"/>. <t t-out="article['title']"/></p>
+            <div class="o_clause" t-out="article['body']"/>
+        </t>
+        <t t-if="v['individual_terms']">
+            <p class="o_article">Điều <t t-out="v['individual_terms']['number']"/>. Thỏa thuận khác</p>
+            <t t-call="l10n_vn_hr_contract_document.body_individual"/>
+        </t>
+    </template>
+
+    <!-- Article bodies (step 3, D47): the forms print them under their headings, and an
+         annex prints the ones it changes. Each reads `v`. -->
+    <template id="body_work">
+        <t t-set="w" t-value="v['wording']"/>
+        <p>1. Chức danh công việc: <t t-if="v['job']" t-out="v['job']"/><span t-else="" class="o_dots"/>.</p>
+        <p>2. Công việc phải làm: <t t-out="w.duties"/></p>
+        <p>3. Địa điểm làm việc: <t t-if="v['workplace']" t-out="v['workplace']"/><span t-else="" class="o_dots"/>.</p>
+    </template>
+
+    <template id="body_labour_salary">
+        <t t-set="w" t-value="v['wording']"/>
+        <t t-if="len(v['salary']) == 1">
+            <p>1. Mức lương theo công việc hoặc chức danh:
+                <t t-call="l10n_vn_hr_contract_document.amount_row"><t t-set="row" t-value="v['salary'][0]"/><t t-set="with_name" t-value="False"/></t>.</p>
+        </t>
+        <t t-else="">
+            <p>1. Mức lương theo công việc hoặc chức danh: <span t-if="not v['salary']" class="o_dots"/></p>
+            <p t-foreach="v['salary']" t-as="row" class="o_indent">- <t t-call="l10n_vn_hr_contract_document.amount_row"/>.</p>
+        </t>
+        <p>2. Phụ cấp lương: <t t-if="not v['allowances']">Không.</t></p>
+        <p t-foreach="v['allowances']" t-as="row" class="o_indent">- <t t-call="l10n_vn_hr_contract_document.amount_row"/>.</p>
+        <p>3. Các khoản bổ sung khác: <t t-if="not v['supplements'] and not v['variable']">Không.</t></p>
+        <p t-foreach="v['supplements']" t-as="row" class="o_indent">- <t t-call="l10n_vn_hr_contract_document.amount_row"/>.</p>
+        <p t-foreach="v['variable']" t-as="name" class="o_indent">- <t t-out="name"/>: trả theo năng suất, kết quả thực hiện công việc của Bên B, theo Quy chế trả lương của Công ty.</p>
+        <p>4. Tiền lương làm thêm giờ, làm việc vào ban đêm: theo quy định của Bộ luật Lao động.</p>
+        <p>5. Hình thức trả lương: <t t-out="v['payment_text']"/>.</p>
+        <p>6. Kỳ hạn trả lương: <t t-out="w.payday"/></p>
+    </template>
+
+    <template id="body_labour_bonus">
+        <p>1. Tiền thưởng: theo Quy chế thưởng của Công ty, căn cứ kết quả sản xuất, kinh doanh và mức độ hoàn thành công việc của Bên B.</p>
+        <p>2. Phúc lợi và các khoản hỗ trợ khác: <t t-if="not v['welfare']">theo quy định của Công ty.</t></p>
+        <t t-foreach="v['welfare']" t-as="row">
+            <p class="o_indent">- <t t-if="row['amount_text']" t-call="l10n_vn_hr_contract_document.amount_row"/><t t-else=""><t t-out="row['name']"/>: theo quy định của Công ty</t>.</p>
+        </t>
+    </template>
+
+    <template id="body_labour_insurance">
+        <p t-if="v['insured']">Hai bên tham gia bảo hiểm xã hội bắt buộc, bảo hiểm y tế và bảo hiểm thất nghiệp theo quy định của pháp luật về lao động, bảo hiểm xã hội, bảo hiểm y tế và bảo hiểm thất nghiệp. Phần đóng của Bên B được Bên A khấu trừ vào tiền lương hằng tháng.</p>
+        <p t-else="">Bên B không thuộc đối tượng tham gia bảo hiểm xã hội bắt buộc theo quy định của pháp luật.</p>
+    </template>
+
+    <template id="body_probation_salary">
+        <t t-set="w" t-value="v['wording']"/>
+        <t t-set="p" t-value="v['probation']"/>
+        <p>1. Mức lương của công việc: <span t-if="not v['salary']" class="o_dots"/></p>
+        <p t-foreach="v['salary'] + v['allowances']" t-as="row" class="o_indent">- <t t-call="l10n_vn_hr_contract_document.amount_row"/>.</p>
+        <p>2. Tiền lương thử việc bằng <t t-if="p['rate'] is not None"><t t-out="p['rate']"/>%</t><span t-else="" class="o_dots o_short"/> mức lương của công việc, tức
+            <t t-if="p['amount_text']"><t t-out="p['amount_text']"/> đồng/tháng (Bằng chữ: <t t-out="p['words']"/>)</t><span t-else="" class="o_dots"/>.</p>
+        <p>3. Các khoản bổ sung khác: <t t-if="not v['variable']">Không.</t></p>
+        <p t-foreach="v['variable']" t-as="name" class="o_indent">- <t t-out="name"/>: theo Quy chế trả lương của Công ty.</p>
+        <p>4. Hình thức trả lương: <t t-out="v['payment_text']"/>. Kỳ hạn trả lương: <t t-out="w.payday"/></p>
+    </template>
+
+    <template id="body_training_1">
+        <t t-set="tr" t-value="v['training']"/>
+        <p>1. Hình thức: <t t-out="tr['kind_text']"/> để làm việc cho Bên A.</p>
+        <p>2. Nghề, công việc: <t t-if="v['job']" t-out="v['job']"/><span t-else="" class="o_dots"/>.</p>
+        <p>3. Thời gian: từ ngày <t t-out="v['term']['date_start']"/> đến hết ngày
+            <t t-if="v['term']['date_end']" t-out="v['term']['date_end']"/><span t-else="" class="o_dots o_short"/>.</p>
+        <p>4. Địa điểm: <t t-if="v['workplace']" t-out="v['workplace']"/><span t-else="" class="o_dots"/>.</p>
+        <p>5. Bên A không thu học phí của Bên B.</p>
+    </template>
+
+    <template id="body_training_salary">
+        <t t-set="w" t-value="v['wording']"/>
+        <p>Khi trực tiếp hoặc tham gia lao động, Bên B được trả:</p>
+        <p>1. <span t-if="not v['salary']" class="o_dots"/></p>
+        <p t-foreach="v['salary']" t-as="row" class="o_indent">- <t t-call="l10n_vn_hr_contract_document.amount_row"/>, tính theo số ngày làm việc thực tế trong tháng.</p>
+        <p>2. Các khoản bổ sung khác: <t t-if="not v['variable']">Không.</t></p>
+        <p t-foreach="v['variable']" t-as="name" class="o_indent">- <t t-out="name"/>: theo Quy chế trả lương của Công ty.</p>
+        <p>3. Hình thức trả lương: <t t-out="v['payment_text']"/>. Kỳ hạn trả lương: <t t-out="w.payday"/></p>
+    </template>
+
+    <template id="body_training_commitment">
+        <t t-set="tr" t-value="v['training']"/>
+            <p>1. Sau khi giao kết hợp đồng lao động theo Điều 6, Bên B cam kết làm việc cho Bên A ít nhất <t t-out="tr['commitment_months']"/> tháng.</p>
+            <p>2. Chi phí đào tạo Bên A bỏ ra cho Bên B là
+                <t t-if="tr['cost_text']"><t t-out="tr['cost_text']"/> đồng (Bằng chữ: <t t-out="tr['cost_words']"/>)</t><span t-else="" class="o_dots"/>,
+                gồm: <t t-if="tr['cost_items']" t-out="tr['cost_items']"/><span t-else="" class="o_dots"/>.</p>
+            <p>3. Trường hợp Bên B đơn phương chấm dứt hợp đồng lao động trái pháp luật hoặc tự ý nghỉ việc trước khi hết thời gian cam kết, Bên B hoàn trả chi phí đào tạo tương ứng với thời gian cam kết còn lại. Khoản hoàn trả không khấu trừ vào tiền lương.</p>
+    </template>
+
+    <template id="body_individual">
+        <div class="o_clause" t-out="v['individual_terms']['body']"/>
+    </template>
+
+    <template id="doc_signatures">
+        <table class="o_signatures">
+            <tr>
+                <td>
+                    <div><strong>BÊN B</strong></div>
+                    <div><strong t-out="v['party_b']"/></div>
+                    <div class="o_italic">(Ký, ghi rõ họ tên)</div>
+                    <div class="o_signature_space"/>
+                    <div><strong t-out="v['employee']['name']"/></div>
+                </td>
+                <td>
+                    <div><strong>BÊN A</strong></div>
+                    <div><strong t-out="(v['company']['rep_title'] or 'NGƯỜI SỬ DỤNG LAO ĐỘNG').upper()"/></div>
+                    <div class="o_italic">(Ký, ghi rõ họ tên, đóng dấu)</div>
+                    <div class="o_signature_space"/>
+                    <div><strong t-out="v['company']['rep_name']"/></div>
+                </td>
+            </tr>
+        </table>
+    </template>
+
+    <template id="form_labour">
+        <t t-call="l10n_vn_hr_contract_document.doc_header">
+            <t t-set="bases" t-value="['Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20 tháng 11 năm 2019 và các văn bản hướng dẫn thi hành;', 'Căn cứ nhu cầu và năng lực của hai bên,']"/>
+        </t>
+        <t t-set="w" t-value="v['wording']"/>
+        <t t-set="p" t-value="v['probation']"/>
+        <p>Hai bên thỏa thuận giao kết hợp đồng lao động và cam kết thực hiện đúng các điều khoản sau đây:</p>
+
+        <p class="o_article">Điều 1. Loại hợp đồng, thời hạn hợp đồng và thử việc</p>
+        <p>1. Loại hợp đồng:
+            <t t-if="v['term']['fixed']">Hợp đồng lao động xác định thời hạn <t t-out="v['term']['length']"/>.</t>
+            <t t-else="">Hợp đồng lao động không xác định thời hạn.</t></p>
+        <p>2. Thời hạn hợp đồng:
+            <t t-if="v['term']['fixed']">từ ngày <t t-out="v['term']['date_start']"/> đến hết ngày <t t-out="v['term']['date_end']"/>.</t>
+            <t t-else="">bắt đầu từ ngày <t t-out="v['term']['date_start']"/>.</t></p>
+        <t t-if="p">
+            <p>3. Thử việc:</p>
+            <p class="o_indent">a) Thời gian thử việc:
+                <t t-if="p['length']" t-out="p['length']"/><span t-else="" class="o_dots o_short"/>,
+                từ ngày <t t-out="v['term']['date_start']"/> đến hết ngày
+                <t t-if="p['date_end']" t-out="p['date_end']"/><span t-else="" class="o_dots o_short"/>.</p>
+            <p class="o_indent">b) Tiền lương thử việc bằng <t t-if="p['rate'] is not None"><t t-out="p['rate']"/>%</t><span t-else="" class="o_dots o_short"/> mức lương của công việc quy định tại Điều 3.</p>
+            <p class="o_indent">c) Trong thời gian thử việc, mỗi bên có quyền hủy bỏ hợp đồng này mà không cần báo trước và không phải bồi thường.</p>
+            <p class="o_indent">d) Khi kết thúc thời gian thử việc, Bên A thông báo kết quả thử việc cho Bên B. Trường hợp đạt yêu cầu, hai bên tiếp tục thực hiện hợp đồng này; trường hợp không đạt yêu cầu, hợp đồng này chấm dứt.</p>
+        </t>
+        <p t-else="">3. Thử việc: Không áp dụng.</p>
+
+        <p class="o_article">Điều 2. Công việc và địa điểm làm việc</p>
+        <t t-call="l10n_vn_hr_contract_document.body_work"/>
+
+        <p class="o_article">Điều 3. Tiền lương, phụ cấp lương và các khoản bổ sung khác</p>
+        <t t-call="l10n_vn_hr_contract_document.body_labour_salary"/>
+
+        <p class="o_article">Điều 4. Tiền thưởng và phúc lợi</p>
+        <t t-call="l10n_vn_hr_contract_document.body_labour_bonus"/>
+
+        <p class="o_article">Điều 5. Chế độ nâng bậc, nâng lương</p>
+        <div class="o_clause" t-out="w.raises"/>
+
+        <p class="o_article">Điều 6. Thời giờ làm việc, thời giờ nghỉ ngơi</p>
+        <div class="o_clause" t-out="w.hours"/>
+
+        <p class="o_article">Điều 7. Trang bị bảo hộ lao động</p>
+        <div class="o_clause" t-out="w.equipment"/>
+
+        <p class="o_article">Điều 8. Bảo hiểm xã hội, bảo hiểm y tế, bảo hiểm thất nghiệp</p>
+        <t t-call="l10n_vn_hr_contract_document.body_labour_insurance"/>
+
+        <p class="o_article">Điều 9. Đào tạo, bồi dưỡng, nâng cao trình độ, kỹ năng nghề</p>
+        <p>Bên A đào tạo, bồi dưỡng Bên B theo yêu cầu công việc. Bên B tham gia đầy đủ các chương trình do Bên A tổ chức. Khi Bên B được đào tạo bằng kinh phí của Bên A, hai bên ký hợp đồng đào tạo nghề theo Điều 62 Bộ luật Lao động.</p>
+
+        <p class="o_article">Điều 10. Quyền và nghĩa vụ của Bên B</p>
+        <div class="o_clause" t-out="w.employee_rights"/>
+
+        <p class="o_article">Điều 11. Quyền và nghĩa vụ của Bên A</p>
+        <div class="o_clause" t-out="w.employer_rights"/>
+
+        <t t-call="l10n_vn_hr_contract_document.doc_extra"/>
+        <t t-call="l10n_vn_hr_contract_document.doc_closing">
+            <t t-set="article" t-value="v['closing_number']"/>
+        </t>
+    </template>
+
+    <template id="form_probation">
+        <t t-call="l10n_vn_hr_contract_document.doc_header">
+            <t t-set="bases" t-value="['Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20 tháng 11 năm 2019 và các văn bản hướng dẫn thi hành;', 'Căn cứ nhu cầu và năng lực của hai bên,']"/>
+        </t>
+        <t t-set="w" t-value="v['wording']"/>
+        <t t-set="p" t-value="v['probation']"/>
+        <p>Hai bên thỏa thuận giao kết hợp đồng thử việc với các điều khoản sau đây:</p>
+
+        <p class="o_article">Điều 1. Thời gian thử việc</p>
+        <p>Từ ngày <t t-out="v['term']['date_start']"/> đến hết ngày
+            <t t-if="p['date_end']" t-out="p['date_end']"/><span t-else="" class="o_dots o_short"/>
+            (<t t-if="p['length']" t-out="p['length']"/><span t-else="" class="o_dots o_short"/>),
+            đối với công việc <t t-if="v['job']" t-out="v['job']"/><span t-else="" class="o_dots"/>, thuộc nhóm
+            <t t-if="p['job']" t-out="p['job']"/><span t-else="" class="o_dots"/>. Thời gian thử việc không vượt quá thời gian tối đa quy định tại Điều 25 Bộ luật Lao động đối với công việc này.</p>
+
+        <p class="o_article">Điều 2. Công việc và địa điểm làm việc</p>
+        <t t-call="l10n_vn_hr_contract_document.body_work"/>
+
+        <p class="o_article">Điều 3. Tiền lương thử việc</p>
+        <t t-call="l10n_vn_hr_contract_document.body_probation_salary"/>
+
+        <p class="o_article">Điều 4. Thời giờ làm việc, thời giờ nghỉ ngơi</p>
+        <div class="o_clause" t-out="w.hours"/>
+
+        <p class="o_article">Điều 5. Trang bị bảo hộ lao động</p>
+        <div class="o_clause" t-out="w.equipment"/>
+
+        <p class="o_article">Điều 6. Kết thúc thời gian thử việc</p>
+        <p>1. Trong thời gian thử việc, mỗi bên có quyền hủy bỏ hợp đồng này mà không cần báo trước và không phải bồi thường.</p>
+        <p>2. Khi kết thúc thời gian thử việc, Bên A thông báo kết quả thử việc cho Bên B. Trường hợp đạt yêu cầu, hai bên giao kết hợp đồng lao động; trường hợp không đạt yêu cầu, hợp đồng này chấm dứt.</p>
+
+        <t t-call="l10n_vn_hr_contract_document.doc_extra"/>
+        <t t-call="l10n_vn_hr_contract_document.doc_closing">
+            <t t-set="article" t-value="v['closing_number']"/>
+        </t>
+    </template>
+
+    <template id="form_training">
+        <t t-call="l10n_vn_hr_contract_document.doc_header">
+            <t t-set="bases" t-value="['Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20 tháng 11 năm 2019, Điều 61;', 'Căn cứ nhu cầu và khả năng của hai bên,']"/>
+        </t>
+        <t t-set="w" t-value="v['wording']"/>
+        <t t-set="tr" t-value="v['training']"/>
+        <p>Hai bên thỏa thuận giao kết hợp đồng đào tạo với các điều khoản sau đây:</p>
+
+        <p class="o_article">Điều 1. Nghề, công việc đào tạo; thời gian và địa điểm</p>
+        <t t-call="l10n_vn_hr_contract_document.body_training_1"/>
+
+        <p class="o_article">Điều 2. Nội dung và tổ chức đào tạo</p>
+        <div class="o_clause" t-out="w.training_content"/>
+
+        <p class="o_article">Điều 3. Tiền lương trong thời gian <t t-out="tr['kind_text']"/></p>
+        <t t-call="l10n_vn_hr_contract_document.body_training_salary"/>
+
+        <p class="o_article">Điều 4. Thời giờ học nghề, tập nghề và nghỉ ngơi</p>
+        <div class="o_clause" t-out="w.hours"/>
+
+        <p class="o_article">Điều 5. Trang bị bảo hộ lao động</p>
+        <div class="o_clause" t-out="w.equipment"/>
+
+        <p class="o_article">Điều 6. Đánh giá và kết thúc</p>
+        <div class="o_clause" t-out="w.training_evaluation"/>
+
+        <t t-if="tr['commitment_months']">
+            <p class="o_article">Điều 7. Cam kết làm việc và hoàn trả chi phí đào tạo</p>
+            <t t-call="l10n_vn_hr_contract_document.body_training_commitment"/>
+        </t>
+
+        <t t-call="l10n_vn_hr_contract_document.doc_extra"/>
+        <t t-call="l10n_vn_hr_contract_document.doc_closing">
+            <t t-set="article" t-value="v['closing_number']"/>
+        </t>
+    </template>
+</odoo>

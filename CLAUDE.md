@@ -278,17 +278,17 @@ The company's current pay scheme and its target policy are both configurations (
 | Module | Role |
 |---|---|
 | `base_time_parameter_strict` | Reads OCA time parameters strictly: 0 and False are values, a missing value raises (done) |
-| `l10n_vn_payroll` | Components, scales, pay lines, people data, monthly inputs, the pay context, checks, runs and lock, payslip, statements, opening data; time from `hr_attendance_day` (step 10); contract types, participant types `TRAINING`/`CASUAL`, ID and contract-term checks (step 11); the pay group on the contract (step 12). Done: steps 1–12, 245 tests |
+| `l10n_vn_payroll` | Components, scales, pay lines, people data, monthly inputs, the pay context, checks, runs and lock, payslip, statements, opening data; time from `hr_attendance_day` (step 10); contract types, participant types `TRAINING`/`CASUAL`, ID and contract-term checks (step 11); the pay group on the contract (step 12); the trial end on the contract form (step 12.1). Done: steps 1–12.1, 245 tests |
 | `hr_attendance_day` | Each day's figures from Odoo's attendance (normal and night hours, OT and its night part, days worked, late, absent, correction reason); hours per paid day and night window on calendars. Done: steps 1–3, 20 tests |
-| `l10n_vn_payroll_garment` | The current scheme as configuration, loaded per company from Settings: components, scales (`BASE` by group, `PROD` totals, `GRADE`), structure, policy parameters, check levels, contract types, the advance limit and eligible pay groups (steps 7, 8), the account mapping by code (step 4). Done: steps 1, 4–8 (31 tests); steps 2 (`auditlog`), 3 (pay-line proposal) to do |
+| `l10n_vn_payroll_garment` | The current scheme as configuration, loaded per company from Settings: components, scales (`BASE` by group, `PROD` totals, `GRADE`), structure, policy parameters, check levels, contract types, the advance limit and eligible pay groups (steps 7, 8), the account mapping by code (step 4), probation at 100% (step 9). Done: steps 1, 4–9 (31 tests); steps 2 (`auditlog`), 3 (pay-line proposal) to do |
 | `l10n_vn_payroll_payment` | Salary advances and each run's payment list (bank file, cash list), without accounting (PTD-24). Done: steps 1–2 (advances: earned-pay limit, pay-group eligibility from the month's contract, settlement on payslips; payment lists for payday and advances with the bank file, cash list and *Mark as Paid*; 47 tests) |
 | `l10n_vn_payroll_account` | Posting per run of payslips whose participant type is *posted*; payment entries from *Mark as Paid*; 3341 reconciled per employee; department cost groups and component accounts; posting switched on per company. Done: step 1 (14 tests) |
-| `l10n_vn_hr_contract_document` (proposed, name not final) | The legal contract printed from the Odoo contract: a form per contract type, salary terms from the pay lines, annexes from dated changes, the signed copy kept. Design note first (Peter, 2026-11-20) |
-| `l10n_vn_hr_contract_document_garment` (proposed) | The garment company's contract templates and wording, owned and approved by the company |
+| `l10n_vn_hr_contract_document` | The labour, probation and training contracts printed from the Odoo contract: the form from the contract type, salary terms from the pay lines by each component's print mode, the company's own clauses as a wording record per company, the data a form needs (company representative, ID issue date and place, permanent address) with a missing-data warning; later approve-and-lock, versions, and amendments printed as annexes. Done: steps 1–2 (53 tests; 1.1: extra articles per company and form, individual terms per contract; 2: approval with numbers per form and year, versions with term snapshots, the lock on printed terms and pay lines, the per-company switch for running only when approved). Design: `docs/HR-Contract-Payroll/Contract Documents — Design Note v0.2.md`; wording: `Contract Forms — Research and Drafts v0.1.md` |
+| `l10n_vn_hr_contract_document_garment` (planned) | The garment company's wording record and the form of each `VN_*` contract type, loaded from Settings |
 
 - Statutory parameters (`vn.*`) are created per Vietnamese company by `l10n_vn_payroll` at every install
   and upgrade, never overwriting edited values: OCA's company rule hides parameters without a company.
-- **Go-live plan (Peter, 2026-11-11, 2026-11-12 and 2026-11-20):** November 2026 is the first cycle, run on the new policy, not modelled on the old payroll's figures. Built: `l10n_vn_payroll_payment`, `l10n_vn_payroll_account`, garment step 4 (2026-11-20, 337 tests). Next: the contract documents (design note, then the two modules above), so the new legal contracts are issued from Odoo at go-live → go-live scripts (outside `addons/`, on hold until the contract design settles) → October rehearsal on a freshly restored `prod_copy` (calculate, review, approve, pay, post; compared with the old run 11) → November on production (payday 10 December). Payroll does not wait on the contract documents: if they slip, November's contracts come from Word. Technical Design v0.7 §29 holds the checklist.
+- **Go-live plan (Peter, 2026-11-11, 2026-11-12 and 2026-11-20):** November 2026 is the first cycle, run on the new policy, not modelled on the old payroll's figures. Built: `l10n_vn_payroll_payment`, `l10n_vn_payroll_account`, garment step 4 (2026-11-20, 337 tests); contract documents step 1 (2026-11-21, 363 tests). Next (Peter, 2026-11-21): finish `l10n_vn_hr_contract_document` (steps 1.1–3), then a technical review of the payroll and contract-document modules, then the business steps: the garment wording module, go-live scripts (outside `addons/`; new contracts for everyone from 1 November 2026, Design Note v0.2 §5.2) → October rehearsal on a freshly restored `prod_copy` (calculate, review, approve, pay, post; compared with the old run 11) → November on production (payday 10 December). Payroll does not wait on the contract documents: if they slip, November's contracts come from Word. Technical Design v0.7 §29 holds the checklist.
 - The old payroll rules on the instance (`MINW`, `PALV` …) are archived at go-live (Technical Design §29).
 
 ---
@@ -472,6 +472,14 @@ the module doc named.
 - A transfer's `group_id` is a read-only copy of its moves' group (`stock/models/stock_picking.py:582-584`):
   passed to `stock.picking.create` it is dropped without error. Set the group on the moves.
   (`l10n_vn_voucher_stock`, step 2)
+- A new company's calendar copies the attendance of the environment's company
+  (`resource/models/resource_calendar.py:45-60`), so a test company's calendar here is the garment company's:
+  Monday to Saturday, with lunch-only lines on Sunday. Derive expected working days from the calendar's
+  non-lunch attendance, never from a Monday–Friday assumption. (`l10n_vn_hr_contract_document`, step 1)
+- A field that a constraint or check requires must be on a form the user can reach. Tests that set it in
+  code pass regardless: `l10n_vn_payroll` required `trial_date_end` for a probation clause from step 2,
+  no view on the instance showed it, and a clause could not be saved from the form until step 12.1. A UI
+  check must walk each such path. (`l10n_vn_payroll`, step 12.1)
 
 **Scripts**
 - Scripts run through `odoo shell`, such as the IE prototype harness, live outside `addons/`:
@@ -531,6 +539,10 @@ the module doc named.
 - A field `domain` may be a bare field name or a domain expression, not an attribute access:
   `domain="parent.x"` fails view validation on install. Write `domain="parent.x or []"`.
   (`qms_fabric_inspection`, step 1)
+- `report_action()` sends an administrator to the document layout wizard instead of the report when the
+  company has no layout (`odoo/addons/base/models/ir_actions_report.py:1166-1167`). A report that does not
+  use the company layout returns `report_action(records, config=False)`. (`l10n_vn_hr_contract_document`,
+  step 1)
 
 ---
 

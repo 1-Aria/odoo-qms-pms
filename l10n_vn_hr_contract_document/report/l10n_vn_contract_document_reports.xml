@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_contract" model="ir.actions.report">
+        <field name="name">Contract</field>
+        <field name="model">hr.contract</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l10n_vn_hr_contract_document.report_contract</field>
+        <field name="report_file">l10n_vn_hr_contract_document.report_contract</field>
+        <field name="paperformat_id" ref="paperformat_l10n_vn_contract"/>
+        <field name="binding_model_id" ref="hr_contract.model_hr_contract"/>
+        <field name="binding_type">report</field>
+        <field name="groups_id" eval="[(4, ref('payroll.group_payroll_user'))]"/>
+        <field name="print_report_name">(object.l10n_vn_number and (object.l10n_vn_number.replace('/', '-') + ' - ') or 'Hop dong (nhap) - ') + (object.employee_id.name or '')</field>
+    </record>
+
+    <record id="action_report_contract_annex" model="ir.actions.report">
+        <field name="name">Contract Annex</field>
+        <field name="model">l10n_vn.contract.version</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l10n_vn_hr_contract_document.report_contract_annex</field>
+        <field name="report_file">l10n_vn_hr_contract_document.report_contract_annex</field>
+        <field name="paperformat_id" ref="paperformat_l10n_vn_contract"/>
+        <field name="groups_id" eval="[(4, ref('payroll.group_payroll_user'))]"/>
+        <field name="print_report_name">(object.number or 'Phu luc').replace('/', '-')</field>
+    </record>
+</odoo>

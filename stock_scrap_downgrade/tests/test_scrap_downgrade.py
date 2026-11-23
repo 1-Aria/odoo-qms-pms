@@ -60,6 +60,7 @@ class TestScrapDowngrade(TransactionCase):
         cls.other = cls._product("Downgrade Test Other", cls.goods)
         cls.second = cls._product("Downgrade Test Second", cls.seconds)
         cls.second_b = cls._product("Downgrade Test Second B", cls.seconds)
+        cls.owner = cls.env["res.partner"].create({"name": "Downgrade Test Owner"})
 
         virtual = cls.env.ref("stock.stock_location_locations_virtual")
         cls.downgrade = cls.env["stock.location"].create(
@@ -123,8 +124,9 @@ class TestScrapDowngrade(TransactionCase):
             {"name": name, "is_storable": True, "categ_id": category.id}
         )
 
-    def _stock_in(self, product, quantity, price):
+    def _stock_in(self, product, quantity, price, owner=None):
         supplier = self.env.ref("stock.stock_location_suppliers")
+        owner_id = owner.id if owner else False
         move = self.env["stock.move"].create(
             {
                 "name": "Downgrade test receipt",
@@ -135,6 +137,7 @@ class TestScrapDowngrade(TransactionCase):
                 "location_id": supplier.id,
                 "location_dest_id": self.stock.id,
                 "price_unit": price,
+                "restrict_partner_id": owner_id,
                 "picked": True,
                 "move_line_ids": [
                     Command.create(
@@ -144,6 +147,7 @@ class TestScrapDowngrade(TransactionCase):
                             "quantity": quantity,
                             "location_id": supplier.id,
                             "location_dest_id": self.stock.id,
+                            "owner_id": owner_id,
                         }
                     )
                 ],
@@ -173,11 +177,12 @@ class TestScrapDowngrade(TransactionCase):
             product, quantity, self.downgrade, env=env, downgrade_product_id=second.id
         )
 
-    def _on_hand(self, product, location=None):
-        quants = self.env["stock.quant"].search(
-            [("product_id", "=", product.id), ("location_id", "=", (location or self.stock).id)]
-        )
-        return sum(quants.mapped("quantity"))
+    def _on_hand(self, product, location=None, owner=None):
+        """Quantity in a location; of one owner when given (an empty partner: none)."""
+        domain = [("product_id", "=", product.id), ("location_id", "=", (location or self.stock).id)]
+        if owner is not None:
+            domain.append(("owner_id", "=", owner.id))
+        return sum(self.env["stock.quant"].search(domain).mapped("quantity"))
 
     def _value(self, product):
         layers = self.env["stock.valuation.layer"].search(
@@ -220,6 +225,28 @@ class TestScrapDowngrade(TransactionCase):
             self.assertEqual(entry.line_ids.account_id, self.valuation_account)
             self.assertEqual(sum(entry.line_ids.mapped("debit")), 300)
             self.assertEqual(sum(entry.line_ids.mapped("credit")), 300)
+
+    def test_owner_kept(self):
+        self._stock_in(self.variant_1, 5, 100, owner=self.owner)
+        scrap = self._scrap(
+            self.variant_1,
+            3,
+            self.downgrade,
+            owner_id=self.owner.id,
+            downgrade_product_id=self.second.id,
+        )
+        no_owner = self.env["res.partner"]
+        self.assertEqual(self._on_hand(self.variant_1, owner=self.owner), 2)
+        self.assertEqual(self._on_hand(self.second, owner=self.owner), 3)
+        self.assertEqual(self._on_hand(self.second, owner=no_owner), 0)
+        receipt = scrap.move_ids.filtered(lambda move: move.product_id == self.second)
+        self.assertEqual(receipt.restrict_partner_id, self.owner)
+        self.assertEqual(receipt.move_line_ids.owner_id, self.owner)
+        layers = self.env["stock.valuation.layer"].search(
+            [("stock_move_id", "in", scrap.move_ids.ids)]
+        )
+        self.assertFalse(layers)
+        self.assertFalse(self._entries(scrap))
 
     def test_average_of_two_sources(self):
         self._stock_in(self.variant_1, 3, 100)

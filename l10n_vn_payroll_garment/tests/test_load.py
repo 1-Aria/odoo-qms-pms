@@ -67,7 +67,7 @@ class TestLoad(PayrollCase):
         for code, value in (
             ("vn.policy.region", "IV"),
             ("vn.policy.std_days", 26),
-            ("vn.policy.probation_rate", 0.85),
+            ("vn.policy.probation_rate", 1.0),
             ("vn.policy.attainment_cap", 1),
             ("vn.policy.constant_months", 6),
             ("vn.policy.net_change", 0.30),
