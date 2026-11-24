@@ -1,7 +1,7 @@
 # Defective Goods and Seconds — Design
 
-Nov 18, 2026 · @Peter · Revised Nov 23, 2026 · Status: method accepted by Peter; module `stock_scrap_downgrade` step 1 done,
-step 1.1 (owner) specified; seconds sales halted until ownership v2 is live
+Nov 18, 2026 · @Peter · Revised Nov 24, 2026 · Status: live on production since 2026-11-24 (module
+`stock_scrap_downgrade` 18.0.1.1.0 and the setup); seconds sales halted until ownership v2 is live
 
 How the garment company (company 1) treats pieces that are not first quality: the policy, the daily
 practice, and how both run in Odoo. Seconds are sold only to staff, in small quantities. Some seconds belong to the
@@ -19,7 +19,7 @@ the piece's cost and with its owner, in the same step that scraps the piece (§6
 | S2 | **Seconds are sold through the system** | Each sale of the garment company's seconds is a sales order, a delivery and an e-invoice; each sale of the trading company's seconds is a delivery that company invoices |
 | S3 | **Seconds stock means something** | Management can see the quantity, owner, cost and expected price of each type and price band |
 | S4 | **The downgrade is one step** | One confirmation removes the piece and receives the second; neither half can happen alone |
-| S5 | **Seconds sales stay apart** | They are out of the normal sales views and reports by default, one click away, with their own revenue account |
+| S5 | **Seconds sales stay apart** | One click in the normal sales views and reports shows or hides them, and they have their own revenue account |
 | S6 | **Books follow the goods** | A sellable piece keeps its cost until sold, at a seconds price set above cost; an unsellable piece is expensed when scrapped |
 | S7 | **Each owner sells its own** | A delivery takes only the stock of the company that invoices it |
 | S8 | **Small footprint** | No new model, menu or security group |
@@ -65,7 +65,7 @@ Checked on 2026-11-18 and 2026-11-23 against the running code, the test database
 | A sales receipt cannot become an e-invoice | Only customer invoices are marked ready to send (`l10n_vn_edi_viettel/models/account_move.py:449-453`). A receipt also moves no stock and records no payment | Sales receipts are not used (§9) |
 | Staff can be invoiced as they are | All 433 active employees on `prod_copy` have a contact. Core's check needs no buyer address or tax code, and the company default invoice symbol applies | Viettel's acceptance remains to be confirmed (O5) |
 | Staff sales could outnumber normal sales | `prod_copy`: 274 confirmed sales orders and 77 posted customer invoices | Separate views are needed (S5) |
-| A saved filter can be every user's default | A shared default favorite applies per action (`base/models/ir_filters.py:95-152`) and replaces the action's default filters (`web/static/src/search/search_model.js:1227-1230`) | Separation needs no code (§7) |
+| A saved filter can be shared | A favorite without a user is offered to every user of its action (`base/models/ir_filters.py:72-92`) | Separation needs no code (§7) |
 
 ## 3. Policy
 
@@ -236,15 +236,15 @@ Corrections are done by hand with transfers back through *Hạ loại 2*. There 
 The product category is the key that separates seconds. It is automatic, so nobody has to remember a team or a
 tag.
 
-| List or report | Shared default filter: hides seconds | Shared favorite: shows only seconds |
+| List or report | Shared favorite *Ẩn hàng loại 2*: hides seconds | Shared favorite *Hàng loại 2*: shows only seconds |
 |---|---|---|
 | Sales → Orders | Orders with no line in the category | Orders with a line in it |
-| Sales → Quotations | The same, for the user's own quotations | The same |
+| Sales → Quotations | The same | The same |
 | Sales → Sales Analysis | Category is not Seconds | Category is Seconds |
 | Accounting → Invoice Analysis | Category is not Seconds | Category is Seconds |
-| Accounting → Customer Invoices | No default, because accounting must see every legal invoice | Invoices with a line in the category |
+| Accounting → Customer Invoices | None | Invoices with a line in the category |
 
-Any user can remove a default filter to see everything.
+Nothing is filtered by default (Peter, 2026-11-24): staff pick a favorite from the search bar when they need it.
 
 ## 8. Accounting
 
@@ -282,7 +282,7 @@ climbs above its price is repriced or written down by hand.
 | D10 | No new access rights (Peter, 2026-11-18) | MO handlers downgrade and sales staff sell. Each scrap records its user |
 | D11 | Staff buy on periodic sale days | Opens the seconds area under supervision and batches the work |
 | D12 | One e-invoice per buyer (Peter, 2026-11-18) | Required by law |
-| D13 | Separation by product category with saved filters; no sales team, journal or menu | Automatic, and needs no code (S5, S8) |
+| D13 | Separation by product category with shared favorites, none applied by default (Peter, 2026-11-24); no sales team, journal or menu | Needs no code, and staff choose the view they need (S5, S8) |
 | D14 | **Seconds are priced above cost: half the normal price, or the style's average cost plus 10% when higher, rounded up to 5,000** (Peter, 2026-11-23; prices by Claude at his request) | Half price alone sells most polos and trousers below cost. The 10% absorbs moves in cost, so stock is never carried above what it sells for and no write-down code is needed |
 | D15 | **The opening stock enters with the trading company as owner** (Peter, 2026-11-23) | It is that company's stock (ownership v2). Owned stock is unvalued, so the garment company books nothing, and the conversion needs no rule for it |
 | D16 | **Each owner sells its own seconds; sales wait for ownership v2** (Peter, 2026-11-23) | The trading company will not sell its stock to the garment company. Only OCA `stock_owner_restriction`, installed with v2, keeps each delivery to one owner's stock |
@@ -365,9 +365,9 @@ the saved filters and SInvoice sending. The test instance has no SInvoice login.
 |---|---|---|
 | 1 | The list of seconds held, with normal prices and quantities | Peter, done 2026-11-23 |
 | 2 | Types, bands and prices from the list | Claude, 2026-11-23, at Peter's request |
-| 3 | `stock_scrap_downgrade` step 1.1 (the seconds keep the owner): spec, code, test | Claude writes, Peter runs |
-| 4 | A setup script outside `addons/`, with check and commit modes, creating §7's accounts, locations, category, attribute, products and saved filters, and the opening adjustment with the trading company as owner | Claude writes |
-| 5 | Rehearsal on `prod_copy`, then production | Peter runs |
+| 3 | `stock_scrap_downgrade` step 1.1 (the seconds keep the owner): spec, code, test | Done 2026-11-23 |
+| 4 | A setup script outside `addons/`, with check and commit modes, creating §7's accounts, locations, category, attribute, products and saved filters, and the opening adjustment with the trading company as owner | Done: `Odoo-Build/defective-handling/seconds_setup.py` |
+| 5 | Rehearsal on `prod_copy`, then production | Done 2026-11-24: rehearsal on `prod_copy` committed and re-run unchanged; UI check on the test instance, including a downgrade by an MO user; production check, commit and re-run unchanged (SCND00001–SCND00013, 2,910 pieces owned by the trading company, no valuation) |
 | 6 | Ownership v2: its owner module brings `stock_owner_restriction`; the two delivery types of §7 are set up with it | Per the v2 plan |
 | 7 | Brief MO handlers, the warehouse and sales on §3 and §4 | Peter |
 | 8 | One real invoice to an employee, then the first sale day | Sales, accounting, the trading company |

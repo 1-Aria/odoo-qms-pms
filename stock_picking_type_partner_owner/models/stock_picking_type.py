@@ -12,3 +12,9 @@ class StockPickingType(models.Model):
         "without a partner, to the customer of their sales order. An owner set by "
         "hand is kept.",
     )
+    owner_partner_id = fields.Many2one(
+        "res.partner",
+        string="Goods Owner",
+        help="Transfers of this type assign the goods to this partner as owner. An "
+        "owner set by hand is kept.",
+    )

@@ -42,6 +42,19 @@ class TestPartnerOwner(TransactionCase):
             }
         )
         cls.receipt_type = cls.warehouse.in_type_id
+        cls.owner = cls.env["res.partner"].create({"name": "Chủ hàng cố định", "is_company": True})
+        cls.fixed_out_type = cls.env["stock.picking.type"].create(
+            {
+                "name": "Delivery of owned goods test",
+                "code": "outgoing",
+                "sequence_code": "OWNT",
+                "warehouse_id": cls.warehouse.id,
+                "company_id": cls.company.id,
+                "default_location_src_id": cls.warehouse.lot_stock_id.id,
+                "default_location_dest_id": cls.env.ref("stock.stock_location_customers").id,
+                "owner_partner_id": cls.owner.id,
+            }
+        )
 
     def _receipt(self, picking_type, partner=None, **values):
         vals = {
@@ -135,3 +148,26 @@ class TestPartnerOwner(TransactionCase):
         self.assertFalse(layers.search([("stock_move_id", "in", owned.move_ids.ids)]))
         own = self._validate(self._receipt(self.receipt_type, self.contact))
         self.assertTrue(layers.search([("stock_move_id", "in", own.move_ids.ids)]))
+
+    def test_fixed_owner_on_create(self):
+        stock = self.warehouse.lot_stock_id
+        self.env["stock.quant"]._update_available_quantity(self.product, stock, 5, owner_id=self.owner)
+        delivery = self._receipt(self.fixed_out_type, self.contact)
+        self.assertEqual(delivery.owner_id, self.owner)
+        kept = self._receipt(self.fixed_out_type, self.contact, owner_id=self.other.id)
+        self.assertEqual(kept.owner_id, self.other)
+        self._validate(delivery)
+        self.assertEqual(delivery.owner_id, self.owner)
+        self.assertEqual(delivery.move_line_ids.owner_id, self.owner)
+        self.assertEqual(delivery.move_ids.restrict_partner_id, self.owner)
+
+    def test_fixed_owner_before_partner(self):
+        self.flag_type.owner_partner_id = self.owner
+        receipt = self._validate(self._receipt(self.flag_type, self.contact))
+        self.assertEqual(receipt.owner_id, self.owner)
+        self.assertEqual(receipt.move_line_ids.owner_id, self.owner)
+        picking = self.env["stock.picking"].new(
+            {"picking_type_id": self.flag_type.id, "partner_id": self.contact.id}
+        )
+        picking._onchange_owner_from_partner()
+        self.assertEqual(picking.owner_id, self.owner)

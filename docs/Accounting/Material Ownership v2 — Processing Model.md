@@ -243,6 +243,12 @@ S00263–S00280 (Peter, 2026-11-23: it can).
 | D-V2-6 | Remaining garment stock revalued to actual invoice prices in the run | Peter, 2026-11-23 |
 | D-V2-7 | The journal-entry purchase of trading-company material is rejected (§2.3) | Peter, 2026-11-22 |
 | D-V2-8 | Most of 33889 is the trading company's, not the garment company's | Peter, 2026-11-22 |
+| D-V2-9 | Conversion accounts: garment material in the trading company's goods, conversion absorbed into them and the revaluation of garment stock go to 6320; whatever happened to its goods since 24 Oct (deliveries without invoice, the 6 Nov revaluation's 1541 part, inventory gains and losses, scrap) goes to 33889; 1541 is filled by the November closing (`material-ownership/conversion_spec.md` §10) | Peter, 2026-11-24 |
+| D-V2-10 | The sales orders since 24 Oct (S00263–S00329) are the trading company's sales: cancelled after the run, never invoiced by the garment company. Its goods leave by a delivery type with *Goods Owner* = the trading company, without a sales order; the garment company's own sales keep *Delivery Orders*, restricted to its own stock | Peter, 2026-11-24 |
+| D-V2-11 | The trading company's goods come in by a receipt type owned by it, without a purchase order; purchase orders are only for the garment company's own purchases, in the real seller's name | Peter, 2026-11-24 |
+| D-V2-12 | Monthly invoice to the trading company: processing fees for the goods made plus the garment material used; the fees must cover the processing cost | Peter, 2026-11-24 |
+| D-V2-13 | Uniforms: the garment company makes its own or buys them from the trading company (its e-invoice): a *Xuất hàng Công ty TM* transfer out of the trading company's stock and a purchase order to it received as the garment's, then *Consumption* | Peter, 2026-11-24 |
+| D-V2-14 | Subcontractors (Nhà Bàng) process the trading company's material through the subcontracting flow, its goods owned by it; their fees are a garment cost (6277 through their fiscal position, 3399 → 6277) recovered in the processing fee | Peter, 2026-11-24 |
 
 ## 9. Open items
 
@@ -269,6 +275,11 @@ and 14 customer invoices deleted, uniform location moved.
 **Files.** This note; v1 `docs/Accounting/Material Ownership Transfer — Design.md` (history); spec
 `docs/modules/sale_material_ownership.md`; scripts and XMLs in `Odoo-Build/material-ownership/` (outside the
 repo); the revaluation scripts in `Odoo-Build/revaluation-conversion/`.
+
+**State on 24 Nov 2026.** Conversion script `material-ownership/ownership_conversion.py` with its spec
+`conversion_spec.md`; check run on `prod_copy` (production backup 24 Nov 17:11) clean, accounting decisions D-V2-9.
+Module specs written: `docs/modules/mrp_production_partner_owner.md` (step 1) and
+`docs/modules/stock_picking_type_partner_owner.md` step 2 (*Goods Owner* on operation types).
 
 **Next, one deliverable at a time, with Peter's review in between:**
 
