@@ -1,5 +1,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+from lxml import etree
+
 from odoo import Command
 from odoo.tests import TransactionCase, tagged
 
@@ -171,3 +173,32 @@ class TestPartnerOwner(TransactionCase):
         )
         picking._onchange_owner_from_partner()
         self.assertEqual(picking.owner_id, self.owner)
+
+    def test_outgoing_owner_from_partner(self):
+        out_type = self.env["stock.picking.type"].create(
+            {
+                "name": "Return customer material test",
+                "code": "outgoing",
+                "sequence_code": "RCMT",
+                "warehouse_id": self.warehouse.id,
+                "company_id": self.company.id,
+                "default_location_src_id": self.warehouse.lot_stock_id.id,
+                "default_location_dest_id": self.env.ref("stock.stock_location_customers").id,
+                "owner_from_partner": True,
+            }
+        )
+        stock = self.warehouse.lot_stock_id
+        self.env["stock.quant"]._update_available_quantity(self.product, stock, 5, owner_id=self.customer)
+        delivery = self._receipt(out_type, self.contact)
+        self.assertEqual(delivery.owner_id, self.customer)
+        self._validate(delivery)
+        self.assertEqual(delivery.move_line_ids.owner_id, self.customer)
+
+    def test_owner_column_on_line_details(self):
+        self.env.user.groups_id += self.env.ref("stock.group_tracking_owner")
+        view = self.env.ref("stock.view_stock_move_line_operation_tree")
+        arch = self.env["stock.move.line"].get_view(view.id, "list")["arch"]
+        owner = etree.fromstring(arch).xpath("//field[@name='owner_id']")
+        self.assertEqual(len(owner), 1)
+        self.assertEqual(owner[0].get("column_invisible"), "False")
+        self.assertIn("parent.show_quant", owner[0].get("readonly"))

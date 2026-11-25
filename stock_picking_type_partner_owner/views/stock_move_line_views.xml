@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The owner of each line in a transfer's line details. Core hides the column
+         whenever the lines are picked from stock (stock/views/stock_move_views.xml),
+         and "Pick From" is filled only while a line is edited. Read-only there:
+         reservation chooses the owner. -->
+    <record id="view_stock_move_line_operation_tree" model="ir.ui.view">
+        <field name="name">stock.move.line.operations.list.partner_owner</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_stock_move_line_operation_tree"/>
+        <field name="arch" type="xml">
+            <field name="owner_id" position="attributes">
+                <attribute name="column_invisible">False</attribute>
+                <attribute name="readonly">parent.show_quant or (package_level_id and parent.picking_type_entire_packs)</attribute>
+            </field>
+        </field>
+    </record>
+</odoo>

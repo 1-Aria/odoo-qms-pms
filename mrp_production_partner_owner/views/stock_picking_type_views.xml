@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_type_form" model="ir.ui.view">
+        <field name="name">stock.picking.type.form.production_owner</field>
+        <field name="model">stock.picking.type</field>
+        <field name="inherit_id" ref="stock_picking_type_partner_owner.view_picking_type_form"/>
+        <field name="arch" type="xml">
+            <field name="owner_from_partner" position="attributes">
+                <attribute name="invisible">code not in ('incoming', 'internal', 'outgoing', 'mrp_operation')</attribute>
+            </field>
+            <field name="owner_from_partner" position="after">
+                <field name="production_owned" invisible="code != 'mrp_operation'"/>
+            </field>
+        </field>
+    </record>
+</odoo>

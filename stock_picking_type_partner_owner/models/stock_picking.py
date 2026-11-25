@@ -16,9 +16,16 @@ class StockPicking(models.Model):
             type_id = vals.get("picking_type_id") or self.env.context.get(
                 "default_picking_type_id"
             )
-            owner = picking_types.browse(type_id).owner_partner_id if type_id else False
-            if owner:
-                vals["owner_id"] = owner.id
+            if not type_id:
+                continue
+            picking_type = picking_types.browse(type_id)
+            if picking_type.owner_partner_id:
+                vals["owner_id"] = picking_type.owner_partner_id.id
+            elif picking_type.owner_from_partner and vals.get("partner_id"):
+                # The goods belong to the commercial partner; OCA's Picking partner
+                # restriction reads the owner before the partner, a contact maybe.
+                partner = self.env["res.partner"].browse(vals["partner_id"])
+                vals["owner_id"] = partner.commercial_partner_id.id
         return super().create(vals_list)
 
     def _get_partner_owner(self):

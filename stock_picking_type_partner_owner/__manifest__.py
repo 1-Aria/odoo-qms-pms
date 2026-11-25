@@ -3,7 +3,7 @@
 {
     "name": "Stock Picking Type Partner Owner",
     "summary": "Operation types whose transfers assign the goods to the partner, or to a fixed owner",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.3.0",
     "author": "1-Aria",
     "website": "https://github.com/1-Aria/odoo-qms-pms",
     "license": "AGPL-3",
@@ -13,6 +13,7 @@
     ],
     "data": [
         "views/stock_picking_type_views.xml",
+        "views/stock_move_line_views.xml",
     ],
     "installable": True,
 }

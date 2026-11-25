@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//page[@name='miscellaneous']//field[@name='picking_type_id']" position="after">
                 <field name="owner_id" readonly="state not in ('draft', 'confirmed')"/>
+                <field name="production_owned" readonly="state not in ('draft', 'confirmed')" invisible="not owner_id"/>
             </xpath>
         </field>
     </record>

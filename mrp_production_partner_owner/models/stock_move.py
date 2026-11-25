@@ -61,9 +61,13 @@ class StockMove(models.Model):
             quantity=quantity, reserved_quant=reserved_quant
         )
         if not reserved_quant:
-            owner = self._get_owner_production().owner_id
-            if owner:
-                vals["owner_id"] = owner.id
+            production = self._get_owner_production()
+            # Finished goods take the owner only when they belong to it (order
+            # processing keeps them the company's).
+            if production.owner_id and (
+                not self.production_id or production.production_owned
+            ):
+                vals["owner_id"] = production.owner_id.id
         return vals
 
     def _get_dest_account(self, accounts_data):
@@ -71,6 +75,7 @@ class StockMove(models.Model):
         # of sales: they are invoiced to the owner.
         if (
             self.raw_material_production_id.owner_id
+            and self.raw_material_production_id.production_owned
             and self._is_production_consumed()
             and accounts_data.get("expense")
         ):

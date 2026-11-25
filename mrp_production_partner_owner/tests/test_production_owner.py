@@ -1,6 +1,6 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import Command
+from odoo import Command, fields
 from odoo.tests import Form, TransactionCase, tagged
 from odoo.tools.safe_eval import safe_eval
 
@@ -65,6 +65,17 @@ class TestProductionOwner(TransactionCase):
         cls.own_type = cls.warehouse.manu_type_id
         cls.processing_type = cls.own_type.copy(
             {"name": "Processing test", "sequence_code": "PRCT", "owner_partner_id": cls.owner.id}
+        )
+        # Step 1.1: order processing for a customer.
+        cls.customer = cls.env["res.partner"].create({"name": "Khách gia công test", "is_company": True})
+        cls.contact = cls.env["res.partner"].create({"name": "Chị Hoa", "parent_id": cls.customer.id})
+        cls.order_type = cls.own_type.copy(
+            {
+                "name": "Order processing test",
+                "sequence_code": "OPRT",
+                "owner_from_partner": True,
+                "production_owned": False,
+            }
         )
 
     # Helpers ------------------------------------------------------------------------------------
@@ -233,3 +244,103 @@ class TestProductionOwner(TransactionCase):
         goods = Action._for_xml_id("mrp_production_partner_owner.action_processed_goods")
         moves = self.env["stock.move"].search(safe_eval(goods["domain"]))
         self.assertIn(production.move_finished_ids, moves)
+
+    # Step 1.1 -----------------------------------------------------------------------------------
+
+    def _order_processing_done(self):
+        self._stock(6, owner=self.customer)
+        self._stock(4)
+        production = self._order(10, self.order_type, owner_id=self.customer.id)
+        self.assertFalse(production.production_owned)
+        pick = self._pick(production)
+        self.assertEqual(self._reserved(pick.move_ids, self.customer), 6)
+        self.assertEqual(self._reserved(pick.move_ids, self.env["res.partner"]), 4)
+        self._validate_pick(production)
+        self._produce(production)
+        self.assertEqual(production.state, "done")
+        return production
+
+    def test_order_processing_goods_ours(self):
+        production = self._order_processing_done()
+        quant = self.env["stock.quant"].search(
+            [("product_id", "=", self.finished.id), ("location_id", "=", self.stock.id)]
+        )
+        self.assertFalse(quant.owner_id)
+        self.assertEqual(quant.quantity, 10)
+        finished = production.move_finished_ids
+        self.assertFalse(finished.restrict_partner_id)
+        self.assertAlmostEqual(sum(finished.stock_valuation_layer_ids.mapped("value")), 40)
+        lines = production.move_raw_ids.stock_valuation_layer_ids.account_move_id.line_ids
+        self.assertAlmostEqual(sum(lines.filtered(lambda l: l.account_id == self.acc_production).mapped("balance")), 40)
+        self.assertFalse(lines.filtered(lambda l: l.account_id == self.acc_expense))
+
+    def test_owner_from_sale_order(self):
+        group_model = self.env["procurement.group"]
+        if "sale_id" not in group_model._fields:
+            self.skipTest("sale_stock is not installed")
+        if "state" in self.bom._fields:
+            # mrp_bom_version finds active BoMs only.
+            self.bom.write({"state": "active"})
+        order = self.env["sale.order"].create({"partner_id": self.contact.id})
+        group = group_model.create({"name": "S-OPRT", "sale_id": order.id})
+        route = self.env["stock.route"].create(
+            {"name": "Order processing test", "product_selectable": True, "company_id": self.company.id}
+        )
+        self.warehouse.manufacture_pull_id.copy(
+            {"name": "Order processing test", "route_id": route.id, "picking_type_id": self.order_type.id}
+        )
+        self.finished.route_ids = [Command.set(route.ids)]
+        group_model.run([group_model.Procurement(
+            self.finished, 5, self.finished.uom_id, self.stock, "S-OPRT", "S-OPRT", self.company,
+            {"group_id": group, "warehouse_id": self.warehouse, "date_planned": fields.Datetime.now()},
+        )])
+        production = self.env["mrp.production"].search(
+            [("origin", "=", "S-OPRT"), ("company_id", "=", self.company.id)]
+        )
+        self.assertEqual(len(production), 1)
+        self.assertEqual(production.picking_type_id, self.order_type)
+        self.assertEqual(production.owner_id, self.customer)
+        self.assertFalse(production.production_owned)
+        self.assertFalse(production.move_finished_ids.restrict_partner_id)
+
+    def test_child_takes_parent_owner(self):
+        parent = self._order(10, self.processing_type)
+        child = self.env["mrp.production"].create(
+            {
+                "product_id": self.finished.id,
+                "product_qty": 1,
+                "bom_id": self.bom.id,
+                "picking_type_id": self.own_type.id,
+                "company_id": self.company.id,
+                "move_dest_ids": [Command.link(parent.move_raw_ids.id)],
+            }
+        )
+        self.assertEqual(child.owner_id, self.owner)
+        self.assertTrue(child.production_owned)
+        self.assertEqual(child.move_finished_ids.restrict_partner_id, self.owner)
+
+    def test_scrap_owner(self):
+        self._stock(6, owner=self.owner)
+        self._stock(4)
+        production = self._order(10, self.processing_type)
+        self._validate_pick(production)
+        pre = self.warehouse.pbm_loc_id
+        Scrap = self.env["stock.scrap"]
+        values = {"product_id": self.component.id, "scrap_qty": 1, "production_id": production.id,
+                  "location_id": pre.id, "company_id": self.company.id}
+        self.assertEqual(Scrap.create(values).owner_id, self.owner)
+        # The owner's A gone from Pre-Production: the company's stock is scrapped.
+        self.env["stock.quant"]._update_available_quantity(self.component, pre, -6, owner_id=self.owner)
+        self.assertFalse(Scrap.create(values).owner_id)
+        own = self._order(5, self.own_type)
+        self.assertFalse(Scrap.create(dict(values, production_id=own.id)).owner_id)
+
+    def test_reports_owned_only(self):
+        production = self._order_processing_done()
+        Action = self.env["ir.actions.act_window"]
+        material = Action._for_xml_id("mrp_production_partner_owner.action_processing_material")
+        layers = self.env["stock.valuation.layer"].search(safe_eval(material["domain"]))
+        self.assertFalse(production.move_raw_ids.stock_valuation_layer_ids & layers)
+        goods = Action._for_xml_id("mrp_production_partner_owner.action_processed_goods")
+        moves = self.env["stock.move"].search(safe_eval(goods["domain"]))
+        self.assertFalse(production.move_finished_ids & moves)
