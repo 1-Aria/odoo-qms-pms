@@ -276,6 +276,15 @@ and 14 customer invoices deleted, uniform location moved.
 `docs/modules/sale_material_ownership.md`; scripts and XMLs in `Odoo-Build/material-ownership/` (outside the
 repo); the revaluation scripts in `Odoo-Build/revaluation-conversion/`.
 
+**LIVE on production since 25 Nov 2026, about 22:50.** Conversion committed (MISC/2026/11/0006, dated 30 Nov;
+0 failed checks): 1520 201,185,673 (38 materials ours), 1550 −6, 1599 0, 3399 +46,705,186 (bills awaiting goods),
+33889 −7,067,360, 1541 −505,224,992 (to be filled by the November closing), 6320 +717,583,533; register 368 lines,
+227,796,013 (`material-ownership/out_prod/`). Modules `stock_picking_type_partner_owner` 18.0.1.3.0,
+`stock_owner_restriction`, `mrp_production_partner_owner` 18.0.1.1.0; setup committed (499 open MOs owned by the
+trading company, S00263–S00329 cancelled, types and route per `Processing for an Owner — Design.md` §5);
+`sale_material_ownership` uninstalled. Verified on the post-go-live backup (25 Nov 22:55). Staff guide:
+`docs/Procedures/Processing — Step-by-step Guide.md`.
+
 **State on 24 Nov 2026.** Conversion script `material-ownership/ownership_conversion.py` with its spec
 `conversion_spec.md`; check run on `prod_copy` (production backup 24 Nov 17:11) clean, accounting decisions D-V2-9.
 Module specs written: `docs/modules/mrp_production_partner_owner.md` (step 1) and

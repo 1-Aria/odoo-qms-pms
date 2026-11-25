@@ -186,9 +186,10 @@ where Odoo disagrees (043, T01, Thun polo 3906), the list wins.
 | Áo polo | **55.000**: 509P (90,000; none), 511P (90,000; 48,645), 512P (90,000; 47,842), Thun polo 3906 (80,000; 45,629) · **60.000**: 516T (70,000; 50,435), A015/A017 in A015 fabrics (80,000; 52,273), 515T in A015 fabrics (80,000; 53,847) · **70.000**: 514T (80,000; 60,801), 514V (80,000; 56,336) · **80.000**: 515T in THUNCASAU-US (160,000; 43,640), A017 in A017 (160,000; 57,943) |
 | Áo thun | **30.000**: A10 (60,000; none) · **55.000**: 505, 505G (100,000; 46,357) |
 | Áo sơ mi | **85.000**: 011D (170,000; 67,732), 012N (160,000; 60,569) |
-| Quần tây | **75.000**: 007 (95,000; 67,500) · **105.000**: 076 (130,000; 88,677), 043 (200,000; none), 066 (205,000; none) · **120.000**: 077 in 007 fabrics (135,000; 106,811) · **140.000**: 024 (205,000; 125,083) |
+| Quần tây | **75.000**: 007 (95,000; 67,500) · **105.000**: 076 (130,000; 88,677), 043 (200,000; none), 066 (205,000; none) · **120.000**: 077 in 007 fabrics (135,000; 106,811) · **140.000**: 024 (205,000; 125,083), Kaki K09 (245,000; added 2026-11-25) |
 | Quần sọt | **75.000**: 006A (90,000; 64,362) |
 | Quần thể dục | **50.000**: T01 (65,000; 44,530) |
+| Võng | **30.000**: Võng Vải Rêu · **100.000**: Võng Mùng (seconds prices from Peter's count of 2026-11-25; added then, SCND00014 and SCND00015) |
 
 The setup script recomputes the rule from the costs on the day it runs and lists any price that falls short.
 
@@ -368,6 +369,7 @@ the saved filters and SInvoice sending. The test instance has no SInvoice login.
 | 3 | `stock_scrap_downgrade` step 1.1 (the seconds keep the owner): spec, code, test | Done 2026-11-23 |
 | 4 | A setup script outside `addons/`, with check and commit modes, creating §7's accounts, locations, category, attribute, products and saved filters, and the opening adjustment with the trading company as owner | Done: `Odoo-Build/defective-handling/seconds_setup.py` |
 | 5 | Rehearsal on `prod_copy`, then production | Done 2026-11-24: rehearsal on `prod_copy` committed and re-run unchanged; UI check on the test instance, including a downgrade by an MO user; production check, commit and re-run unchanged (SCND00001–SCND00013, 2,910 pieces owned by the trading company, no valuation) |
-| 6 | Ownership v2: its owner module brings `stock_owner_restriction`; the two delivery types of §7 are set up with it | Per the v2 plan |
+| 5a | Count of 2026-11-25 (`Odoo-Build/material-ownership/Seconds_count_25Nov.xlsx`): rows of 23 Nov unchanged; new K09 (1, band 140.000), hammock seconds 707 (100.000) and 2 (30.000), a new type *Võng*. The setup script carries the new rows; its step 7 sets each seconds product to the counted total. Since ownership v2 all finished goods belong to the trading company, so the rule's cost floor finds no garment-owned stock and falls back to half the normal price | Claude, 2026-11-25; check on `prod_copy` (copy of production after go-live): 3,620 pieces, no valuation |
+| 6 | Ownership v2: its owner module brings `stock_owner_restriction`; the two delivery types of §7 are set up with it | Done 2026-11-25: the trading company's goods, the seconds included, leave with *Xuất hàng Công ty TM* |
 | 7 | Brief MO handlers, the warehouse and sales on §3 and §4 | Peter |
 | 8 | One real invoice to an employee, then the first sale day | Sales, accounting, the trading company |
