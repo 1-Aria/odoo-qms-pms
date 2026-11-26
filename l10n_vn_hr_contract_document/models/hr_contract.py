@@ -161,7 +161,7 @@ class HrContract(models.Model):
         "contract_id",
         string="Versions",
         copy=False,
-        groups="hr_contract.group_hr_contract_manager,payroll.group_payroll_user",
+        groups="payroll.group_payroll_user",
     )
     l10n_vn_version_id = fields.Many2one(
         "l10n_vn.contract.version", string="Approved Version", copy=False, readonly=True
@@ -728,8 +728,7 @@ class HrContract(models.Model):
 
     def action_l10n_vn_approve(self):
         """Approve the contracts (D21); a selection lists its failures (D31)."""
-        if not self.env.su and not self.env.user.has_group("hr_contract.group_hr_contract_manager"):
-            raise AccessError(self.env._("Only contract administrators approve contracts."))
+        self._l10n_vn_check_manager()
         if len(self) == 1:
             self._l10n_vn_approve_one()
             return False
@@ -768,8 +767,17 @@ class HrContract(models.Model):
 
     # ------------------------------------------------------------------ amendments
     def _l10n_vn_check_manager(self):
-        if not self.env.su and not self.env.user.has_group("hr_contract.group_hr_contract_manager"):
-            raise AccessError(self.env._("Only contract administrators change approved contracts."))
+        """Approving and amending: contract administration and payroll rights (D53)."""
+        user = self.env.user
+        if not self.env.su and not (
+            user.has_group("hr_contract.group_hr_contract_manager")
+            and user.has_group("payroll.group_payroll_user")
+        ):
+            raise AccessError(
+                self.env._(
+                    "Only contract administrators with payroll rights approve or change contracts."
+                )
+            )
 
     def _l10n_vn_paid_until(self):
         """The last day of the contract's payslips in approved runs, or False (D39)."""

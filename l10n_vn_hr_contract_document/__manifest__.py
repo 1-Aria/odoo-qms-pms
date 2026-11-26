@@ -3,7 +3,7 @@
 {
     "name": "Vietnam - Labour Contract Documents",
     "summary": "Labour, probation and training contracts printed from the Odoo contract",
-    "version": "18.0.1.2.0",
+    "version": "18.0.1.2.1",
     "author": "1-Aria",
     "website": "https://github.com/1-Aria/odoo-qms-pms",
     "license": "AGPL-3",

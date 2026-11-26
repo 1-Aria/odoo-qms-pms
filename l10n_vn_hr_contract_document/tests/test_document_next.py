@@ -1,6 +1,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from odoo import Command
+from odoo.exceptions import UserError
 from odoo.tests import tagged
 
 from .common import D, ContractDocumentCase
@@ -109,3 +110,24 @@ class TestDocumentNext(ContractDocumentCase):
         self.assertEqual(new.contract_type_id, self.types["labour"])
         self.assertEqual(new.l10n_vn_probation_form, "none")
         self.assertFalse(new.trial_date_end)
+
+    def test_annexes_for_date_in_force_only(self):
+        # a contract that ends before the date is not considered; nothing found says so (D54)
+        parameter = self._parameter("vn.test.contract_base", [(D(2026, 1, 1), "4500000")])
+        base = self._component(
+            "PBASE",
+            amount_source="parameter",
+            amount_parameter="vn.test.contract_base",
+            in_si_base=True,
+        )
+        ended = self._doc_contract(
+            "labour",
+            date_end=D(2026, 12, 31),
+            l10n_vn_line_ids=[
+                Command.create({"component_id": base.id, "date_from": D(2026, 11, 2)})
+            ],
+        )
+        ended.action_l10n_vn_approve()
+        parameter.version_ids = [Command.create({"date_from": EFFECTIVE, "value": "5000000"})]
+        with self.assertRaisesRegex(UserError, "No approved contract"):
+            self._batch(ended).action_find_changes()

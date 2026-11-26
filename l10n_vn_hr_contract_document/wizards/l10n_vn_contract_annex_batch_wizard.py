@@ -50,6 +50,11 @@ class L10nVnContractAnnexBatchWizard(models.TransientModel):
             kind = contract._l10n_vn_document_kind_value()
             if not kind or not contract.l10n_vn_approved or contract.l10n_vn_amendment_id:
                 continue
+            # only contracts in force on the date can take an annex from it (D54)
+            if contract.date_start > self.date or (
+                contract.date_end and contract.date_end < self.date
+            ):
+                continue
             current = (contract.l10n_vn_version_id.terms or {}).get("render") or {}
             changes = contract._l10n_vn_changes(
                 current, contract._l10n_vn_document_terms(self.date), kind
@@ -57,6 +62,12 @@ class L10nVnContractAnnexBatchWizard(models.TransientModel):
             if changes:
                 groups = ", ".join(GROUP_LABELS[change["group"]] for change in changes)
                 lines.append(Command.create({"contract_id": contract.id, "groups": groups}))
+        if not lines:
+            raise UserError(
+                self.env._(
+                    "No approved contract's printed terms change on %(date)s.", date=self.date
+                )
+            )
         self.line_ids = [Command.clear()] + lines
         return self._reopen()
 

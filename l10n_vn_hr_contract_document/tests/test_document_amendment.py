@@ -194,8 +194,14 @@ class TestDocumentAmendment(ContractDocumentCase):
         version = contract._l10n_vn_amend(EFFECTIVE, "Điều chỉnh tiền lương")
         self._raise_base(contract)
         contract.action_l10n_vn_approve_amendment()
+        # a contract administrator without payroll rights reads the contract (positive
+        # control), but neither its versions nor an annex: they hold pay (D53)
         administrator = self._user("doc_annex_admin", ["hr_contract.group_hr_contract_manager"])
-        as_admin = self._as(administrator)["l10n_vn.contract.version"].browse(version.id)
-        self.assertEqual(as_admin.number, version.number)
+        env = self._as(administrator)
+        self.assertEqual(env["hr.contract"].browse(contract.id).name, contract.name)
         with self.assertRaises(AccessError):
-            as_admin._l10n_vn_annex_values()
+            env["l10n_vn.contract.version"].browse(version.id).number  # noqa: B018
+        with self.assertRaises(AccessError):
+            env["l10n_vn.contract.version"].browse(version.id)._l10n_vn_annex_values()
+        with self.assertRaises(AccessError):
+            env["hr.contract"].browse(contract.id)._l10n_vn_amend(D(2027, 2, 1), "no rights")
