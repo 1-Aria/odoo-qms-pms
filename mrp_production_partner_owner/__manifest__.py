@@ -3,7 +3,7 @@
 {
     "name": "MRP Production Partner Owner",
     "summary": "Manufacturing orders that process another owner's goods",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.1.1",
     "author": "1-Aria",
     "website": "https://github.com/1-Aria/odoo-qms-pms",
     "license": "AGPL-3",

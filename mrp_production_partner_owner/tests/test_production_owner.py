@@ -344,3 +344,25 @@ class TestProductionOwner(TransactionCase):
         goods = Action._for_xml_id("mrp_production_partner_owner.action_processed_goods")
         moves = self.env["stock.move"].search(safe_eval(goods["domain"]))
         self.assertFalse(production.move_finished_ids & moves)
+
+    def test_owner_change_reaches_existing_finished_lines(self):
+        # An order confirmed without owner whose finished line already exists, then
+        # given an owner (an existing order at go-live, or a type changed after
+        # confirmation): the line takes the owner, so the goods are produced owned.
+        self._stock(5, owner=self.owner)
+        production = self._order(5, self.own_type)
+        production.qty_producing = 5
+        production._set_qty_producing()
+        finished = production.move_finished_ids.filtered(lambda m: m.product_id == self.finished)
+        self.assertTrue(finished.move_line_ids)
+        self.assertFalse(finished.move_line_ids.owner_id)
+        production.write({"owner_id": self.owner.id, "production_owned": True})
+        self.assertEqual(finished.move_line_ids.owner_id, self.owner)
+        production.picking_ids.do_unreserve()
+        self._validate_pick(production)
+        self._produce(production)
+        quant = self.env["stock.quant"].search(
+            [("product_id", "=", self.finished.id), ("location_id", "=", self.stock.id)]
+        )
+        self.assertEqual(quant.owner_id, self.owner)
+        self.assertFalse(finished.stock_valuation_layer_ids.filtered(lambda v: v.value))

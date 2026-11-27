@@ -16,6 +16,7 @@ Goods*, step 1).
 |---|---|---|---|
 | 1 | The owner on the order; reservation by owner for components and *Pick Components*; finished goods owned; own components to the expense account; the two report menus | done | 2026-11-24: `-i` then `-u`, 9 post-tests passed (Peter's run). The first run failed 3: chained component moves reserved the owner's quants twice (fixed, D3a), and a test helper asked for a 0-unit backorder. UI check pending |
 | 1.1 | Order processing and the owner's sources: *Products Belong to the Owner* on manufacturing types and orders; the owner from the sales order's customer; child orders take the parent's owner; scraps from an order take the owner of the goods; reports limited to owned production | done | 2026-11-25: `-u`, 15 post-tests passed (Peter's run). The owner from the sales order moved from `_post_run_manufacture` to the rule's `_prepare_mo_vals` before the code was delivered (D12). UI check (Tester, test database with the sandbox setup) passed: S00332 → WH/MOGC/00001 owned by Che Thơm, products ours; WH/SBC/00057 12 owned, no layer; WH/PC/01607 customer's 10 owned + Gòn 10 unowned; Áo gia công test +33,655 (Dr 1550 / Cr 1541); WH/OUT/00082 Dr 1599; INV/2026/00052 revenue 200,000, cost of sales Dr 6320 / Cr 1599 33,655; WH/RTGC/00001 the 2 owned leftover. The owner on transfer lines shows only in *Detailed Operations* (`stock/views/stock_move_views.xml:211, 254`) |
+| 1.1.1 | An owner change reaches the order's existing open finished lines | code delivered 2026-11-27, not yet installed | Found on production: WH/MO/05665, confirmed before go-live, produced unowned, valued goods because its finished line (created 14 Nov) kept no owner |
 | 2 | The periodic invoice of contract processing: a fee per product and a draft invoice to the owner per period (goods processed × fee, plus the company's components consumed) | planned, specified after step 1.1 | |
 
 ## Divergences from the design
@@ -77,7 +78,7 @@ mrp_production_partner_owner/
 |---|---|
 | `name` | `MRP Production Partner Owner` |
 | `summary` | `Manufacturing orders that process another owner's goods` |
-| `version` | `18.0.1.1.0` (step 1.1) |
+| `version` | `18.0.1.1.1` (step 1.1.1) |
 | `author` | `1-Aria` |
 | `website` | `https://github.com/1-Aria/odoo-qms-pms` |
 | `license` | `AGPL-3` |
@@ -117,7 +118,7 @@ No access rules: the module adds fields to existing models.
 
 | `_onchange_owner_from_type` | `@api.onchange("picking_type_id")` | Draft or confirmed orders: `owner_id` = `picking_type_id.owner_partner_id` (core lets the type change until confirmed, `mrp/views/mrp_production_views.xml:539`); step 1.1: also `production_owned` = the type's, and, on a type with `owner_from_partner`, the owner `_get_sale_owner()` when found |
 | `_get_move_finished_values` | — | `super()`, plus `restrict_partner_id` = `owner_id.id` when set and `production_owned` (D5, D11) |
-| `write` | — | `super()`; then, when `owner_id` or `production_owned` changes: the finished moves not done or cancelled get `restrict_partner_id` = the owner when `production_owned`, else none (D5, D11) |
+| `write` | — | `super()`; then, when `owner_id` or `production_owned` changes: the finished moves not done or cancelled get `restrict_partner_id` = the owner when `production_owned`, else none, and (step 1.1.1) their open move lines get the same `owner_id`: a line keeps its own owner at validation, and lines exist from confirmation or from the quantity to produce (D5, D11) |
 | `_get_backorder_mo_vals` | — | `super()`, plus `owner_id` and `production_owned` |
 
 ### `stock.move` — `models/stock_move.py`
@@ -224,6 +225,7 @@ the warehouse type with `owner_from_partner` True and `production_owned` False.
 | `test_owner_from_sale_order` | skipped when procurement groups have no `sale_id`. A sales order for the contact and a procurement group with its `sale_id`; a route with a copy of the warehouse's manufacture rule on *Order Processing*, set on F; a procurement of 5 F into stock with that group run: one order on *Order Processing*, `owner_id` the customer company, `production_owned` False, no `restrict_partner_id` on its finished move. The BoM is made `active` first when `mrp_bom_version` adds `state` (it finds active BoMs only) |
 | `test_child_takes_parent_owner` | a confirmed *Processing* order; an order on the warehouse type created with `move_dest_ids` = the parent's component move: `owner_id` *Owner*, `production_owned` True |
 | `test_scrap_owner` | after *Pick Components* of a *Processing* order is validated (6 owned + 4 unowned A at Pre-Production): a scrap of A from the order at Pre-Production gets owner *Owner*; with the owner's A gone from Pre-Production (moved back by an inventory move), a new scrap gets none; a scrap from an order of the warehouse type gets none |
+| `test_owner_change_reaches_existing_finished_lines` | step 1.1.1. An order of the warehouse type confirmed and its quantity to produce set (finished line without owner), then given *Owner*: the line's owner is *Owner*; produced: F owned by *Owner*, no layer value |
 | `test_reports_owned_only` | after `test_order_processing_goods_ours`'s flow, neither report's domain finds its layer or its finished move |
 
 ## Readme

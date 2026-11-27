@@ -58,9 +58,15 @@ class MrpProduction(models.Model):
     def _set_finished_owner(self):
         for production in self:
             owner = production.owner_id if production.production_owned else self.env["res.partner"]
-            production.move_finished_ids.filtered(
+            moves = production.move_finished_ids.filtered(
                 lambda m: m.state not in ("done", "cancel")
-            ).write({"restrict_partner_id": owner.id})
+            )
+            moves.write({"restrict_partner_id": owner.id})
+            # Lines created before the owner changed (at confirmation, or when the
+            # quantity to produce was set) keep their own owner at validation.
+            moves.move_line_ids.filtered(
+                lambda line: line.state not in ("done", "cancel") and line.owner_id != owner
+            ).write({"owner_id": owner.id})
 
     def _get_parent_production(self):
         """The order whose component this order makes, as core reads it."""
