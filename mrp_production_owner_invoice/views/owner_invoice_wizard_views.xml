@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="owner_invoice_wizard_form" model="ir.ui.view">
+        <field name="name">mrp.production.owner.invoice.wizard.form</field>
+        <field name="model">mrp.production.owner.invoice.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Processing Invoice">
+                <div class="alert alert-warning" role="alert" invisible="not warning">
+                    <field name="warning" nolabel="1"/>
+                </div>
+                <group>
+                    <group>
+                        <field name="company_id" invisible="1"/>
+                        <field name="currency_id" invisible="1"/>
+                        <field name="owner_id"/>
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                        <field name="origin"/>
+                    </group>
+                    <group>
+                        <field name="pricelist_id"/>
+                        <field name="fee_product_id"/>
+                        <field name="material_product_id"/>
+                        <field name="material_amount"/>
+                    </group>
+                </group>
+                <separator string="Processing fees"/>
+                <field name="line_ids">
+                    <list editable="bottom" create="0">
+                        <!-- Computed in the form: a read-only field is not sent on save without force_save. -->
+                        <field name="product_tmpl_id" readonly="1" force_save="1"/>
+                        <field name="quantity"/>
+                        <field name="price_unit"/>
+                        <field name="has_rule" column_invisible="1"/>
+                        <field name="amount" sum="Total"/>
+                    </list>
+                </field>
+                <separator string="Late attributions to add by hand"/>
+                <group>
+                    <field name="marker"/>
+                    <field name="late_account_id"/>
+                </group>
+                <field name="late_line_ids" readonly="1">
+                    <list>
+                        <field name="date"/>
+                        <field name="move_id"/>
+                        <field name="name"/>
+                        <field name="debit" sum="Total"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_create_invoice" type="object" string="Create Draft Invoice" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_owner_invoice_wizard" model="ir.actions.act_window">
+        <field name="name">Processing Invoice</field>
+        <field name="res_model">mrp.production.owner.invoice.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_owner_invoice_wizard"
+              name="Processing Invoice"
+              parent="account.menu_finance_receivables"
+              action="action_owner_invoice_wizard"
+              groups="account.group_account_invoice"
+              sequence="110"/>
+</odoo>

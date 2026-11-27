@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.owner_invoice</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="mrp.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='process_operations_setting_container']" position="after">
+                <block title="Processing Invoice" name="owner_invoice_setting_container">
+                    <setting string="Processing Invoice" help="Defaults of Accounting → Customers → Processing Invoice">
+                        <div class="content-group">
+                            <div class="row mt8">
+                                <label for="owner_invoice_fee_product_id" class="col-lg-4 o_light_label"/>
+                                <field name="owner_invoice_fee_product_id"/>
+                            </div>
+                            <div class="row">
+                                <label for="owner_invoice_material_product_id" class="col-lg-4 o_light_label"/>
+                                <field name="owner_invoice_material_product_id"/>
+                            </div>
+                            <div class="row">
+                                <label for="owner_invoice_pricelist_id" class="col-lg-4 o_light_label"/>
+                                <field name="owner_invoice_pricelist_id"/>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
